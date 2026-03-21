@@ -17,6 +17,7 @@ import Colors from "@/constants/colors";
 import SlidePanel from "@/components/SlidePanel";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import GlassBackButton from "@/components/GlassBackButton";
+import AccountPanel from "@/components/AccountPanel";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PAGE_WIDTH = SCREEN_WIDTH - 80;
@@ -243,6 +244,7 @@ export default function PlusScreen() {
   const insets = useSafeAreaInsets();
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
   const catToAppTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const featuredRef = useRef<FlatList>(null);
@@ -273,7 +275,7 @@ export default function PlusScreen() {
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Mismari +</Text>
-        <Pressable style={styles.profileButton}>
+        <Pressable style={styles.profileButton} onPress={() => setShowAccount(true)}>
           <Feather name="user" size={20} color={Colors.light.textSecondary} />
         </Pressable>
       </View>
@@ -374,6 +376,8 @@ export default function PlusScreen() {
           />
         )}
       </SlidePanel>
+
+      <AccountPanel visible={showAccount} onClose={() => setShowAccount(false)} />
     </View>
   );
 }
