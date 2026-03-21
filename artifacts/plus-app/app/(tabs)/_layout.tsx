@@ -35,19 +35,13 @@ function NativeTabLayout() {
     </NativeTabs.Trigger>
   );
 
+  const orderedChildren = isArabic
+    ? [searchTrigger, ...[...tabTriggers].reverse()]
+    : [...tabTriggers, searchTrigger];
+
   return (
     <NativeTabs>
-      {isArabic ? (
-        <>
-          {searchTrigger}
-          {[...tabTriggers].reverse()}
-        </>
-      ) : (
-        <>
-          {tabTriggers}
-          {searchTrigger}
-        </>
-      )}
+      {orderedChildren}
     </NativeTabs>
   );
 }
