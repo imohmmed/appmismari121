@@ -16,9 +16,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import SlidePanel from "@/components/SlidePanel";
 import AppDetailPanel from "@/components/AppDetailPanel";
+import GlassBackButton from "@/components/GlassBackButton";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PAGE_WIDTH = SCREEN_WIDTH - 40;
+const PAGE_WIDTH = SCREEN_WIDTH - 80;
 
 const CATEGORIES = [
   { key: "social", label: "Social Media", icon: "message-circle" },
@@ -215,10 +216,7 @@ function CategoryPageContent({ catKey, onClose, onAppPress }: { catKey: string; 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.catPageHeader}>
-        <Pressable onPress={onClose} style={styles.backBtn}>
-          <Feather name="chevron-left" size={24} color={Colors.light.tint} />
-          <Text style={styles.backText}>Back</Text>
-        </Pressable>
+        <GlassBackButton onPress={onClose} />
       </View>
       <View style={styles.catPageTitleRow}>
         <Text style={styles.headerTitle}>{cat?.label}</Text>
@@ -601,18 +599,8 @@ const styles = StyleSheet.create({
   catPageHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  backText: {
-    fontSize: 17,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.tint,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   catPageTitleRow: {
     paddingHorizontal: 20,

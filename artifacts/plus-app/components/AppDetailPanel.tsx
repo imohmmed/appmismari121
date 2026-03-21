@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import GlassBackButton from "@/components/GlassBackButton";
 
 type AppDetailProps = {
   app: {
@@ -40,10 +41,7 @@ export default function AppDetailPanel({ app, onClose }: AppDetailProps) {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.navBar}>
-        <Pressable onPress={onClose} style={styles.backButton}>
-          <Feather name="chevron-left" size={24} color={Colors.light.tint} />
-          <Text style={styles.backText}>Back</Text>
-        </Pressable>
+        <GlassBackButton onPress={onClose} />
       </View>
 
       <ScrollView
@@ -112,18 +110,8 @@ const styles = StyleSheet.create({
   navBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  backText: {
-    fontSize: 17,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.tint,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   heroSection: {
     alignItems: "center",
