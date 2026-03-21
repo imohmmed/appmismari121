@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import SlidePanel from "@/components/SlidePanel";
+import AppDetailPanel from "@/components/AppDetailPanel";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PAGE_WIDTH = SCREEN_WIDTH - 40;
@@ -116,11 +118,11 @@ function FeaturedCard({ item }: { item: typeof FEATURED_APPS[number] }) {
   );
 }
 
-function AppListRow({ app, showDivider }: { app: AppItem; showDivider: boolean }) {
+function AppListRow({ app, showDivider, onPress }: { app: AppItem; showDivider: boolean; onPress: () => void }) {
   const tagColor = getTagColor(app.tag);
   return (
     <View>
-      <View style={styles.listRow}>
+      <Pressable style={styles.listRow} onPress={onPress}>
         <View style={[styles.listRowIcon, { backgroundColor: `${tagColor}15` }]}>
           <Feather name={app.icon as any} size={24} color={tagColor} />
         </View>
@@ -131,7 +133,7 @@ function AppListRow({ app, showDivider }: { app: AppItem; showDivider: boolean }
         <Pressable style={styles.listRowGetButton}>
           <Text style={styles.listRowGetText}>Get</Text>
         </Pressable>
-      </View>
+      </Pressable>
       {showDivider && <View style={styles.listRowDivider} />}
     </View>
   );
@@ -145,7 +147,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
-function StackedSection({ title, subtitle, data }: { title: string; subtitle: string; data: AppItem[] }) {
+function StackedSection({ title, subtitle, data, onAppPress }: { title: string; subtitle: string; data: AppItem[]; onAppPress: (app: AppItem) => void }) {
   const pages = chunkArray(data, 3);
   return (
     <View style={styles.section}>
@@ -168,7 +170,7 @@ function StackedSection({ title, subtitle, data }: { title: string; subtitle: st
         renderItem={({ item: page }) => (
           <View style={{ width: PAGE_WIDTH }}>
             {page.map((app, idx) => (
-              <AppListRow key={app.id} app={app} showDivider={idx < page.length - 1} />
+              <AppListRow key={app.id} app={app} showDivider={idx < page.length - 1} onPress={() => onAppPress(app)} />
             ))}
           </View>
         )}
@@ -177,10 +179,10 @@ function StackedSection({ title, subtitle, data }: { title: string; subtitle: st
   );
 }
 
-function AppRow({ app }: { app: AppItem }) {
+function AppRow({ app, onPress }: { app: AppItem; onPress: () => void }) {
   const tagColor = getTagColor(app.tag);
   return (
-    <Pressable style={styles.appRow}>
+    <Pressable style={styles.appRow} onPress={onPress}>
       <View style={[styles.appIcon, { backgroundColor: `${tagColor}15` }]}>
         <Feather name={app.icon as any} size={22} color={tagColor} />
       </View>
@@ -204,46 +206,60 @@ function CategoryCard({ cat, onPress }: { cat: typeof BROWSE_CATEGORIES[number];
   );
 }
 
+function CategoryPageContent({ catKey, onClose, onAppPress }: { catKey: string; onClose: () => void; onAppPress: (app: AppItem) => void }) {
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
+  const cat = CATEGORIES.find((c) => c.key === catKey);
+  const apps = ALL_APPS.filter((a) => a.catKey === catKey);
+
+  return (
+    <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
+      <View style={styles.catPageHeader}>
+        <Pressable onPress={onClose} style={styles.backBtn}>
+          <Feather name="chevron-left" size={24} color={Colors.light.tint} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      </View>
+      <View style={styles.catPageTitleRow}>
+        <Text style={styles.headerTitle}>{cat?.label}</Text>
+      </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: isWeb ? 34 : 100 }}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <View style={styles.appList}>
+          {apps.map((app, idx) => (
+            <View key={app.id}>
+              <AppRow app={app} onPress={() => onAppPress(app)} />
+              {idx < apps.length - 1 && <View style={styles.listRowDivider} />}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
 
 export default function PlusScreen() {
   const insets = useSafeAreaInsets();
   const [activeCat, setActiveCat] = useState<string | null>(null);
+  const [selectedApp, setSelectedApp] = useState<AppItem | null>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const catToAppTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isWeb = Platform.OS === "web";
+
+  React.useEffect(() => {
+    return () => {
+      if (catToAppTimer.current) clearTimeout(catToAppTimer.current);
+    };
+  }, []);
 
   const hotApps = ALL_APPS.filter((a) => a.isHot);
   const mostDownloaded = ALL_APPS.filter((a) => a.isMostDownloaded);
   const newAdds = ALL_APPS.filter((a) => a.isNew);
 
-  if (activeCat) {
-    const cat = CATEGORIES.find((c) => c.key === activeCat);
-    const apps = ALL_APPS.filter((a) => a.catKey === activeCat);
-    return (
-      <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
-        <View style={styles.catPageHeader}>
-          <Pressable onPress={() => setActiveCat(null)} style={styles.backButton}>
-            <Feather name="chevron-left" size={24} color={Colors.light.tint} />
-          </Pressable>
-          <Text style={styles.catPageTitle}>{cat?.label}</Text>
-          <View style={{ width: 32 }} />
-        </View>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: isWeb ? 34 : 100 }}
-          contentInsetAdjustmentBehavior="automatic"
-        >
-          <View style={styles.appList}>
-            {apps.map((app, idx) => (
-              <View key={app.id}>
-                <AppRow app={app} />
-                {idx < apps.length - 1 && <View style={styles.listRowDivider} />}
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
+  const handleAppPress = (app: AppItem) => setSelectedApp(app);
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
@@ -300,9 +316,9 @@ export default function PlusScreen() {
           </View>
         </View>
 
-        <StackedSection title="What's Hot 🔥" subtitle="Trending right now" data={hotApps} />
-        <StackedSection title="Most Downloaded" subtitle="Top picks by the community" data={mostDownloaded} />
-        <StackedSection title="Recently Added" subtitle="Fresh apps just dropped" data={newAdds} />
+        <StackedSection title="What's Hot 🔥" subtitle="Trending right now" data={hotApps} onAppPress={handleAppPress} />
+        <StackedSection title="Most Downloaded" subtitle="Top picks by the community" data={mostDownloaded} onAppPress={handleAppPress} />
+        <StackedSection title="Recently Added" subtitle="Fresh apps just dropped" data={newAdds} onAppPress={handleAppPress} />
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -315,6 +331,26 @@ export default function PlusScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <SlidePanel visible={activeCat !== null} onClose={() => setActiveCat(null)}>
+        {activeCat && (
+          <CategoryPageContent
+            catKey={activeCat}
+            onClose={() => setActiveCat(null)}
+            onAppPress={(app) => {
+              setActiveCat(null);
+              if (catToAppTimer.current) clearTimeout(catToAppTimer.current);
+              catToAppTimer.current = setTimeout(() => setSelectedApp(app), 300);
+            }}
+          />
+        )}
+      </SlidePanel>
+
+      <SlidePanel visible={selectedApp !== null} onClose={() => setSelectedApp(null)}>
+        {selectedApp && (
+          <AppDetailPanel app={selectedApp} onClose={() => setSelectedApp(null)} />
+        )}
+      </SlidePanel>
     </View>
   );
 }
@@ -360,7 +396,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 22,
     backgroundColor: Colors.light.background,
-    borderWidth: 0,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -566,19 +601,21 @@ const styles = StyleSheet.create({
   catPageHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  backButton: {
-    width: 32,
-    height: 32,
+  backBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 2,
   },
-  catPageTitle: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
+  backText: {
+    fontSize: 17,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.tint,
+  },
+  catPageTitleRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
 });
