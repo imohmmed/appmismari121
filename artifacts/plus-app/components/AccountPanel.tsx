@@ -20,29 +20,13 @@ import SettingsPanel from "@/components/SettingsPanel";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const SOCIAL_LINKS = [
-  {
-    key: "instagram",
-    label: "Instagram",
-    icon: "instagram" as const,
-    color: "#E1306C",
-    url: "https://www.instagram.com/mismari.co?igsh=YzF5eXp6b2V0czRo",
-  },
-  {
-    key: "telegram",
-    label: "Telegram",
-    icon: "send" as const,
-    color: "#0088CC",
-    url: "https://t.me/imismari",
-  },
-  {
-    key: "whatsapp",
-    label: "WhatsApp",
-    icon: "phone" as const,
-    color: "#25D366",
-    url: "https://wa.me/9647766699669",
-  },
+const DEFAULT_SOCIAL = [
+  { key: "instagram", label: "Instagram", icon: "instagram" as const, color: "#E1306C", url: "" },
+  { key: "telegram", label: "Telegram", icon: "send" as const, color: "#0088CC", url: "" },
+  { key: "whatsapp", label: "WhatsApp", icon: "phone" as const, color: "#25D366", url: "" },
 ];
+
+interface SocialLink { key: string; label: string; icon: "instagram" | "send" | "phone"; color: string; url: string; }
 
 interface AccountPanelProps {
   visible: boolean;
@@ -57,15 +41,29 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const panY = React.useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [socialLinks, setSocialLinks] = React.useState<SocialLink[]>(DEFAULT_SOCIAL);
   const isClosing = React.useRef(false);
+
+  React.useEffect(() => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (!domain) return;
+    fetch(`https://${domain}/api/settings`)
+      .then(r => r.json())
+      .then(data => {
+        setSocialLinks([
+          { key: "instagram", label: "Instagram", icon: "instagram", color: "#E1306C", url: data.instagram || "" },
+          { key: "telegram", label: "Telegram", icon: "send", color: "#0088CC", url: data.telegram || "" },
+          { key: "whatsapp", label: "WhatsApp", icon: "phone", color: "#25D366", url: data.whatsapp || "" },
+        ]);
+      })
+      .catch(() => {});
+  }, []);
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) panY.setValue(g.dy);
-      },
+      onPanResponderMove: (_, g) => { if (g.dy > 0) panY.setValue(g.dy); },
       onPanResponderRelease: (_, g) => {
         if (g.dy > 100 || g.vy > 0.5) {
           onClose();
@@ -91,31 +89,14 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
       slideAnim.setValue(SCREEN_HEIGHT);
       backdropAnim.setValue(0);
       Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 25,
-          stiffness: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
+        Animated.spring(slideAnim, { toValue: 0, damping: 25, stiffness: 300, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start();
     } else if (mounted && !isClosing.current) {
       isClosing.current = true;
       Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(slideAnim, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => {
         setMounted(false);
         isClosing.current = false;
@@ -125,24 +106,14 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
   if (!mounted) return null;
 
-  const openLink = (url: string) => {
-    Linking.openURL(url).catch(() => {});
-  };
-
-  const handleMenuPress = (key: string) => {
-    if (key === "settings") {
-      setShowSettings(true);
-    }
-  };
+  const openLink = (url: string) => { if (url) Linking.openURL(url).catch(() => {}); };
+  const handleMenuPress = (key: string) => { if (key === "settings") setShowSettings(true); };
+  const activeSocial = socialLinks.filter(s => s.url);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          activeOpacity={1}
-          onPress={onClose}
-        />
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
       </Animated.View>
 
       <Animated.View
@@ -158,13 +129,8 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
       >
         <View {...panResponder.panHandlers}>
           <View style={[styles.handleBar, { backgroundColor: colors.separator }]} />
-
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              onPress={onClose}
-              style={[styles.closeButton, { backgroundColor: colors.card }]}
-              activeOpacity={0.6}
-            >
+            <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: colors.card }]} activeOpacity={0.6}>
               <Feather name="x" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
@@ -189,13 +155,6 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
             </View>
           </View>
 
-          <View style={[styles.balanceCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.balanceLabel, { color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>
-              {t("balance")}
-            </Text>
-            <Text style={[styles.balanceAmount, { color: colors.text }]}>$0.00</Text>
-          </View>
-
           <View style={[styles.menuSection, { backgroundColor: colors.card }]}>
             {MENU_ITEMS.map((item) => (
               <TouchableOpacity
@@ -207,7 +166,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                 {isArabic ? (
                   <>
                     <Feather name="chevron-left" size={18} color={colors.separator} />
-                    <Text style={[styles.menuLabel, { color: colors.text, fontFamily: fontAr("SemiBold"), textAlign: "right", writingDirection: "rtl" }]}>
+                    <Text style={[styles.menuLabel, { color: colors.text, fontFamily: fontAr("SemiBold"), textAlign: "right" }]}>
                       {item.label}
                     </Text>
                     <View style={[styles.menuIconWrap, { backgroundColor: `${colors.tint}15` }]}>
@@ -229,24 +188,26 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
             ))}
           </View>
 
-          <View style={styles.socialSection}>
-            <Text style={[styles.socialTitle, { color: colors.textSecondary, fontFamily: fontAr("SemiBold") }]}>
-              {t("contactUs")}
-            </Text>
-            <View style={styles.socialRow}>
-              {SOCIAL_LINKS.map((s) => (
-                <TouchableOpacity
-                  key={s.key}
-                  style={[styles.socialBtn, { backgroundColor: s.color }]}
-                  onPress={() => openLink(s.url)}
-                  activeOpacity={0.7}
-                >
-                  <Feather name={s.icon} size={18} color="#FFF" />
-                  <Text style={styles.socialLabel}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
+          {activeSocial.length > 0 && (
+            <View style={styles.socialSection}>
+              <Text style={[styles.socialTitle, { color: colors.textSecondary, fontFamily: fontAr("SemiBold") }]}>
+                {t("contactUs")}
+              </Text>
+              <View style={styles.socialRow}>
+                {activeSocial.map((s) => (
+                  <TouchableOpacity
+                    key={s.key}
+                    style={[styles.socialBtn, { backgroundColor: s.color }]}
+                    onPress={() => openLink(s.url)}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name={s.icon} size={18} color="#FFF" />
+                    <Text style={styles.socialLabel}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
         </ScrollView>
       </Animated.View>
 
@@ -283,10 +244,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  headerTitle: {
-    fontSize: 20,
-    textAlign: "center",
-  },
+  headerTitle: { fontSize: 20, textAlign: "center" },
   closeButton: {
     width: 32,
     height: 32,
@@ -300,7 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 14,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   avatarCircle: {
     width: 60,
@@ -310,30 +268,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
   },
-  profileInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  profileName: {
-    fontSize: 16,
-  },
-  profileEmail: {
-    fontSize: 13,
-  },
-  balanceCard: {
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 16,
-    gap: 4,
-  },
-  balanceLabel: {
-    fontSize: 13,
-  },
-  balanceAmount: {
-    fontSize: 32,
-    fontFamily: "Inter_700Bold",
-  },
+  profileInfo: { flex: 1, gap: 4 },
+  profileName: { fontSize: 16 },
+  profileEmail: { fontSize: 13 },
   menuSection: {
     borderRadius: 16,
     overflow: "hidden",
@@ -354,23 +291,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: {
-    flex: 1,
-    fontSize: 15,
-  },
-  socialSection: {
-    marginBottom: 10,
-  },
-  socialTitle: {
-    fontSize: 13,
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  socialRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-  },
+  menuLabel: { flex: 1, fontSize: 15 },
+  socialSection: { marginBottom: 10 },
+  socialTitle: { fontSize: 13, textAlign: "center", marginBottom: 12 },
+  socialRow: { flexDirection: "row", justifyContent: "center", gap: 10 },
   socialBtn: {
     flexDirection: "row",
     alignItems: "center",

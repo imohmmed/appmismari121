@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, ilike } from "drizzle-orm";
-import { db, appsTable, categoriesTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, settingsTable } from "@workspace/db";
 import {
   ListAppsQueryParams,
   ListAppsResponse,
@@ -179,6 +179,21 @@ router.get("/apps/:id", async (req, res): Promise<void> => {
   }
 
   res.json(GetAppResponse.parse({ ...app, categoryName: app.categoryName ?? "Unknown" }));
+});
+
+// ─── PUBLIC SETTINGS ──────────────────────────────────────────────────────
+
+router.get("/settings", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(settingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  res.json({
+    instagram: map.support_instagram || "",
+    telegram: map.support_telegram || "",
+    whatsapp: map.support_whatsapp || "",
+    storeName: map.store_name || "مسماري",
+    storeDescription: map.store_description || "",
+  });
 });
 
 export default router;
