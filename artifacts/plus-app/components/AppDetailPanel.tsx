@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Platform,
@@ -17,6 +18,7 @@ import Colors from "@/constants/colors";
 import GlassBackButton from "@/components/GlassBackButton";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const HEADER_COLLAPSE_POINT = 120;
 
 type AppData = {
   id: number;
@@ -62,13 +64,8 @@ function maskPhone(phone: string) {
 function StarRow({ rating, size = 14, color = "#FFD700" }: { rating: number; size?: number; color?: string }) {
   return (
     <View style={{ flexDirection: "row", gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Feather
-          key={s}
-          name={s <= rating ? "star" : "star"}
-          size={size}
-          color={s <= rating ? color : Colors.light.separator}
-        />
+      {[1, 2, 3, 4, 5].map((sv) => (
+        <Feather key={sv} name="star" size={size} color={sv <= rating ? color : Colors.light.separator} />
       ))}
     </View>
   );
@@ -77,9 +74,9 @@ function StarRow({ rating, size = 14, color = "#FFD700" }: { rating: number; siz
 function TapToRate({ onRate }: { onRate: (r: number) => void }) {
   const [hover, setHover] = useState(0);
   return (
-    <View style={s.tapToRate}>
-      <Text style={s.tapToRateLabel}>Tap to Rate</Text>
-      <View style={s.tapStars}>
+    <View style={st.tapToRate}>
+      <Text style={st.tapToRateLabel}>Tap to Rate</Text>
+      <View style={st.tapStars}>
         {[1, 2, 3, 4, 5].map((v) => (
           <Pressable key={v} onPress={() => { setHover(v); onRate(v); }}>
             <Feather name="star" size={32} color={v <= hover ? "#FFD700" : Colors.light.separator} />
@@ -89,16 +86,6 @@ function TapToRate({ onRate }: { onRate: (r: number) => void }) {
     </View>
   );
 }
-
-const MOCK_REVIEWS: Review[] = [
-  { id: 1, name: "Ahmed", phone: "+964 770 123 4567", rating: 5, text: "Amazing app! Works perfectly without any issues.", date: "2 days ago" },
-  { id: 2, name: "Sara", phone: "+964 771 234 5678", rating: 4, text: "Great features, very smooth experience.", date: "1 week ago" },
-];
-
-const APP_SIZES: Record<string, string> = {
-  "Social Media": "85 MB", "Ai": "142 MB", "Edit": "210 MB",
-  "Games": "320 MB", "Tweaked Apps": "95 MB", "TV , LIVE": "130 MB", "Develop": "65 MB",
-};
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -125,19 +112,19 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress?: (app: Ap
             const tc = getTagColor(a.tag);
             return (
               <View key={a.id}>
-                <Pressable style={s.relatedRow} onPress={() => onPress?.(a)}>
-                  <View style={[s.relatedIcon, { backgroundColor: `${tc}15` }]}>
+                <Pressable style={st.relatedRow} onPress={() => onPress?.(a)}>
+                  <View style={[st.relatedIcon, { backgroundColor: `${tc}15` }]}>
                     <Feather name={a.icon as any} size={24} color={tc} />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={s.relatedName} numberOfLines={1}>{a.name}</Text>
-                    <Text style={s.relatedDesc} numberOfLines={1}>{a.desc}</Text>
+                    <Text style={st.relatedName} numberOfLines={1}>{a.name}</Text>
+                    <Text style={st.relatedDesc} numberOfLines={1}>{a.desc}</Text>
                   </View>
-                  <Pressable style={s.relatedGetBtn}>
-                    <Text style={s.relatedGetText}>Get</Text>
+                  <Pressable style={st.relatedGetBtn}>
+                    <Text style={st.relatedGetText}>Get</Text>
                   </Pressable>
                 </Pressable>
-                {idx < chunk.length - 1 && <View style={s.relatedDivider} />}
+                {idx < chunk.length - 1 && <View style={st.relatedDivider} />}
               </View>
             );
           })}
@@ -147,10 +134,42 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress?: (app: Ap
   );
 }
 
+const MOCK_REVIEWS: Review[] = [
+  { id: 1, name: "Ahmed", phone: "+964 770 123 4567", rating: 5, text: "Amazing app! Works perfectly without any issues.", date: "2 days ago" },
+  { id: 2, name: "Sara", phone: "+964 771 234 5678", rating: 4, text: "Great features, very smooth experience.", date: "1 week ago" },
+];
+
+const APP_SIZES: Record<string, string> = {
+  "Social Media": "85", "Ai": "142", "Edit": "210",
+  "Games": "320", "Tweaked Apps": "95", "TV , LIVE": "130", "Develop": "65",
+};
+
+function GlassGetButton({ small }: { small?: boolean }) {
+  const isWeb = Platform.OS === "web";
+  if (small) {
+    if (isWeb) {
+      return (
+        <Pressable style={st.glassGetSmallWeb}>
+          <Text style={st.glassGetSmallText}>GET</Text>
+        </Pressable>
+      );
+    }
+    return (
+      <Pressable style={st.glassGetSmallWrap}>
+        <View style={st.glassGetSmallInner}>
+          <Text style={st.glassGetSmallText}>GET</Text>
+        </View>
+      </Pressable>
+    );
+  }
+  return null;
+}
+
 export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedApps = [], onRelatedAppPress }: AppDetailProps) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const tagColor = getTagColor(app.tag);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [descExpanded, setDescExpanded] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
@@ -167,238 +186,289 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
 
   const submitReview = () => {
     if (!reviewText.trim() || reviewRating === 0 || !reviewName.trim() || !reviewPhone.trim()) return;
-    const newReview: Review = {
-      id: Date.now(),
-      name: reviewName,
-      phone: reviewPhone,
-      rating: reviewRating,
-      text: reviewText,
-      date: "Just now",
-    };
-    setReviews([newReview, ...reviews]);
-    setReviewText("");
-    setReviewRating(0);
-    setReviewName("");
-    setReviewPhone("");
+    setReviews([{
+      id: Date.now(), name: reviewName, phone: reviewPhone,
+      rating: reviewRating, text: reviewText, date: "Just now",
+    }, ...reviews]);
+    setReviewText(""); setReviewRating(0); setReviewName(""); setReviewPhone("");
   };
 
-  const appSize = APP_SIZES[app.category] || "100 MB";
+  const appSize = APP_SIZES[app.category] || "100";
+
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [HEADER_COLLAPSE_POINT - 20, HEADER_COLLAPSE_POINT + 10],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyTranslate = scrollY.interpolate({
+    inputRange: [HEADER_COLLAPSE_POINT - 20, HEADER_COLLAPSE_POINT + 10],
+    outputRange: [-10, 0],
+    extrapolate: "clamp",
+  });
 
   return (
-    <View style={[s.container, { paddingTop: isWeb ? 67 : insets.top }]}>
-      <View style={s.navBar}>
+    <View style={[st.container, { paddingTop: isWeb ? 67 : insets.top }]}>
+      <View style={st.navBar}>
         <GlassBackButton onPress={onClose} />
+        <Animated.View style={[st.stickyCenter, { opacity: stickyOpacity, transform: [{ translateY: stickyTranslate }] }]}>
+          <View style={[st.stickyIcon, { backgroundColor: `${tagColor}15` }]}>
+            <Feather name={app.icon as any} size={18} color={tagColor} />
+          </View>
+        </Animated.View>
+        <Animated.View style={{ opacity: stickyOpacity }}>
+          <Pressable style={st.stickyGetBtn}>
+            <Text style={st.stickyGetText}>GET</Text>
+          </Pressable>
+        </Animated.View>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: isWeb ? 34 : 120 }}
         contentInsetAdjustmentBehavior="automatic"
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        <Text style={s.appName}>{app.name}</Text>
-
-        <View style={s.iconRow}>
-          <View style={[s.bigIcon, { backgroundColor: `${tagColor}12` }]}>
-            <Feather name={app.icon as any} size={56} color={tagColor} />
+        <View style={st.heroRow}>
+          <View style={[st.bigIcon, { backgroundColor: `${tagColor}12` }]}>
+            <Feather name={app.icon as any} size={48} color={tagColor} />
+          </View>
+          <View style={st.heroInfo}>
+            <Text style={st.appName} numberOfLines={2}>{app.name}</Text>
+            <Text style={st.appSubtitle}>{app.desc}</Text>
+            <View style={st.heroButtons}>
+              <Pressable style={st.repeatBtn}>
+                <Feather name="repeat" size={14} color={Colors.light.tint} />
+                <Text style={st.repeatText}>REPEAT</Text>
+              </Pressable>
+              <Pressable style={st.getBtn}>
+                <Text style={st.getBtnText}>GET</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
-        <View style={s.actionButtons}>
-          <Pressable style={s.repeatBtn}>
-            <Feather name="repeat" size={16} color={Colors.light.tint} />
-            <Text style={s.repeatText}>REPEAT</Text>
-          </Pressable>
-          <Pressable style={s.getBtn}>
-            <Text style={s.getBtnText}>GET</Text>
-          </Pressable>
-        </View>
-
-        <View style={s.infoBoxRow}>
-          <View style={s.infoBox}>
-            <Text style={s.infoBoxLabel}>RATINGS</Text>
-            <Text style={s.infoBoxValue}>{avgRating}</Text>
+        <View style={st.infoBoxRow}>
+          <View style={st.infoBox}>
+            <Text style={st.infoBoxLabel}>RATINGS</Text>
+            <Text style={st.infoBoxValue}>{avgRating}</Text>
             <StarRow rating={Math.round(Number(avgRating))} size={10} />
           </View>
-          <View style={s.infoBoxDivider} />
-          <View style={s.infoBox}>
-            <Text style={s.infoBoxLabel}>SIZE</Text>
-            <Text style={s.infoBoxValue}>{appSize}</Text>
-            <Text style={s.infoBoxSub}>MB</Text>
+          <View style={st.infoBoxDivider} />
+          <View style={st.infoBox}>
+            <Text style={st.infoBoxLabel}>SIZE</Text>
+            <Text style={st.infoBoxValue}>{appSize}</Text>
+            <Text style={st.infoBoxSub}>MB</Text>
           </View>
-          <View style={s.infoBoxDivider} />
+          <View style={st.infoBoxDivider} />
           <Pressable
-            style={s.infoBox}
+            style={st.infoBox}
             onPress={() => app.catKey && onCategoryPress?.(app.catKey)}
           >
-            <Text style={s.infoBoxLabel}>CATEGORY</Text>
+            <Text style={st.infoBoxLabel}>CATEGORY</Text>
             <Feather name="grid" size={18} color={Colors.light.tint} style={{ marginVertical: 2 }} />
-            <Text style={[s.infoBoxSub, { color: Colors.light.tint }]}>{app.category}</Text>
+            <Text style={[st.infoBoxSub, { color: Colors.light.tint }]}>{app.category}</Text>
           </Pressable>
-          <View style={s.infoBoxDivider} />
-          <View style={s.infoBox}>
-            <Text style={s.infoBoxLabel}>UPDATED</Text>
-            <Text style={s.infoBoxValue}>3d</Text>
-            <Text style={s.infoBoxSub}>ago</Text>
+          <View style={st.infoBoxDivider} />
+          <View style={st.infoBox}>
+            <Text style={st.infoBoxLabel}>UPDATED</Text>
+            <Text style={st.infoBoxValue}>3d</Text>
+            <Text style={st.infoBoxSub}>ago</Text>
           </View>
         </View>
 
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Description</Text>
-          <Text style={s.descText} numberOfLines={descExpanded ? undefined : 3}>
+        <View style={st.section}>
+          <Text style={st.sectionTitle}>Description</Text>
+          <Text style={st.descText} numberOfLines={descExpanded ? undefined : 3}>
             {fullDesc}
           </Text>
           <Pressable onPress={() => setDescExpanded(!descExpanded)}>
-            <Text style={s.readMore}>{descExpanded ? "Show Less" : "Read More..."}</Text>
+            <Text style={st.readMore}>{descExpanded ? "Show Less" : "Read More..."}</Text>
           </Pressable>
         </View>
 
-        <View style={s.dividerFull} />
+        <View style={st.dividerFull} />
 
-        <View style={s.section}>
-          <View style={s.ratingsHeader}>
-            <Text style={s.sectionTitle}>Ratings & Reviews</Text>
-          </View>
-          <View style={s.ratingOverview}>
-            <Text style={s.bigRating}>{avgRating}</Text>
+        <View style={st.section}>
+          <Text style={st.sectionTitle}>Ratings & Reviews</Text>
+          <View style={st.ratingOverview}>
+            <Text style={st.bigRating}>{avgRating}</Text>
             <View style={{ gap: 4 }}>
               <StarRow rating={Math.round(Number(avgRating))} size={18} />
-              <Text style={s.ratingCount}>{reviews.length} Ratings</Text>
+              <Text style={st.ratingCount}>{reviews.length} Ratings</Text>
             </View>
           </View>
 
           {reviews.map((review) => (
-            <View key={review.id} style={s.reviewCard}>
-              <View style={s.reviewHeader}>
-                <View style={s.reviewerAvatar}>
-                  <Text style={s.reviewerInitial}>{review.name[0]}</Text>
+            <View key={review.id} style={st.reviewCard}>
+              <View style={st.reviewHeader}>
+                <View style={st.reviewerAvatar}>
+                  <Text style={st.reviewerInitial}>{review.name[0]}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.reviewerName}>{review.name}</Text>
-                  <Text style={s.reviewerPhone}>{maskPhone(review.phone)}</Text>
+                  <Text style={st.reviewerName}>{review.name}</Text>
+                  <Text style={st.reviewerPhone}>{maskPhone(review.phone)}</Text>
                 </View>
-                <Text style={s.reviewDate}>{review.date}</Text>
+                <Text style={st.reviewDate}>{review.date}</Text>
               </View>
               <StarRow rating={review.rating} size={12} />
-              <Text style={s.reviewText}>{review.text}</Text>
+              <Text style={st.reviewText}>{review.text}</Text>
             </View>
           ))}
 
           <TapToRate onRate={setReviewRating} />
 
-          <View style={s.writeReviewSection}>
-            <Text style={s.writeReviewTitle}>Write a Review</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Your name"
-              placeholderTextColor={Colors.light.textSecondary}
-              value={reviewName}
-              onChangeText={setReviewName}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="+964 770 000 0000"
-              placeholderTextColor={Colors.light.textSecondary}
-              value={reviewPhone}
-              onChangeText={setReviewPhone}
-              keyboardType="phone-pad"
-            />
-            <TextInput
-              style={[s.input, { height: 80, textAlignVertical: "top" }]}
-              placeholder="Write your review..."
-              placeholderTextColor={Colors.light.textSecondary}
-              value={reviewText}
-              onChangeText={setReviewText}
-              multiline
-            />
-            <Pressable
-              style={[s.submitBtn, (!reviewText.trim() || reviewRating === 0 || !reviewName.trim() || !reviewPhone.trim()) && s.submitBtnDisabled]}
-              onPress={submitReview}
-            >
-              <Text style={s.submitBtnText}>Submit Review</Text>
+          <View style={st.writeReviewSection}>
+            <Text style={st.writeReviewTitle}>Write a Review</Text>
+            <TextInput style={st.input} placeholder="Your name" placeholderTextColor={Colors.light.textSecondary} value={reviewName} onChangeText={setReviewName} />
+            <TextInput style={st.input} placeholder="+964 770 000 0000" placeholderTextColor={Colors.light.textSecondary} value={reviewPhone} onChangeText={setReviewPhone} keyboardType="phone-pad" />
+            <TextInput style={[st.input, { height: 80, textAlignVertical: "top" }]} placeholder="Write your review..." placeholderTextColor={Colors.light.textSecondary} value={reviewText} onChangeText={setReviewText} multiline />
+            <Pressable style={[st.submitBtn, (!reviewText.trim() || reviewRating === 0 || !reviewName.trim() || !reviewPhone.trim()) && st.submitBtnDisabled]} onPress={submitReview}>
+              <Text style={st.submitBtnText}>Submit Review</Text>
             </Pressable>
           </View>
         </View>
 
         {relatedApps.length > 0 && (
           <>
-            <View style={s.dividerFull} />
-            <View style={s.section}>
-              <View style={s.sectionHeader}>
-                <Text style={s.sectionTitle}>You Might Also Like</Text>
+            <View style={st.dividerFull} />
+            <View style={st.section}>
+              <View style={st.sectionHeaderRow}>
+                <Text style={st.sectionTitle}>You Might Also Like</Text>
                 <Feather name="chevron-right" size={18} color={Colors.light.textSecondary} />
               </View>
             </View>
             <RelatedAppsRow apps={relatedApps} onPress={onRelatedAppPress} />
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.light.background },
+
   navBar: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    zIndex: 10,
   },
-  appName: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-    textAlign: "center",
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  iconRow: {
+  stickyCenter: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+  stickyIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stickyGetBtn: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  stickyGetText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: "#FFF",
+  },
+
+  heroRow: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    gap: 16,
     marginBottom: 20,
+    marginTop: 4,
   },
   bigIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 28,
+    width: 110,
+    height: 110,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionButtons: {
+  heroInfo: {
+    flex: 1,
+    justifyContent: "center",
+    gap: 4,
+  },
+  appName: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
+  },
+  appSubtitle: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textSecondary,
+    marginBottom: 8,
+  },
+  heroButtons: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
   },
   repeatBtn: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     backgroundColor: Colors.light.card,
   },
   repeatText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
     color: Colors.light.tint,
   },
   getBtn: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 18,
     backgroundColor: Colors.light.tint,
   },
   getBtnText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
     color: "#FFF",
+  },
+
+  glassGetSmallWeb: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "rgba(200,200,210,0.35)",
+    backdropFilter: "blur(20px)",
+    ...Platform.select({ web: { boxShadow: "0 2px 8px rgba(0,0,0,0.1)" } }),
+  },
+  glassGetSmallWrap: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  glassGetSmallInner: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glassGetSmallText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.tint,
   },
 
   infoBoxRow: {
@@ -409,225 +479,48 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 24,
   },
-  infoBox: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  infoBoxDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.light.separator,
-    marginVertical: 4,
-  },
-  infoBoxLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.textSecondary,
-    letterSpacing: 0.5,
-  },
-  infoBoxValue: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-  },
-  infoBoxSub: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-  },
+  infoBox: { flex: 1, alignItems: "center", gap: 2 },
+  infoBoxDivider: { width: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginVertical: 4 },
+  infoBoxLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary, letterSpacing: 0.5 },
+  infoBoxValue: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  infoBoxSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
 
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-    paddingTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-    marginBottom: 10,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  descText: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-    lineHeight: 22,
-  },
-  readMore: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.tint,
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  dividerFull: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.light.separator,
-    marginHorizontal: 20,
-    marginVertical: 8,
-  },
+  section: { paddingHorizontal: 20, marginBottom: 8, paddingTop: 16 },
+  sectionTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text, marginBottom: 10 },
+  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  descText: { fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, lineHeight: 22 },
+  readMore: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.tint, marginTop: 6, marginBottom: 8 },
+  dividerFull: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginHorizontal: 20, marginVertical: 8 },
 
-  ratingsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  ratingOverview: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 16,
-  },
-  bigRating: {
-    fontSize: 48,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-  },
-  ratingCount: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-  },
+  ratingOverview: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 16 },
+  bigRating: { fontSize: 48, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  ratingCount: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
 
-  reviewCard: {
-    backgroundColor: Colors.light.card,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    gap: 6,
-  },
-  reviewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
-  },
-  reviewerAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Colors.light.tint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewerInitial: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: "#FFF",
-  },
-  reviewerName: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.text,
-  },
-  reviewerPhone: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-  },
-  reviewDate: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-  },
-  reviewText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.text,
-    lineHeight: 20,
-  },
+  reviewCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, gap: 6 },
+  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  reviewerAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.light.tint, alignItems: "center", justifyContent: "center" },
+  reviewerInitial: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFF" },
+  reviewerName: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  reviewerPhone: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  reviewDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  reviewText: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text, lineHeight: 20 },
 
-  tapToRate: {
-    alignItems: "center",
-    gap: 8,
-    marginVertical: 16,
-  },
-  tapToRateLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.text,
-  },
-  tapStars: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  tapToRate: { alignItems: "center", gap: 8, marginVertical: 16 },
+  tapToRateLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  tapStars: { flexDirection: "row", gap: 12 },
 
-  writeReviewSection: {
-    gap: 10,
-    marginTop: 8,
-  },
-  writeReviewTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.text,
-  },
-  input: {
-    backgroundColor: Colors.light.card,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.text,
-  },
-  submitBtn: {
-    backgroundColor: Colors.light.tint,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  submitBtnDisabled: {
-    opacity: 0.4,
-  },
-  submitBtnText: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    color: "#FFF",
-  },
+  writeReviewSection: { gap: 10, marginTop: 8 },
+  writeReviewTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  input: { backgroundColor: Colors.light.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text },
+  submitBtn: { backgroundColor: Colors.light.tint, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  submitBtnDisabled: { opacity: 0.4 },
+  submitBtnText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFF" },
 
-  relatedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    gap: 12,
-  },
-  relatedIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  relatedName: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-    color: Colors.light.text,
-  },
-  relatedDesc: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: Colors.light.textSecondary,
-  },
-  relatedGetBtn: {
-    backgroundColor: Colors.light.card,
-    paddingHorizontal: 22,
-    paddingVertical: 7,
-    borderRadius: 18,
-  },
-  relatedGetText: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    color: Colors.light.tint,
-  },
-  relatedDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: Colors.light.separator,
-    marginLeft: 68,
-  },
+  relatedRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12 },
+  relatedIcon: { width: 56, height: 56, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  relatedName: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  relatedDesc: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  relatedGetBtn: { backgroundColor: Colors.light.card, paddingHorizontal: 22, paddingVertical: 7, borderRadius: 18 },
+  relatedGetText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.tint },
+  relatedDivider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginLeft: 68 },
 });
