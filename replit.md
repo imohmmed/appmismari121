@@ -15,82 +15,102 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Website**: React + Vite (dark purple Arabic RTL theme)
+- **Mobile App**: Expo SDK 54 with expo-router tabs
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server (port 8080)
+│   ├── store-website/      # React website at "/" - Arabic RTL, dark purple theme
+│   ├── plus-app/           # Expo mobile app at "/plus-app/"
+│   └── mockup-sandbox/     # Component preview server
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+├── scripts/                # Utility scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
+
+## Database Schema
+
+- **categories**: id (serial PK), name, slug, description, icon, sortOrder
+- **apps**: id (serial PK), name, description, version, size, iconUrl, downloadUrl, categoryId, isFeatured, isHot, type (tweaked/modded/hacked), createdAt
+- **plans**: id (serial PK), name, slug, price, duration, features, excludedFeatures, isPopular, sortOrder
+- **subscriptions**: id (serial PK), email, planId, udid, status, expiresAt, createdAt
+
+Seeded with 20 sample apps, 8 categories, 2 plans.
+
+## API Routes
+
+All routes prefixed with `/api`:
+- `GET /api/apps` - List apps (filter by category, type, search)
+- `GET /api/apps/featured` - Featured apps
+- `GET /api/apps/hot` - Hot/trending apps
+- `GET /api/categories` - List categories
+- `GET /api/subscriptions/plans` - Subscription plans
+- `POST /api/subscriptions/activate` - Activate subscription
+- `POST /api/admin/login` - Admin login (admin/admin123)
+- `GET /api/admin/stats` - Dashboard stats
+- CRUD: `POST/PUT/DELETE /api/admin/apps`, `POST/PUT/DELETE /api/admin/categories`
+
+## Mobile App (plus-app)
+
+5 tabs: PLUS+ (home), TV, SMM, Numbers, Search
+- Uses Apple Liquid Glass tab bar (NativeTabs) on iOS 26+, BlurView fallback for older
+- Home tab has filter chips (All, Hot, New, Tweaked, Modded, Hacked), featured carousel, What's Hot section
+- Search is a separate container with its own search bar
+- Dark theme (#0D0B1A background, #B044FF accent)
+
+## Website (store-website)
+
+Arabic RTL React site with dark purple theme:
+- Hero section, app listings with filters, subscription plans
+- Admin dashboard at /admin with stats, app/category management
+- Admin credentials: env vars ADMIN_USERNAME/ADMIN_PASSWORD (default: admin/admin123)
 
 ## TypeScript & Composite Projects
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references.
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+- **Always typecheck from the root** — run `pnpm run typecheck`
+- **`emitDeclarationOnly`** — only `.d.ts` files during typecheck; JS bundling handled by esbuild/tsx/vite
+- **Project references** — package A depends on B → A's tsconfig lists B in references
 
 ## Root Scripts
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+- `pnpm run build` — typecheck + recursive build
+- `pnpm run typecheck` — `tsc --build --emitDeclarationOnly`
 
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
+Express 5 API server with routes in `src/routes/`.
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+### `artifacts/store-website` (`@workspace/store-website`)
+React + Vite website with Arabic RTL support, dark purple theme, admin dashboard.
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+### `artifacts/plus-app` (`@workspace/plus-app`)
+Expo SDK 54 mobile app with 5 tabs, Apple Liquid Glass support, dark theme.
 
 ### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+Drizzle ORM with PostgreSQL. Schema: categories, apps, plans, subscriptions.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
+OpenAPI 3.1 spec + Orval codegen config.
 
 ### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from OpenAPI spec.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+Generated React Query hooks and fetch client.
 
 ### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Utility scripts. Run via `pnpm --filter @workspace/scripts run <script>`.

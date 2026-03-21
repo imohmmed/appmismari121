@@ -1,0 +1,21 @@
+packages:
+  "framer-motion": "Animations for page transitions and interactive elements"
+  "recharts": "Data visualization for admin dashboard stats"
+  "lucide-react": "Beautiful icons for UI components"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/store-website/public/images/logo.png"
+    description: "A sleek, modern minimalist logo for an Arabic digital app store called 'Plus Store'. Deep purple and glowing neon colors on transparent background."
+    aspect_ratio: "1:1"
+  - path: "artifacts/store-website/public/images/hero-bg.png"
+    description: "Abstract deep dark purple gradient background with subtle neon blue and magenta glowing mesh and soft liquid glass effects."
+    aspect_ratio: "16:9"
+  - path: "artifacts/store-website/public/images/admin-bg.png"
+    description: "Very dark minimal geometric background with subtle deep purple accents for an admin dashboard."
+    aspect_ratio: "16:9"
+
+notes:
+  - The application is primarily in Arabic and requires RTL (Right-to-Left) layout support.
+  - Using generated hooks from @workspace/api-client-react for all data fetching.

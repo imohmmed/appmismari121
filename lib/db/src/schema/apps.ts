@@ -1,0 +1,23 @@
+import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { categoriesTable } from "./categories";
+
+export const appsTable = pgTable("apps", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon").notNull(),
+  categoryId: integer("category_id").notNull().references(() => categoriesTable.id),
+  tag: text("tag").notNull(),
+  version: text("version"),
+  size: text("size"),
+  downloads: integer("downloads").notNull().default(0),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  isHot: boolean("is_hot").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertAppSchema = createInsertSchema(appsTable).omit({ id: true, createdAt: true });
+export type InsertApp = z.infer<typeof insertAppSchema>;
+export type App = typeof appsTable.$inferSelect;

@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Plus Store API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: apps
+    description: App management
+  - name: categories
+    description: Category management
+  - name: subscriptions
+    description: Subscription plans
+  - name: users
+    description: User management
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,297 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /apps:
+    get:
+      operationId: listApps
+      tags: [apps]
+      summary: List all apps
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, hot, new, tweaked, modded, hacked]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of apps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppListResponse"
+  /apps/featured:
+    get:
+      operationId: listFeaturedApps
+      tags: [apps]
+      summary: List featured apps
+      responses:
+        "200":
+          description: Featured apps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppListResponse"
+  /apps/hot:
+    get:
+      operationId: listHotApps
+      tags: [apps]
+      summary: List hot/trending apps
+      responses:
+        "200":
+          description: Hot apps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppListResponse"
+  /apps/{id}:
+    get:
+      operationId: getApp
+      tags: [apps]
+      summary: Get app details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: App details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/App"
+        "404":
+          description: Not found
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+  /subscriptions/plans:
+    get:
+      operationId: listPlans
+      tags: [subscriptions]
+      summary: List subscription plans
+      responses:
+        "200":
+          description: Subscription plans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanListResponse"
+  /subscriptions/activate:
+    post:
+      operationId: activateSubscription
+      tags: [subscriptions]
+      summary: Activate a subscription with code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateSubscriptionRequest"
+      responses:
+        "200":
+          description: Activation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationResponse"
+        "400":
+          description: Invalid code
+  /admin/apps:
+    get:
+      operationId: adminListApps
+      tags: [admin]
+      summary: Admin list all apps
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Admin app list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppListResponse"
+    post:
+      operationId: adminCreateApp
+      tags: [admin]
+      summary: Create a new app
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppRequest"
+      responses:
+        "201":
+          description: App created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/App"
+  /admin/apps/{id}:
+    put:
+      operationId: adminUpdateApp
+      tags: [admin]
+      summary: Update an app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppRequest"
+      responses:
+        "200":
+          description: App updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/App"
+    delete:
+      operationId: adminDeleteApp
+      tags: [admin]
+      summary: Delete an app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: App deleted
+  /admin/categories:
+    get:
+      operationId: adminListCategories
+      tags: [admin]
+      summary: Admin list categories
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryListResponse"
+    post:
+      operationId: adminCreateCategory
+      tags: [admin]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+  /admin/plans:
+    get:
+      operationId: adminListPlans
+      tags: [admin]
+      summary: Admin list plans
+      responses:
+        "200":
+          description: Plan list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanListResponse"
+    post:
+      operationId: adminCreatePlan
+      tags: [admin]
+      summary: Create a plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanRequest"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Get admin dashboard stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Invalid credentials
 components:
   schemas:
     HealthStatus:
@@ -33,4 +332,250 @@ components:
           type: string
       required:
         - status
-
+    App:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        tag:
+          type: string
+          enum: [tweaked, modded, hacked, new, hot]
+        version:
+          type: string
+        size:
+          type: string
+        downloads:
+          type: integer
+        isFeatured:
+          type: boolean
+        isHot:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - icon
+        - categoryId
+        - categoryName
+        - tag
+    AppListResponse:
+      type: object
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/App"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - apps
+        - total
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameAr:
+          type: string
+        icon:
+          type: string
+        appCount:
+          type: integer
+      required:
+        - id
+        - name
+        - icon
+    CategoryListResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+      required:
+        - categories
+    Plan:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameAr:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        duration:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        excludedFeatures:
+          type: array
+          items:
+            type: string
+        isPopular:
+          type: boolean
+      required:
+        - id
+        - name
+        - price
+        - currency
+        - duration
+        - features
+    PlanListResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/Plan"
+      required:
+        - plans
+    ActivateSubscriptionRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        udid:
+          type: string
+      required:
+        - code
+    ActivationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - success
+        - message
+    CreateAppRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        categoryId:
+          type: integer
+        tag:
+          type: string
+          enum: [tweaked, modded, hacked, new, hot]
+        version:
+          type: string
+        size:
+          type: string
+        isFeatured:
+          type: boolean
+        isHot:
+          type: boolean
+      required:
+        - name
+        - icon
+        - categoryId
+        - tag
+    CreateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        icon:
+          type: string
+      required:
+        - name
+        - icon
+    CreatePlanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        nameAr:
+          type: string
+        price:
+          type: number
+        currency:
+          type: string
+        duration:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        excludedFeatures:
+          type: array
+          items:
+            type: string
+        isPopular:
+          type: boolean
+      required:
+        - name
+        - price
+        - currency
+        - duration
+        - features
+    AdminLoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+    AdminLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+      required:
+        - success
+        - token
+    AdminStats:
+      type: object
+      properties:
+        totalApps:
+          type: integer
+        totalCategories:
+          type: integer
+        totalSubscriptions:
+          type: integer
+        activeSubscriptions:
+          type: integer
+      required:
+        - totalApps
+        - totalCategories
+        - totalSubscriptions
+        - activeSubscriptions
