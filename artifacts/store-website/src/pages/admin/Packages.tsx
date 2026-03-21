@@ -1,14 +1,26 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Plus, Trash2, Edit2, X, Check } from "lucide-react";
+import { Plus, X, Trash2, Edit2, Loader2, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";
+const A = "#9fbcff";
+const TEXT = "#2b283b";
+
+async function adminFetch(path: string, opts?: RequestInit) {
+  const token = localStorage.getItem("adminToken") || "";
+  const res = await fetch(`${API}/api${path}`, {
+    ...opts,
+    headers: { ...(opts?.headers || {}), "x-admin-token": token, "Content-Type": "application/json" },
+  });
+  if (res.status === 204) return null;
+  return res.json();
+}
 
 interface Plan {
   id: number;
   name: string;
-  nameAr: string;
+  nameAr: string | null;
   price: number;
   currency: string;
   duration: string;
@@ -17,39 +29,87 @@ interface Plan {
   isPopular: boolean;
 }
 
+const blankPlan = {
+  name: "", nameAr: "", price: "", currency: "IQD", duration: "monthly",
+  features: [""] as string[], excludedFeatures: [] as string[], isPopular: false,
+};
+
 export default function AdminPackages() {
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "", nameAr: "", price: 0, currency: "IQD", duration: "month",
-    features: "" as string, excludedFeatures: "" as string, isPopular: false
-  });
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<"add" | "edit" | null>(null);
+  const [editPlan, setEditPlan] = useState<Plan | null>(null);
+  const [form, setForm] = useState(blankPlan);
+  const [saving, setSaving] = useState(false);
 
-  const fetchPlans = () => {
-    fetch(`${API}/api/admin/plans`, { headers: { Authorization: `Bearer ${localStorage.getItem("adminToken")}` } })
-      .then(r => r.json()).then(d => setPlans(d.plans || [])).catch(() => {});
+  const fetchPlans = async () => {
+    setLoading(true);
+    const d = await adminFetch("/admin/plans");
+    setPlans(d?.plans || []);
+    setLoading(false);
   };
-  useEffect(fetchPlans, []);
+  useEffect(() => { fetchPlans(); }, []);
+
+  const openAdd = () => { setForm(blankPlan); setEditPlan(null); setModal("add"); };
+  const openEdit = (plan: Plan) => {
+    setForm({
+      name: plan.name,
+      nameAr: plan.nameAr || "",
+      price: String(plan.price),
+      currency: plan.currency,
+      duration: plan.duration,
+      features: plan.features.length > 0 ? plan.features : [""],
+      excludedFeatures: plan.excludedFeatures || [],
+      isPopular: plan.isPopular,
+    });
+    setEditPlan(plan);
+    setModal("edit");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    const body = {
+      name: form.name,
+      nameAr: form.nameAr || null,
+      price: Number(form.price),
+      currency: form.currency,
+      duration: form.duration,
+      features: form.features.filter(f => f.trim()),
+      excludedFeatures: form.excludedFeatures.filter(f => f.trim()),
+      isPopular: form.isPopular,
+    };
     try {
-      await fetch(`${API}/api/admin/plans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("adminToken")}` },
-        body: JSON.stringify({
-          ...formData,
-          features: formData.features.split("\n").filter(Boolean),
-          excludedFeatures: formData.excludedFeatures.split("\n").filter(Boolean),
-        }),
-      });
+      if (editPlan) {
+        await adminFetch(`/admin/plans/${editPlan.id}`, { method: "PUT", body: JSON.stringify(body) });
+        toast({ title: "تم تحديث الباقة" });
+      } else {
+        await adminFetch("/admin/plans", { method: "POST", body: JSON.stringify(body) });
+        toast({ title: "تمت إضافة الباقة" });
+      }
       fetchPlans();
-      setIsModalOpen(false);
-      toast({ title: "تمت الإضافة بنجاح" });
-    } catch {
-      toast({ title: "حدث خطأ", variant: "destructive" });
-    }
+      setModal(null);
+    } catch { toast({ title: "حدث خطأ", variant: "destructive" }); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("هل أنت متأكد من حذف هذه الباقة؟")) return;
+    await adminFetch(`/admin/plans/${id}`, { method: "DELETE" });
+    toast({ title: "تم الحذف" });
+    fetchPlans();
+  };
+
+  const updateFeature = (i: number, val: string, type: "features" | "excludedFeatures") => {
+    const arr = [...form[type]];
+    arr[i] = val;
+    setForm({ ...form, [type]: arr });
+  };
+  const addFeature = (type: "features" | "excludedFeatures") => setForm({ ...form, [type]: [...form[type], ""] });
+  const removeFeature = (i: number, type: "features" | "excludedFeatures") => {
+    const arr = form[type].filter((_, idx) => idx !== i);
+    setForm({ ...form, [type]: arr.length > 0 ? arr : type === "features" ? [""] : [] });
   };
 
   return (
@@ -57,91 +117,160 @@ export default function AdminPackages() {
       <div className="space-y-6" dir="rtl">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">باقات الاشتراك</h2>
-            <p className="text-white/40 text-sm mt-1">إدارة وتعديل باقات المتجر</p>
+            <h2 className="text-lg font-bold text-white">الباقات</h2>
+            <p className="text-white/40 text-xs mt-0.5">خطط الاشتراك المتاحة في المتجر</p>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-black" style={{ background: A }}>
             <Plus className="w-4 h-4" /> إضافة باقة
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {plans.map(plan => (
-            <div key={plan.id} className="bg-[#111111] rounded-xl border border-white/10 p-6 relative">
-              {plan.isPopular && (
-                <span className="absolute top-3 left-3 px-2 py-0.5 rounded text-[10px] bg-green-500/20 text-green-400 border border-green-500/30">Active</span>
-              )}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                  <span className="text-purple-400 text-lg">👑</span>
-                </div>
-                <div>
-                  <p className="text-white font-bold">{plan.nameAr || plan.name}</p>
-                  <p className="text-white/40 text-xs">{plan.duration === "month" ? "شهري" : plan.duration === "year" ? "سنوي" : plan.duration}</p>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <span className="text-2xl font-black text-white">{Number(plan.price).toLocaleString()}</span>
-                <span className="text-white/40 text-sm mr-1">د.ع / {plan.duration === "month" ? "٣٦٥ يوم" : plan.duration}</span>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {plan.features.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-white/40">
-                    <Check className="w-3.5 h-3.5 text-green-400" /> {f}
+        {loading ? (
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {plans.map(plan => (
+              <div
+                key={plan.id}
+                className="rounded-2xl p-6 border relative group"
+                style={{ background: TEXT, borderColor: plan.isPopular ? `${A}60` : `${A}20` }}
+              >
+                {plan.isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold" style={{ background: A, color: TEXT }}>
+                    <Star className="w-3 h-3 fill-current" /> الأكثر طلباً
                   </div>
-                ))}
+                )}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="text-xs font-bold tracking-widest uppercase" style={{ color: A }}>
+                    {plan.nameAr || plan.name}
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEdit(plan)} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDelete(plan.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="mb-1">
+                  <span className="text-3xl font-black text-white">{Number(plan.price).toLocaleString("ar-IQ")}</span>
+                </div>
+                <p className="text-xs mb-5" style={{ color: `${A}aa` }}>{plan.currency} · {plan.duration}</p>
+                <div className="space-y-2">
+                  {plan.features.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0" style={{ background: `${A}25` }}>
+                        <span className="text-[9px]" style={{ color: A }}>✓</span>
+                      </div>
+                      <span className="text-xs text-white/70">{f}</span>
+                    </div>
+                  ))}
+                  {(plan.excludedFeatures || []).map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 opacity-40">
+                      <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 bg-red-500/20">
+                        <span className="text-[9px] text-red-400">✕</span>
+                      </div>
+                      <span className="text-xs text-white/50 line-through">{f}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-
-              <div className="flex gap-2 pt-3 border-t border-white/10">
-                <button className="p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-[#0a0a0a]"><Trash2 className="w-4 h-4" /></button>
-                <button className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-[#0a0a0a]"><Edit2 className="w-4 h-4" /></button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+            {plans.length === 0 && (
+              <div className="col-span-full py-16 text-center text-white/30 text-sm">لا توجد باقات بعد</div>
+            )}
+          </div>
+        )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-[#111111] border border-white/10 rounded-xl w-full max-w-lg shadow-2xl" dir="rtl">
-            <div className="flex items-center justify-between p-5 border-b border-white/10">
-              <h3 className="text-lg font-bold text-white">إضافة باقة</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg hover:bg-[#0a0a0a] text-white/40"><X className="w-5 h-5" /></button>
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm" dir="rtl">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+              <h3 className="text-base font-bold text-white">{editPlan ? "تعديل باقة" : "إضافة باقة"}</h3>
+              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5"><X className="w-4 h-4" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/40">الاسم بالإنجليزي</label>
-                  <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/30 focus:outline-none" dir="ltr" />
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: `${A}99` }}>الاسم بالعربي</label>
+                  <input required value={form.nameAr} onChange={e => setForm({ ...form, nameAr: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none" placeholder="الباقة الأساسية" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/40">الاسم بالعربي</label>
-                  <input value={formData.nameAr} onChange={e => setFormData({ ...formData, nameAr: e.target.value })} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/30 focus:outline-none" />
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: `${A}99` }}>الاسم بالإنجليزي</label>
+                  <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none" placeholder="Basic" dir="ltr" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/40">السعر</label>
-                  <input type="number" required value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/30 focus:outline-none" dir="ltr" />
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: `${A}99` }}>السعر</label>
+                  <input required type="number" min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none" placeholder="9999" dir="ltr" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-white/40">المدة</label>
-                  <select value={formData.duration} onChange={e => setFormData({ ...formData, duration: e.target.value })} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/30 focus:outline-none appearance-none">
-                    <option value="month">شهري</option>
-                    <option value="year">سنوي</option>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: `${A}99` }}>العملة</label>
+                  <select value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none">
+                    <option value="IQD">IQD — دينار عراقي</option>
+                    <option value="USD">USD — دولار</option>
+                    <option value="SAR">SAR — ريال</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: `${A}99` }}>المدة</label>
+                  <select value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none">
+                    <option value="monthly">شهري</option>
+                    <option value="quarterly">3 أشهر</option>
+                    <option value="yearly">سنوي</option>
                     <option value="lifetime">مدى الحياة</option>
                   </select>
                 </div>
+                <div className="flex items-end pb-1">
+                  <button type="button" onClick={() => setForm(f => ({ ...f, isPopular: !f.isPopular }))}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-all w-full justify-center"
+                    style={form.isPopular ? { background: `${A}15`, borderColor: `${A}40`, color: A } : { borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)" }}>
+                    <Star className="w-3.5 h-3.5" /> الأكثر طلباً
+                  </button>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-white/40">المميزات (سطر لكل ميزة)</label>
-                <textarea value={formData.features} onChange={e => setFormData({ ...formData, features: e.target.value })} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white h-24 focus:border-white/30 focus:outline-none" />
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium block" style={{ color: `${A}99` }}>المميزات المتضمنة</label>
+                {form.features.map((f, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input value={f} onChange={e => updateFeature(i, e.target.value, "features")}
+                      className="flex-1 bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none" placeholder="وصول كامل للتطبيقات..." />
+                    <button type="button" onClick={() => removeFeature(i, "features")} className="p-2 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10"><X className="w-4 h-4" /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => addFeature("features")} className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: A }}>
+                  <Plus className="w-3.5 h-3.5" /> إضافة ميزة
+                </button>
               </div>
-              <div className="pt-3 border-t border-white/10 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-white/10 text-white/40 text-sm">إلغاء</button>
-                <button type="submit" className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm">حفظ</button>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium block" style={{ color: "rgba(239,68,68,0.7)" }}>المميزات المستثناة <span className="opacity-50">(اختياري)</span></label>
+                {form.excludedFeatures.map((f, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input value={f} onChange={e => updateFeature(i, e.target.value, "excludedFeatures")}
+                      className="flex-1 bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none" placeholder="ميزة غير متضمنة..." />
+                    <button type="button" onClick={() => removeFeature(i, "excludedFeatures")} className="p-2 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10"><X className="w-4 h-4" /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => addFeature("excludedFeatures")} className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-red-400/60">
+                  <Plus className="w-3.5 h-3.5" /> إضافة ميزة مستثناة
+                </button>
               </div>
             </form>
+            <div className="border-t border-white/5 p-4 flex justify-end gap-2 shrink-0">
+              <button onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border border-white/10 text-white/50 hover:text-white text-sm">إلغاء</button>
+              <button onClick={handleSubmit as any} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-bold text-black disabled:opacity-50 flex items-center gap-1.5" style={{ background: A }}>
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                {editPlan ? "حفظ" : "إضافة"}
+              </button>
+            </div>
           </div>
         </div>
       )}

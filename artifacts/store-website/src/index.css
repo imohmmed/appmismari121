@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -6,8 +6,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Cairo', sans-serif;
-  --font-display: 'Cairo', sans-serif;
+  --font-sans: 'IBM Plex Sans Arabic', sans-serif;
+  --font-display: 'Outfit', sans-serif;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -59,24 +59,24 @@
   --popover-foreground: 252 18% 19%;
   --popover-border: 240 6% 90%;
 
-  --primary: 220 100% 50%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 222 100% 81%;
+  --primary-foreground: 252 18% 19%;
 
-  --secondary: 220 100% 81%;
+  --secondary: 222 60% 94%;
   --secondary-foreground: 252 18% 19%;
 
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 46%;
+  --muted: 222 30% 96%;
+  --muted-foreground: 240 8% 45%;
 
-  --accent: 220 100% 81%;
+  --accent: 222 100% 81%;
   --accent-foreground: 252 18% 19%;
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 220 100% 50%;
+  --border: 222 20% 90%;
+  --input: 222 20% 90%;
+  --ring: 222 100% 81%;
 
   --radius: 1rem;
 }

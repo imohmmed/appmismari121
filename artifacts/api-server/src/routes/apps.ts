@@ -20,18 +20,30 @@ router.get("/apps", async (req, res): Promise<void> => {
   }
 
   const { categoryId, filter, search, page = 1, limit = 20 } = query.data;
+  const section = (req.query as any).section as string | undefined;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(appsTable.isHidden, false)];
   if (categoryId) conditions.push(eq(appsTable.categoryId, categoryId));
-  if (filter && filter !== "all") {
+  if (section === "most_downloaded") {
+    // no extra filter, sort by downloads
+  } else if (section === "trending") {
+    conditions.push(eq(appsTable.isHot, true));
+  } else if (section === "latest") {
+    conditions.push(sql`${appsTable.createdAt} > NOW() - INTERVAL '60 days'`);
+  } else if (filter && filter !== "all") {
     if (filter === "hot") conditions.push(eq(appsTable.isHot, true));
     else if (filter === "new") conditions.push(sql`${appsTable.createdAt} > NOW() - INTERVAL '30 days'`);
     else conditions.push(eq(appsTable.tag, filter));
   }
   if (search) conditions.push(ilike(appsTable.name, `%${search}%`));
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
+  const orderClause = section === "most_downloaded"
+    ? desc(appsTable.downloads)
+    : section === "trending"
+    ? desc(appsTable.downloads)
+    : desc(appsTable.createdAt);
 
   const apps = await db
     .select({
@@ -39,6 +51,7 @@ router.get("/apps", async (req, res): Promise<void> => {
       name: appsTable.name,
       description: appsTable.description,
       icon: appsTable.icon,
+      iconUrl: appsTable.icon,
       categoryId: appsTable.categoryId,
       categoryName: categoriesTable.name,
       tag: appsTable.tag,
@@ -52,7 +65,7 @@ router.get("/apps", async (req, res): Promise<void> => {
     .from(appsTable)
     .leftJoin(categoriesTable, eq(appsTable.categoryId, categoriesTable.id))
     .where(whereClause)
-    .orderBy(desc(appsTable.createdAt))
+    .orderBy(orderClause)
     .limit(limit)
     .offset(offset);
 
