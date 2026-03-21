@@ -66,68 +66,84 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
 
+  const searchButton = isSearchMode ? (
+    <View style={s.searchExpanded}>
+      <Feather name="search" size={18} color={colors.textSecondary} />
+      <TextInput
+        ref={searchInputRef}
+        style={[s.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
+        placeholder={t("searchPlaceholder")}
+        placeholderTextColor={colors.textSecondary}
+        value={searchText}
+        onChangeText={setSearchText}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {searchText.length > 0 && (
+        <Pressable onPress={() => setSearchText("")}>
+          <Feather name="x-circle" size={16} color={colors.textSecondary} />
+        </Pressable>
+      )}
+    </View>
+  ) : (
+    <Pressable onPress={enterSearchMode} style={s.searchBtn}>
+      <Feather name="search" size={20} color={colors.tint} />
+    </Pressable>
+  );
+
+  const homeButton = isSearchMode ? (
+    <Pressable onPress={exitSearchMode} style={s.homeBtn}>
+      <Feather name="home" size={20} color={colors.tint} />
+    </Pressable>
+  ) : null;
+
+  const tabsSection = !isSearchMode ? (
+    <View style={s.tabsContainer}>
+      {TAB_KEYS.map((tab) => {
+        const isActive = activeRoute === tab.name;
+        return (
+          <Pressable
+            key={tab.name}
+            onPress={() => navigateToTab(tab.name)}
+            style={s.tabItem}
+          >
+            <Feather
+              name={tab.icon as any}
+              size={20}
+              color={isActive ? colors.tint : colors.tabIconDefault}
+            />
+            <Text
+              style={[
+                s.tabLabel,
+                {
+                  color: isActive ? colors.tint : colors.tabIconDefault,
+                  fontFamily: fontAr("SemiBold"),
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {t(tab.translationKey)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  ) : null;
+
   const barContent = (
     <View style={s.barInner}>
-      {isSearchMode ? (
-        <Pressable onPress={exitSearchMode} style={s.homeBtn}>
-          <Feather name="home" size={20} color={colors.tint} />
-        </Pressable>
+      {isArabic ? (
+        <>
+          {searchButton}
+          {homeButton}
+          {tabsSection}
+        </>
       ) : (
-        <View style={s.tabsContainer}>
-          {TAB_KEYS.map((tab) => {
-            const isActive = activeRoute === tab.name;
-            return (
-              <Pressable
-                key={tab.name}
-                onPress={() => navigateToTab(tab.name)}
-                style={s.tabItem}
-              >
-                <Feather
-                  name={tab.icon as any}
-                  size={20}
-                  color={isActive ? colors.tint : colors.tabIconDefault}
-                />
-                <Text
-                  style={[
-                    s.tabLabel,
-                    {
-                      color: isActive ? colors.tint : colors.tabIconDefault,
-                      fontFamily: fontAr("SemiBold"),
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {t(tab.translationKey)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      {isSearchMode ? (
-        <View style={s.searchExpanded}>
-          <Feather name="search" size={18} color={colors.textSecondary} />
-          <TextInput
-            ref={searchInputRef}
-            style={[s.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
-            placeholder={t("searchPlaceholder")}
-            placeholderTextColor={colors.textSecondary}
-            value={searchText}
-            onChangeText={setSearchText}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchText.length > 0 && (
-            <Pressable onPress={() => setSearchText("")}>
-              <Feather name="x-circle" size={16} color={colors.textSecondary} />
-            </Pressable>
-          )}
-        </View>
-      ) : (
-        <Pressable onPress={enterSearchMode} style={s.searchBtn}>
-          <Feather name="search" size={20} color={colors.tint} />
-        </Pressable>
+        <>
+          {homeButton}
+          {tabsSection}
+          {searchButton}
+        </>
       )}
     </View>
   );

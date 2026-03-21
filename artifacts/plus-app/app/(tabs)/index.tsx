@@ -163,7 +163,7 @@ function AppListRow({ app, showDivider, onPress }: { app: AppItem; showDivider: 
 }
 
 function StackedSection({ title, subtitle, data, onAppPress }: { title: string; subtitle: string; data: AppItem[]; onAppPress: (app: AppItem) => void }) {
-  const { colors, fontAr } = useSettings();
+  const { colors, fontAr, isArabic } = useSettings();
   const pages = chunkArray(data, 3);
   return (
     <View style={styles.section}>
@@ -177,6 +177,7 @@ function StackedSection({ title, subtitle, data, onAppPress }: { title: string; 
       <FlatList
         data={pages}
         horizontal
+        inverted={isArabic}
         pagingEnabled={false}
         snapToInterval={PAGE_WIDTH + 16}
         decelerationRate="fast"
@@ -309,11 +310,13 @@ export default function PlusScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryRow}
-          style={styles.categoryScrollView}
+          contentContainerStyle={[styles.categoryRow, isArabic && { paddingRight: 16, paddingLeft: 32 }]}
+          style={[styles.categoryScrollView, isArabic && { transform: [{ scaleX: -1 }] }]}
         >
           {CATEGORY_KEYS.map((catKey) => (
-            <CategoryPill key={catKey} catKey={catKey} onPress={() => setActiveCat(catKey)} />
+            <View key={catKey} style={isArabic ? { transform: [{ scaleX: -1 }] } : undefined}>
+              <CategoryPill catKey={catKey} onPress={() => setActiveCat(catKey)} />
+            </View>
           ))}
         </ScrollView>
       </View>
@@ -332,6 +335,7 @@ export default function PlusScreen() {
             ref={featuredRef}
             data={FEATURED_APPS}
             horizontal
+            inverted={isArabic}
             pagingEnabled={false}
             snapToInterval={SCREEN_WIDTH - 48 + 12}
             decelerationRate="fast"

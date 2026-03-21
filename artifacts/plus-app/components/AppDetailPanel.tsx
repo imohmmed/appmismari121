@@ -116,6 +116,7 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress?: (app: Ap
     <FlatList
       data={pages}
       horizontal
+      inverted={isArabic}
       pagingEnabled={false}
       snapToInterval={pageW + 16}
       decelerationRate="fast"
