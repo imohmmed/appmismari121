@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Animated,
@@ -162,18 +163,22 @@ function AppListRow({ app, showDivider, onPress }: { app: AppItem; showDivider: 
   );
 }
 
-function StackedSection({ title, subtitle, data, onAppPress }: { title: string; subtitle: string; data: AppItem[]; onAppPress: (app: AppItem) => void }) {
+function StackedSection({ title, subtitle, data, onAppPress, sectionType }: { title: string; subtitle: string; data: AppItem[]; onAppPress: (app: AppItem) => void; sectionType: string }) {
   const { colors, fontAr, isArabic } = useSettings();
+  const router = useRouter();
   const pages = chunkArray(data, 3);
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
+      <Pressable
+        style={styles.sectionHeader}
+        onPress={() => router.push({ pathname: "/section/[type]", params: { type: sectionType, title } })}
+      >
         <Feather name={isArabic ? "chevron-left" : "chevron-right"} size={18} color={colors.textSecondary} />
         <View style={isArabic ? { alignItems: "flex-end", flex: 1 } : { flex: 1 }}>
           <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{title}</Text>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{subtitle}</Text>
         </View>
-      </View>
+      </Pressable>
       <FlatList
         data={pages}
         horizontal
@@ -364,9 +369,9 @@ export default function PlusScreen() {
           </View>
         </View>
 
-        <StackedSection title={t("trending")} subtitle={t("trendingSub")} data={hotApps} onAppPress={handleAppPress} />
-        <StackedSection title={t("mostDownloaded")} subtitle={t("mostDownloadedSub")} data={mostDownloaded} onAppPress={handleAppPress} />
-        <StackedSection title={t("recentlyAdded")} subtitle={t("recentlyAddedSub")} data={newAdds} onAppPress={handleAppPress} />
+        <StackedSection title={t("trending")} subtitle={t("trendingSub")} data={hotApps} onAppPress={handleAppPress} sectionType="trending" />
+        <StackedSection title={t("mostDownloaded")} subtitle={t("mostDownloadedSub")} data={mostDownloaded} onAppPress={handleAppPress} sectionType="mostDownloaded" />
+        <StackedSection title={t("recentlyAdded")} subtitle={t("recentlyAddedSub")} data={newAdds} onAppPress={handleAppPress} sectionType="recentlyAdded" />
 
         <View style={styles.section}>
           <View style={[styles.sectionHeader, isArabic && { justifyContent: "flex-end" }]}>
