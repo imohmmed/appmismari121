@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -275,9 +276,9 @@ export default function PlusScreen() {
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Mismari +</Text>
-        <Pressable style={styles.profileButton} onPress={() => setShowAccount(true)}>
+        <TouchableOpacity style={styles.profileButton} onPress={() => setShowAccount(true)} activeOpacity={0.6}>
           <Feather name="user" size={20} color={Colors.light.textSecondary} />
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.categoryWrapper}>

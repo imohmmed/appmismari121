@@ -9,17 +9,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+import Colors from "@/constants/colors";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const MENU_ITEMS = [
-  { key: "profile", label: "ملفي الشخصي", icon: "user" as const },
-  { key: "purchases", label: "سجل المشتريات", icon: "shopping-bag" as const },
-  { key: "notifications", label: "الاشعارات", icon: "bell" as const },
-  { key: "settings", label: "الاعدادات", icon: "settings" as const },
+  { key: "profile", label: "My Profile", icon: "user" as const },
+  { key: "purchases", label: "Purchase History", icon: "shopping-bag" as const },
+  { key: "notifications", label: "Notifications", icon: "bell" as const },
+  { key: "settings", label: "Settings", icon: "settings" as const },
 ];
 
 const SOCIAL_LINKS = [
@@ -98,10 +101,12 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View
-        style={[styles.backdrop, { opacity: backdropAnim }]}
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+        />
       </Animated.View>
 
       <Animated.View
@@ -118,51 +123,52 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Account</Text>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Feather name="x" size={18} color="#999" />
-          </Pressable>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.6}>
+            <Feather name="x" size={16} color={Colors.light.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
           <View style={styles.profileCard}>
             <View style={styles.avatarCircle}>
-              <Feather name="user" size={32} color="#FFF" />
+              <Feather name="user" size={32} color={Colors.light.tint} />
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>Guest User</Text>
-              <Text style={styles.profileEmail}>تسجيل الدخول</Text>
+              <Text style={styles.profileEmail}>Sign in</Text>
             </View>
           </View>
 
           <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>الرصيد</Text>
+            <Text style={styles.balanceLabel}>Credit</Text>
             <Text style={styles.balanceAmount}>$0.00</Text>
           </View>
 
           <View style={styles.menuSection}>
-            {MENU_ITEMS.map((item, index) => (
-              <Pressable key={item.key} style={styles.menuRow}>
+            {MENU_ITEMS.map((item) => (
+              <TouchableOpacity key={item.key} style={styles.menuRow} activeOpacity={0.6}>
                 <View style={styles.menuIconWrap}>
-                  <Feather name={item.icon} size={18} color="#007AFF" />
+                  <Feather name={item.icon} size={18} color={Colors.light.tint} />
                 </View>
                 <Text style={styles.menuLabel}>{item.label}</Text>
-                <Feather name="chevron-right" size={18} color="#C7C7CC" />
-              </Pressable>
+                <Feather name="chevron-right" size={18} color={Colors.light.separator} />
+              </TouchableOpacity>
             ))}
           </View>
 
           <View style={styles.socialSection}>
-            <Text style={styles.socialTitle}>تواصل معنا</Text>
+            <Text style={styles.socialTitle}>Contact Us</Text>
             <View style={styles.socialRow}>
               {SOCIAL_LINKS.map((s) => (
-                <Pressable
+                <TouchableOpacity
                   key={s.key}
                   style={[styles.socialBtn, { backgroundColor: s.color }]}
                   onPress={() => openLink(s.url)}
+                  activeOpacity={0.7}
                 >
-                  <Feather name={s.icon} size={20} color="#FFF" />
+                  <Feather name={s.icon} size={18} color="#FFF" />
                   <Text style={styles.socialLabel}>{s.label}</Text>
-                </Pressable>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -175,7 +181,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
   panel: {
     position: "absolute",
@@ -183,7 +189,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#1C1C1E",
+    backgroundColor: Colors.light.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -192,7 +198,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    backgroundColor: Colors.light.separator,
     alignSelf: "center",
     marginBottom: 10,
   },
@@ -203,22 +209,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#FFF",
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: Colors.light.card,
     alignItems: "center",
     justifyContent: "center",
   },
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.light.card,
     borderRadius: 16,
     padding: 16,
     gap: 14,
@@ -228,9 +234,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: Colors.light.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.light.cardBorder,
   },
   profileInfo: {
     flex: 1,
@@ -238,15 +246,16 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#FFF",
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
   },
   profileEmail: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.textSecondary,
   },
   balanceCard: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.light.card,
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
@@ -255,15 +264,16 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
+    fontFamily: "Inter_500Medium",
+    color: Colors.light.textSecondary,
   },
   balanceAmount: {
     fontSize: 32,
-    fontWeight: "800",
-    color: "#FFF",
+    fontFamily: "Inter_700Bold",
+    color: Colors.light.text,
   },
   menuSection: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.light.card,
     borderRadius: 16,
     overflow: "hidden",
     marginBottom: 24,
@@ -274,37 +284,37 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: Colors.light.cardBorder,
     gap: 14,
   },
   menuIconWrap: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderRadius: 8,
-    backgroundColor: "rgba(0,122,255,0.15)",
+    backgroundColor: `${Colors.light.tint}15`,
     alignItems: "center",
     justifyContent: "center",
   },
   menuLabel: {
     flex: 1,
     fontSize: 16,
-    fontWeight: "600",
-    color: "#FFF",
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.text,
   },
   socialSection: {
     marginBottom: 20,
   },
   socialTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.5)",
+    fontFamily: "Inter_600SemiBold",
+    color: Colors.light.textSecondary,
     textAlign: "center",
     marginBottom: 14,
   },
   socialRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
+    gap: 10,
   },
   socialBtn: {
     flexDirection: "row",
@@ -316,7 +326,7 @@ const styles = StyleSheet.create({
   },
   socialLabel: {
     fontSize: 13,
-    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
     color: "#FFF",
   },
 });
