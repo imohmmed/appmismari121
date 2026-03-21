@@ -351,7 +351,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           <>
             <View style={[st.dividerFull, { backgroundColor: colors.separator }]} />
             <View style={st.section}>
-              <View style={st.sectionHeaderRow}>
+              <View style={[st.sectionHeaderRow, isArabic && { flexDirection: "row-reverse" }]}>
                 <Text style={[st.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("youMayLike")}</Text>
                 <Feather name="chevron-right" size={18} color={colors.textSecondary} />
               </View>
