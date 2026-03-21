@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
   },
   profileButton: {
     width: 36,
