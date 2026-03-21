@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
 import {
   Dimensions,
@@ -49,6 +50,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const inputRef = useRef<TextInput>(null);
   const { colors, t, fontAr, isArabic } = useSettings();
+  const router = useRouter();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,17 +76,17 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+      <View style={[styles.header, isArabic && { alignItems: "flex-end" }]}>
+        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>
           {t("headerSearch")}
         </Text>
       </View>
 
-      <View style={[styles.searchContainer, { backgroundColor: colors.card }]}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card }, isArabic && { flexDirection: "row-reverse" }]}>
         <Feather name="search" size={18} color={colors.textSecondary} />
         <TextInput
           ref={inputRef}
-          style={[styles.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
+          style={[styles.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
           placeholder={t("searchAppPlaceholder")}
           placeholderTextColor={colors.textSecondary}
           value={query}
@@ -141,16 +143,20 @@ export default function SearchScreen() {
           </View>
         ) : (
           <View style={styles.categoriesContainer}>
-            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>
               {t("sections")}
             </Text>
             <View style={styles.catGrid}>
               {BROWSE_CATEGORIES.map((cat) => (
-                <Pressable key={cat.key} style={[styles.catCard, { backgroundColor: cat.bgColor }]}>
-                  <View style={styles.catCardIcon}>
+                <Pressable
+                  key={cat.key}
+                  style={[styles.catCard, { backgroundColor: cat.bgColor }]}
+                  onPress={() => router.push({ pathname: "/category/[id]", params: { id: cat.key, name: cat.label, color: cat.bgColor } })}
+                >
+                  <View style={[styles.catCardIcon, isArabic ? { left: 16, right: undefined } : { right: 16 }]}>
                     <Feather name={cat.icon} size={28} color="rgba(255,255,255,0.7)" />
                   </View>
-                  <Text style={[styles.catCardLabel, { fontFamily: fontAr("Bold") }]}>{cat.label}</Text>
+                  <Text style={[styles.catCardLabel, { fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>{cat.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -202,7 +208,6 @@ const styles = StyleSheet.create({
   catCardIcon: {
     position: "absolute",
     top: 16,
-    right: 16,
   },
   catCardLabel: {
     fontSize: 15,
