@@ -85,11 +85,10 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               src={`${import.meta.env.BASE_URL}mismari-logo-nobg.png`}
               alt="مسماري"
               style={{
-                height: "60px",
-                width: "auto",
+                width: "68px",
+                height: "80px",
+                objectFit: "contain",
                 display: "block",
-                padding: "10px 14px",
-                boxSizing: "content-box",
               }}
             />
           </a>
@@ -142,11 +141,11 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-black/8 py-10 px-5 text-center" style={{ background: `${PRIMARY}08` }}>
-        <a href="/" className="inline-flex items-center justify-center mb-5" style={{ overflow: "visible" }}>
+        <a href="/" className="inline-flex items-center justify-center mb-5">
           <img
             src={`${import.meta.env.BASE_URL}mismari-logo-nobg.png`}
             alt="مسماري"
-            style={{ height: "64px", width: "auto", objectFit: "contain", display: "block" }}
+            style={{ width: "75px", height: "90px", objectFit: "contain", display: "block" }}
           />
         </a>
         <div className="flex flex-wrap justify-center gap-6 mb-5 text-sm" style={{ color: `${TEXT}88` }}>
