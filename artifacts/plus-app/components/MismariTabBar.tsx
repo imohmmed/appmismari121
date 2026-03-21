@@ -169,9 +169,9 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
     <View style={s.barInner}>
       {isArabic ? (
         <>
-          {searchButton}
-          {homeButton}
           {tabsSectionAr}
+          {homeButton}
+          {searchButton}
         </>
       ) : (
         <>

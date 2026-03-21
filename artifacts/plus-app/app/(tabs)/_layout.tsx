@@ -9,7 +9,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 function NativeTabLayout() {
   const { t, isArabic } = useSettings();
 
-  const triggers = [
+  const tabTriggers = [
     <NativeTabs.Trigger key="index" name="index">
       <Icon sf={{ default: "plus.app", selected: "plus.app.fill" }} />
       <Label>{t("tabPlus")}</Label>
@@ -26,15 +26,19 @@ function NativeTabLayout() {
       <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
       <Label>{t("tabNumbers")}</Label>
     </NativeTabs.Trigger>,
+  ];
+
+  const searchTrigger = (
     <NativeTabs.Trigger key="search" name="search" role="search">
       <Icon sf="magnifyingglass" />
       <Label>{t("headerSearch")}</Label>
-    </NativeTabs.Trigger>,
-  ];
+    </NativeTabs.Trigger>
+  );
 
   return (
     <NativeTabs>
-      {isArabic ? [...triggers].reverse() : triggers}
+      {isArabic ? [...tabTriggers].reverse() : tabTriggers}
+      {searchTrigger}
     </NativeTabs>
   );
 }

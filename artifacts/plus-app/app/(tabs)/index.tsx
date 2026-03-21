@@ -363,7 +363,7 @@ export default function PlusScreen() {
         <StackedSection title={t("recentlyAdded")} subtitle={t("recentlyAddedSub")} data={newAdds} onAppPress={handleAppPress} />
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, isArabic && { justifyContent: "flex-end" }]}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("sections")}</Text>
           </View>
           <View style={styles.catGrid}>
