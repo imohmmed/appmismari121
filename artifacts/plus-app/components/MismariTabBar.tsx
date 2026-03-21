@@ -21,10 +21,10 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const TAB_ITEMS = [
-  { name: "index", label: "PLUS+", icon: "plus-square" },
-  { name: "tv", label: "TV", icon: "tv" },
-  { name: "smm", label: "SMM", icon: "message-square" },
-  { name: "numbers", label: "الأرقام", icon: "bar-chart-2" },
+  { name: "index", label: "بلس+", icon: "plus-square" },
+  { name: "tv", label: "تلفاز", icon: "tv" },
+  { name: "smm", label: "رشق", icon: "message-square" },
+  { name: "numbers", label: "أرقام", icon: "bar-chart-2" },
 ];
 
 const springConfig = LayoutAnimation.create(
@@ -107,7 +107,7 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
           <TextInput
             ref={searchInputRef}
             style={s.searchInput}
-            placeholder="ابحث في Mismari..."
+            placeholder="...ابحث في مسماري"
             placeholderTextColor={Colors.light.textSecondary}
             value={searchText}
             onChangeText={setSearchText}
@@ -209,7 +209,7 @@ const s = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
   },
 
   homeBtn: {
@@ -242,8 +242,9 @@ const s = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.text,
     height: 44,
+    textAlign: "right",
   },
 });

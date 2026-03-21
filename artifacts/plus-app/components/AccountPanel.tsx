@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.text,
   },
   closeButton: {
@@ -254,12 +254,12 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 18,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.text,
   },
   profileEmail: {
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
   },
   balanceCard: {
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 14,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Mestika-Medium",
     color: Colors.light.textSecondary,
   },
   balanceAmount: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
     color: Colors.light.text,
   },
   socialSection: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   socialTitle: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
     color: Colors.light.textSecondary,
     textAlign: "center",
     marginBottom: 12,

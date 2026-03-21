@@ -153,7 +153,7 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { paddingHorizontal: 20, paddingVertical: 12 },
-  headerTitle: { fontSize: 32, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  headerTitle: { fontSize: 32, fontFamily: "Mestika-Bold", color: Colors.light.text },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -168,15 +168,16 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.text,
+    textAlign: "right",
   },
   categoriesContainer: {
     paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 22,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.text,
     marginBottom: 16,
     paddingHorizontal: 4,
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
   },
   catCardLabel: {
     fontSize: 16,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: "#FFF",
   },
   resultsContainer: {
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
   appDesc: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
   },
   getButton: {
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
   },
   getButtonText: {
     fontSize: 15,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.tint,
   },
   divider: {
@@ -250,5 +251,5 @@ const styles = StyleSheet.create({
     marginLeft: 66,
   },
   emptyState: { alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 16 },
-  emptyText: { fontSize: 16, fontFamily: "Inter_500Medium", color: Colors.light.textSecondary },
+  emptyText: { fontSize: 16, fontFamily: "Mestika-Medium", color: Colors.light.textSecondary },
 });

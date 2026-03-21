@@ -17,6 +17,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Build**: esbuild (CJS bundle)
 - **Website**: React + Vite (dark purple Arabic RTL theme)
 - **Mobile App**: Expo SDK 54 with expo-router tabs
+- **Arabic Font**: Mestika typeface (Regular, Medium, SemiBold, Bold, ExtraBold, Black, Light) for all Arabic text in mobile app; Inter kept for English app names and numbers
 
 ## Structure
 

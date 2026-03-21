@@ -33,7 +33,7 @@ export default function NumbersScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mismari Num.</Text>
+        <Text style={styles.headerTitle}>مسماري NUM.</Text>
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -76,7 +76,7 @@ export default function NumbersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { paddingHorizontal: 20, paddingVertical: 12 },
-  headerTitle: { fontSize: 32, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  headerTitle: { fontSize: 32, fontFamily: "Mestika-Bold", color: Colors.light.text },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, gap: 12 },
   statCard: {
     width: "47%" as any,
@@ -87,9 +87,9 @@ const styles = StyleSheet.create({
   },
   statIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   statValue: { fontSize: 24, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  statLabel: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  statLabel: { fontSize: 13, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
   section: { marginTop: 24, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text, marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontFamily: "Mestika-Bold", color: Colors.light.text, marginBottom: 16 },
   rankRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   rankNumber: { fontSize: 16, fontFamily: "Inter_700Bold", color: Colors.light.tint, width: 30 },
   rankInfo: { flex: 1, gap: 2 },
   rankName: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
-  rankDownloads: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  rankDownloads: { fontSize: 13, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
   trendBadge: {
     flexDirection: "row",
     alignItems: "center",

@@ -275,7 +275,7 @@ export default function PlusScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mismari +</Text>
+        <Text style={styles.headerTitle}>مسماري +</Text>
         <TouchableOpacity style={styles.profileButton} onPress={() => setShowAccount(true)} activeOpacity={0.6}>
           <Feather name="user" size={20} color={Colors.light.textSecondary} />
         </TouchableOpacity>
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 32,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.text,
   },
   profileButton: {
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   categoryPillText: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
     color: Colors.light.text,
   },
 
@@ -462,18 +462,18 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
     color: Colors.light.tint,
     letterSpacing: 1,
   },
   sectionTitle: {
     fontSize: 22,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.text,
   },
   sectionSubtitle: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
     marginTop: 2,
   },
@@ -493,18 +493,18 @@ const styles = StyleSheet.create({
   },
   featuredLabel: {
     fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Mestika-SemiBold",
     color: "rgba(255,255,255,0.7)",
     letterSpacing: 1,
   },
   featuredTitle: {
     fontSize: 22,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: "#FFF",
   },
   featuredSubtitle: {
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: "rgba(255,255,255,0.8)",
   },
   paginationDots: {
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   },
   listRowDesc: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
   },
   listRowGetButton: {
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   listRowGetText: {
     fontSize: 15,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.tint,
   },
   listRowDivider: {
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   },
   appDesc: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
   },
   getButton: {
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   getButtonText: {
     fontSize: 15,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.tint,
   },
 
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   catCardLabel: {
     fontSize: 16,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: "#FFF",
   },
 

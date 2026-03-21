@@ -38,7 +38,7 @@ export default function TvScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mismari TV</Text>
+        <Text style={styles.headerTitle}>مسماري TV</Text>
       </View>
       <FlatList
         data={TV_APPS}
@@ -72,13 +72,13 @@ export default function TvScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { paddingHorizontal: 20, paddingVertical: 12 },
-  headerTitle: { fontSize: 32, fontFamily: "Inter_700Bold", color: Colors.light.text },
+  headerTitle: { fontSize: 32, fontFamily: "Mestika-Bold", color: Colors.light.text },
   appRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 14 },
   appIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   appInfo: { flex: 1, gap: 3 },
   appName: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
-  appDesc: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  appDesc: { fontSize: 13, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
   getButton: { backgroundColor: Colors.light.card, paddingHorizontal: 22, paddingVertical: 7, borderRadius: 18 },
-  getButtonText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.tint },
+  getButtonText: { fontSize: 15, fontFamily: "Mestika-Bold", color: Colors.light.tint },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginLeft: 66 },
 });

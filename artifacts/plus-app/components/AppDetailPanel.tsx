@@ -383,7 +383,7 @@ const st = StyleSheet.create({
   },
   stickyGetText: {
     fontSize: 14,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: "#FFF",
   },
 
@@ -413,7 +413,7 @@ const st = StyleSheet.create({
   },
   appSubtitle: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Mestika-Regular",
     color: Colors.light.textSecondary,
     marginBottom: 8,
   },
@@ -433,7 +433,7 @@ const st = StyleSheet.create({
   },
   repeatText: {
     fontSize: 13,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.tint,
   },
   getBtn: {
@@ -446,7 +446,7 @@ const st = StyleSheet.create({
   },
   getBtnText: {
     fontSize: 13,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: "#FFF",
   },
 
@@ -470,7 +470,7 @@ const st = StyleSheet.create({
   },
   glassGetSmallText: {
     fontSize: 14,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Mestika-Bold",
     color: Colors.light.tint,
   },
 
@@ -484,46 +484,46 @@ const st = StyleSheet.create({
   },
   infoBox: { flex: 1, alignItems: "center", gap: 2 },
   infoBoxDivider: { width: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginVertical: 4 },
-  infoBoxLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: Colors.light.textSecondary, letterSpacing: 0.5 },
+  infoBoxLabel: { fontSize: 10, fontFamily: "Mestika-SemiBold", color: Colors.light.textSecondary, letterSpacing: 0.5 },
   infoBoxValue: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  infoBoxSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  infoBoxSub: { fontSize: 11, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
 
   section: { paddingHorizontal: 20, marginBottom: 8, paddingTop: 16 },
-  sectionTitle: { fontSize: 20, fontFamily: "Inter_700Bold", color: Colors.light.text, marginBottom: 10 },
+  sectionTitle: { fontSize: 20, fontFamily: "Mestika-Bold", color: Colors.light.text, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  descText: { fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, lineHeight: 22 },
-  readMore: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.tint, marginTop: 6, marginBottom: 8 },
+  descText: { fontSize: 15, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary, lineHeight: 22 },
+  readMore: { fontSize: 15, fontFamily: "Mestika-SemiBold", color: Colors.light.tint, marginTop: 6, marginBottom: 8 },
   dividerFull: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginHorizontal: 20, marginVertical: 8 },
 
   ratingOverview: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 16 },
   bigRating: { fontSize: 48, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  ratingCount: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  ratingCount: { fontSize: 13, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
 
   reviewCard: { backgroundColor: Colors.light.card, borderRadius: 14, padding: 14, marginBottom: 10, gap: 6 },
   reviewHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
   reviewerAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.light.tint, alignItems: "center", justifyContent: "center" },
   reviewerInitial: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#FFF" },
-  reviewerName: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  reviewerName: { fontSize: 15, fontFamily: "Mestika-SemiBold", color: Colors.light.text },
   reviewerPhone: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
-  reviewDate: { fontSize: 12, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
-  reviewText: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.text, lineHeight: 20 },
+  reviewDate: { fontSize: 12, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
+  reviewText: { fontSize: 14, fontFamily: "Mestika-Regular", color: Colors.light.text, lineHeight: 20 },
 
   tapToRate: { alignItems: "center", gap: 8, marginVertical: 16 },
-  tapToRateLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+  tapToRateLabel: { fontSize: 15, fontFamily: "Mestika-SemiBold", color: Colors.light.text },
   tapStars: { flexDirection: "row", gap: 12 },
 
   writeReviewSection: { gap: 10, marginTop: 8 },
-  writeReviewTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  input: { backgroundColor: Colors.light.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Inter_400Regular", color: Colors.light.text },
+  writeReviewTitle: { fontSize: 17, fontFamily: "Mestika-Bold", color: Colors.light.text },
+  input: { backgroundColor: Colors.light.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Mestika-Regular", color: Colors.light.text, textAlign: "right" as const },
   submitBtn: { backgroundColor: Colors.light.tint, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   submitBtnDisabled: { opacity: 0.4 },
-  submitBtnText: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#FFF" },
+  submitBtnText: { fontSize: 16, fontFamily: "Mestika-Bold", color: "#FFF" },
 
   relatedRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12 },
   relatedIcon: { width: 56, height: 56, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   relatedName: { fontSize: 16, fontFamily: "Inter_600SemiBold", color: Colors.light.text },
-  relatedDesc: { fontSize: 13, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary },
+  relatedDesc: { fontSize: 13, fontFamily: "Mestika-Regular", color: Colors.light.textSecondary },
   relatedGetBtn: { backgroundColor: Colors.light.card, paddingHorizontal: 22, paddingVertical: 7, borderRadius: 18 },
-  relatedGetText: { fontSize: 15, fontFamily: "Inter_700Bold", color: Colors.light.tint },
+  relatedGetText: { fontSize: 15, fontFamily: "Mestika-Bold", color: Colors.light.tint },
   relatedDivider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.light.separator, marginLeft: 68 },
 });

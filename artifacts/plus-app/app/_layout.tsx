@@ -36,6 +36,13 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    "Mestika-Regular": require("../assets/fonts/Mestika-Regular.otf"),
+    "Mestika-Medium": require("../assets/fonts/Mestika-Medium.otf"),
+    "Mestika-SemiBold": require("../assets/fonts/Mestika-SemiBold.otf"),
+    "Mestika-Bold": require("../assets/fonts/Mestika-Bold.otf"),
+    "Mestika-ExtraBold": require("../assets/fonts/Mestika-ExtraBold.otf"),
+    "Mestika-Black": require("../assets/fonts/Mestika-Black.otf"),
+    "Mestika-Light": require("../assets/fonts/Mestika-Light.otf"),
   });
 
   useEffect(() => {
