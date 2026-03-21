@@ -37,8 +37,17 @@ function NativeTabLayout() {
 
   return (
     <NativeTabs>
-      {isArabic ? [...tabTriggers].reverse() : tabTriggers}
-      {searchTrigger}
+      {isArabic ? (
+        <>
+          {searchTrigger}
+          {[...tabTriggers].reverse()}
+        </>
+      ) : (
+        <>
+          {tabTriggers}
+          {searchTrigger}
+        </>
+      )}
     </NativeTabs>
   );
 }

@@ -4,6 +4,7 @@ import {
   Animated,
   Dimensions,
   Linking,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -50,12 +51,31 @@ interface AccountPanelProps {
 
 export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const insets = useSafeAreaInsets();
-  const { colors, t, fontAr } = useSettings();
+  const { colors, t, fontAr, isArabic } = useSettings();
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = React.useRef(new Animated.Value(0)).current;
+  const panY = React.useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const isClosing = React.useRef(false);
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) panY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 100 || g.vy > 0.5) {
+          onClose();
+          Animated.timing(panY, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+        } else {
+          Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
 
   const MENU_ITEMS = [
     { key: "profile", label: t("myAccount"), icon: "user" as const },
@@ -130,33 +150,36 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
           styles.panel,
           {
             backgroundColor: colors.background,
-            paddingTop: insets.top + 10,
+            paddingTop: 10,
             paddingBottom: insets.bottom + 10,
-            transform: [{ translateY: slideAnim }],
+            transform: [{ translateY: Animated.add(slideAnim, panY) }],
           },
         ]}
       >
-        <View style={[styles.handleBar, { backgroundColor: colors.separator }]} />
+        <View {...panResponder.panHandlers}>
+          <View style={[styles.handleBar, { backgroundColor: colors.separator }]} />
 
-        <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-            {t("account")}
-          </Text>
-          <TouchableOpacity
-            onPress={onClose}
-            style={[styles.closeButton, { backgroundColor: colors.card }]}
-            activeOpacity={0.6}
-          >
-            <Feather name="x" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeButton, { backgroundColor: colors.card }]}
+              activeOpacity={0.6}
+            >
+              <Feather name="x" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+              {t("account")}
+            </Text>
+            <View style={{ width: 32 }} />
+          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
-          <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
+          <View style={[styles.profileCard, { backgroundColor: colors.card }, isArabic && { flexDirection: "row-reverse" }]}>
             <View style={[styles.avatarCircle, { backgroundColor: colors.backgroundSecondary, borderColor: colors.cardBorder }]}>
               <Feather name="user" size={32} color={colors.tint} />
             </View>
-            <View style={styles.profileInfo}>
+            <View style={[styles.profileInfo, isArabic && { alignItems: "flex-end" }]}>
               <Text style={[styles.profileName, { color: colors.text, fontFamily: fontAr("Bold") }]}>
                 {t("guestUser")}
               </Text>
@@ -177,7 +200,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
             {MENU_ITEMS.map((item) => (
               <TouchableOpacity
                 key={item.key}
-                style={[styles.menuRow, { borderBottomColor: colors.cardBorder }]}
+                style={[styles.menuRow, { borderBottomColor: colors.cardBorder }, isArabic && { flexDirection: "row-reverse" }]}
                 activeOpacity={0.6}
                 onPress={() => handleMenuPress(item.key)}
               >
@@ -187,7 +210,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                 <Text style={[styles.menuLabel, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>
                   {item.label}
                 </Text>
-                <Feather name="chevron-right" size={18} color={colors.separator} />
+                <Feather name={isArabic ? "chevron-left" : "chevron-right"} size={18} color={colors.separator} />
               </TouchableOpacity>
             ))}
           </View>
@@ -248,6 +271,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
+    textAlign: "center",
   },
   closeButton: {
     width: 32,
