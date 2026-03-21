@@ -80,21 +80,21 @@ export default function AdminApps() {
         </button>
       </div>
 
-      <div className="glass-panel rounded-2xl overflow-hidden border border-white/5">
-        <div className="p-4 border-b border-white/5 flex items-center gap-4 bg-white/5">
+      <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-sm">
+        <div className="p-4 border-b border-border flex items-center gap-4 bg-muted/50">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input 
               type="text" 
               placeholder="ابحث عن تطبيق..." 
-              className="w-full bg-background border border-white/10 rounded-lg py-2 pr-10 pl-4 focus:outline-none focus:border-primary text-sm"
+              className="w-full bg-background border border-border rounded-lg py-2 pr-10 pl-4 focus:outline-none focus:border-primary text-sm text-foreground"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-right">
-            <thead className="bg-white/5 border-b border-white/5 text-muted-foreground">
+            <thead className="bg-muted/50 border-b border-border text-muted-foreground">
               <tr>
                 <th className="px-6 py-4 font-semibold">التطبيق</th>
                 <th className="px-6 py-4 font-semibold">القسم</th>
@@ -110,15 +110,15 @@ export default function AdminApps() {
                 <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد تطبيقات</td></tr>
               ) : (
                 apps.map((app) => (
-                  <tr key={app.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <tr key={app.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img src={app.icon} alt={app.name} className="w-10 h-10 rounded-xl object-cover bg-card border border-white/10" />
+                        <img src={app.icon} alt={app.name} className="w-10 h-10 rounded-xl object-cover bg-card border border-border" />
                         <div>
                           <p className="font-bold">{app.name}</p>
                           <div className="flex gap-1 mt-1">
-                            {app.isFeatured && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 rounded-md">رائج</span>}
-                            {app.isHot && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 rounded-md">ساخن</span>}
+                            {app.isFeatured && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 rounded-md">رائج</span>}
+                            {app.isHot && <span className="text-[10px] bg-red-100 text-red-600 px-2 rounded-md">ساخن</span>}
                           </div>
                         </div>
                       </div>
@@ -140,7 +140,7 @@ export default function AdminApps() {
                         <button onClick={() => openEdit(app)} className="p-2 hover:bg-primary/20 hover:text-primary rounded-lg transition-colors">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(app.id)} className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg transition-colors">
+                        <button onClick={() => handleDelete(app.id)} className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -155,11 +155,11 @@ export default function AdminApps() {
 
       {/* Modal Overlay */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-white/5">
-              <h3 className="text-xl font-bold">{editingApp ? "تعديل تطبيق" : "إضافة تطبيق جديد"}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full text-muted-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-background border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h3 className="text-xl font-bold text-foreground">{editingApp ? "تعديل تطبيق" : "إضافة تطبيق جديد"}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-muted rounded-full text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -168,24 +168,24 @@ export default function AdminApps() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 sm:col-span-1 space-y-2">
                   <label className="text-sm text-muted-foreground">اسم التطبيق</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary" />
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" />
                 </div>
                 <div className="col-span-2 sm:col-span-1 space-y-2">
                   <label className="text-sm text-muted-foreground">رابط الأيقونة</label>
                   <div className="flex gap-2">
-                    <input required value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className="flex-1 bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary" dir="ltr" />
-                    {formData.icon && <img src={formData.icon} className="w-10 h-10 rounded-xl object-cover bg-black" />}
+                    <input required value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className="flex-1 bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" />
+                    {formData.icon && <img src={formData.icon} className="w-10 h-10 rounded-xl object-cover bg-card" />}
                   </div>
                 </div>
                 
                 <div className="col-span-2 space-y-2">
                   <label className="text-sm text-muted-foreground">الوصف</label>
-                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary h-20" />
+                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary h-20 text-foreground" />
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">القسم</label>
-                  <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: Number(e.target.value)})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary appearance-none">
+                  <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: Number(e.target.value)})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary appearance-none text-foreground">
                     <option value={1}>تطبيقات بلس</option>
                     <option value={2}>ألعاب مهكرة</option>
                     <option value={3}>أفلام ومسلسلات</option>
@@ -194,7 +194,7 @@ export default function AdminApps() {
 
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">الوسم (Tag)</label>
-                  <select value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value as any})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary appearance-none">
+                  <select value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value as any})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary appearance-none text-foreground">
                     <option value="new">جديد</option>
                     <option value="hot">ساخن</option>
                     <option value="tweaked">بلس</option>
@@ -205,28 +205,28 @@ export default function AdminApps() {
 
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">الإصدار</label>
-                  <input value={formData.version} onChange={e => setFormData({...formData, version: e.target.value})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary" dir="ltr" />
+                  <input value={formData.version} onChange={e => setFormData({...formData, version: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" />
                 </div>
                 
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">الحجم</label>
-                  <input value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-background border border-white/10 rounded-xl py-2 px-3 focus:border-primary" dir="ltr" placeholder="ex: 150 MB" />
+                  <input value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" placeholder="ex: 150 MB" />
                 </div>
 
                 <div className="col-span-2 flex gap-6 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.isFeatured} onChange={e => setFormData({...formData, isFeatured: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-white/10" />
-                    <span>تطبيق رائج (في السلايدر)</span>
+                    <input type="checkbox" checked={formData.isFeatured} onChange={e => setFormData({...formData, isFeatured: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-border" />
+                    <span className="text-foreground">تطبيق رائج (في السلايدر)</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.isHot} onChange={e => setFormData({...formData, isHot: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-white/10" />
+                    <input type="checkbox" checked={formData.isHot} onChange={e => setFormData({...formData, isHot: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-border" />
                     <span>تطبيق ساخن (الأكثر تحميلاً)</span>
                   </label>
                 </div>
               </div>
               
-              <div className="pt-6 border-t border-white/5 flex justify-end gap-3 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 rounded-xl border border-white/10 hover:bg-white/5">إلغاء</button>
+              <div className="pt-6 border-t border-border flex justify-end gap-3 mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 rounded-xl border border-border hover:bg-muted text-foreground">إلغاء</button>
                 <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="px-8 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
                   حفظ
                 </button>

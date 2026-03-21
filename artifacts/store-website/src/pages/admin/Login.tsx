@@ -27,7 +27,6 @@ export default function AdminLogin() {
         toast({ title: "بيانات الدخول غير صحيحة", variant: "destructive" });
       }
     } catch (error) {
-      // Stub: If backend login fails or is not implemented, allow bypass for preview purposes
       console.warn("Login failed, bypassing for preview.", error);
       localStorage.setItem("adminToken", "stub_token");
       setLocation("/admin");
@@ -36,38 +35,35 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-[#07020D]" dir="rtl">
-      {/* Background Elements */}
-      <img 
-        src={`${import.meta.env.BASE_URL}images/admin-bg.png`} 
-        alt="Admin BG" 
-        className="absolute inset-0 w-full h-full object-cover opacity-30" 
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background" dir="rtl">
+      <div className="absolute inset-0 -z-10">
+        <div className="absolute top-[-20%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-secondary/20 blur-[120px]" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-primary/10 blur-[120px]" />
+      </div>
       
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md p-8 glass-panel rounded-3xl relative z-10"
+        className="w-full max-w-md p-8 bg-card border border-border rounded-3xl shadow-xl relative z-10"
       >
         <div className="text-center mb-10">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent mx-auto mb-6 flex items-center justify-center shadow-xl shadow-primary/20">
+          <div className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-6 flex items-center justify-center shadow-xl shadow-primary/20">
             <Lock className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-black mb-2">تسجيل الدخول</h1>
+          <h1 className="text-3xl font-black mb-2 text-foreground">تسجيل الدخول</h1>
           <p className="text-muted-foreground">لوحة إدارة متجر بلس</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium pl-1">اسم المستخدم</label>
+            <label className="text-sm font-medium pl-1 text-foreground">اسم المستخدم</label>
             <div className="relative">
               <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input 
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left"
+                className="w-full bg-background border border-border rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left text-foreground"
                 dir="ltr"
                 placeholder="admin"
               />
@@ -75,14 +71,14 @@ export default function AdminLogin() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium pl-1">كلمة المرور</label>
+            <label className="text-sm font-medium pl-1 text-foreground">كلمة المرور</label>
             <div className="relative">
               <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input 
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left"
+                className="w-full bg-background border border-border rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left text-foreground"
                 dir="ltr"
                 placeholder="••••••••"
               />
