@@ -70,6 +70,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { label: "تطبيقاتنا", href: "#apps" },
     { label: "الاشتراكات", href: "#plans" },
+    { label: "الأسئلة الشائعة", href: "#faq" },
     { label: "تفعيل الاشتراك", href: "#activate" },
     { label: "طلب اشتراك", href: "#plans" },
   ];

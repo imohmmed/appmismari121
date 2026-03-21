@@ -260,6 +260,27 @@ export default function Home() {
         <AppsRow title="أحدث الإضافات" section="latest" onAppClick={setSelectedApp} />
       </section>
 
+      {/* ───── ACTIVATE ───── */}
+      <section id="activate" className="py-14 px-5 w-full max-w-xl mx-auto text-center">
+        <h2 className="text-2xl font-black mb-2" style={{ color: TEXT }}>تفعيل الاشتراك</h2>
+        <p className="text-sm mb-8" style={{ color: `${TEXT}80` }}>أدخل كود الاشتراك الخاص بك لتفعيل اشتراكك</p>
+        <div className="rounded-2xl border p-6" style={{ borderColor: `${TEXT}15`, background: `${PRIMARY}06` }}>
+          <input
+            type="text"
+            placeholder="أدخل كود الاشتراك..."
+            className="w-full rounded-xl border px-4 py-3.5 text-sm mb-4 text-center focus:outline-none"
+            style={{ borderColor: `${TEXT}20`, background: "#fff", color: TEXT }}
+            dir="ltr"
+          />
+          <button
+            className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, ${PRIMARY}, #6fa8ff)`, color: "#fff" }}
+          >
+            تحقق من الاشتراك
+          </button>
+        </div>
+      </section>
+
       {/* ───── PLANS ───── */}
       <section id="plans" className="py-14 px-5 w-full">
         <h2 className="text-2xl font-black text-center mb-2" style={{ color: TEXT }}>
