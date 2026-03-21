@@ -204,37 +204,6 @@ function CategoryCard({ cat, onPress }: { cat: typeof BROWSE_CATEGORIES[number];
   );
 }
 
-function CategoryPage({ catKey, onBack }: { catKey: string; onBack: () => void }) {
-  const cat = CATEGORIES.find((c) => c.key === catKey);
-  const apps = ALL_APPS.filter((a) => a.catKey === catKey);
-  const isWeb = Platform.OS === "web";
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.catPageHeader}>
-        <Pressable onPress={onBack} style={styles.backButton}>
-          <Feather name="chevron-left" size={24} color={Colors.light.tint} />
-        </Pressable>
-        <Text style={styles.catPageTitle}>{cat?.label}</Text>
-        <View style={{ width: 32 }} />
-      </View>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: isWeb ? 34 : 100 }}
-        contentInsetAdjustmentBehavior="automatic"
-      >
-        <View style={styles.appList}>
-          {apps.map((app, idx) => (
-            <View key={app.id}>
-              <AppRow app={app} />
-              {idx < apps.length - 1 && <View style={styles.listRowDivider} />}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
 
 export default function PlusScreen() {
   const insets = useSafeAreaInsets();
@@ -247,9 +216,31 @@ export default function PlusScreen() {
   const newAdds = ALL_APPS.filter((a) => a.isNew);
 
   if (activeCat) {
+    const cat = CATEGORIES.find((c) => c.key === activeCat);
+    const apps = ALL_APPS.filter((a) => a.catKey === activeCat);
     return (
       <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
-        <CategoryPage catKey={activeCat} onBack={() => setActiveCat(null)} />
+        <View style={styles.catPageHeader}>
+          <Pressable onPress={() => setActiveCat(null)} style={styles.backButton}>
+            <Feather name="chevron-left" size={24} color={Colors.light.tint} />
+          </Pressable>
+          <Text style={styles.catPageTitle}>{cat?.label}</Text>
+          <View style={{ width: 32 }} />
+        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: isWeb ? 34 : 100 }}
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          <View style={styles.appList}>
+            {apps.map((app, idx) => (
+              <View key={app.id}>
+                <AppRow app={app} />
+                {idx < apps.length - 1 && <View style={styles.listRowDivider} />}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -257,7 +248,7 @@ export default function PlusScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>PLUS+</Text>
+        <Text style={styles.headerTitle}>Mismari +</Text>
         <Pressable style={styles.profileButton}>
           <Feather name="user" size={20} color={Colors.light.textSecondary} />
         </Pressable>

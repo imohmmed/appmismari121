@@ -30,7 +30,7 @@ export default function SmmScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Social Media</Text>
+        <Text style={styles.headerTitle}>Mismari SMM</Text>
       </View>
       <FlatList
         data={SMM_APPS}

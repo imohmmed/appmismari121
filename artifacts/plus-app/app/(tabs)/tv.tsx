@@ -38,7 +38,7 @@ export default function TvScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>TV & Movies</Text>
+        <Text style={styles.headerTitle}>Mismari TV</Text>
       </View>
       <FlatList
         data={TV_APPS}

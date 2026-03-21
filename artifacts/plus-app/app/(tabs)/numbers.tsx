@@ -33,7 +33,7 @@ export default function NumbersScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Numbers</Text>
+        <Text style={styles.headerTitle}>Mismari Num.</Text>
       </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
