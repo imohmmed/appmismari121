@@ -333,7 +333,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           <View style={st.writeReviewSection}>
             <Text style={[st.writeReviewTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("writeReview")}</Text>
             <TextInput
-              style={[st.input, { height: 80, textAlignVertical: "top", backgroundColor: colors.card, color: colors.text, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
+              style={[st.input, { height: 80, textAlignVertical: "top", backgroundColor: colors.card, color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
               placeholder={t("reviewPlaceholder")}
               placeholderTextColor={colors.textSecondary}
               value={reviewText}
@@ -352,7 +352,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             <View style={st.section}>
               <View style={st.sectionHeaderRow}>
                 <Text style={[st.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("youMayLike")}</Text>
-                <Feather name="chevron-left" size={18} color={colors.textSecondary} />
+                <Feather name="chevron-right" size={18} color={colors.textSecondary} />
               </View>
             </View>
             <RelatedAppsRow apps={relatedApps} onPress={onRelatedAppPress} />

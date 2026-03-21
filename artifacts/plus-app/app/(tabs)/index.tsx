@@ -118,7 +118,7 @@ function CategoryPill({ catKey, onPress }: { catKey: string; onPress: () => void
   const label = t((CAT_TRANSLATION_KEY[catKey] || catKey) as any);
   return (
     <Pressable onPress={onPress} style={[styles.categoryPill, { backgroundColor: colors.background }]}>
-      <Feather name={icon as any} size={14} color={colors.tint} style={{ marginLeft: 5 }} />
+      <Feather name={icon as any} size={14} color={colors.tint} style={{ marginRight: 5 }} />
       <Text style={[styles.categoryPillText, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>{label}</Text>
     </Pressable>
   );
@@ -172,7 +172,7 @@ function StackedSection({ title, subtitle, data, onAppPress }: { title: string; 
           <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{title}</Text>
           <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{subtitle}</Text>
         </View>
-        <Feather name="chevron-left" size={18} color={colors.textSecondary} />
+        <Feather name="chevron-right" size={18} color={colors.textSecondary} />
       </View>
       <FlatList
         data={pages}
@@ -326,7 +326,7 @@ export default function PlusScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionLabel, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>{t("featured")}</Text>
-            <Feather name="chevron-left" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
           </View>
           <FlatList
             ref={featuredRef}
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   categoryPill: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,

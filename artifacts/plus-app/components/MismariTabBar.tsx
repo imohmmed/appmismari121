@@ -110,7 +110,7 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
           <Feather name="search" size={18} color={colors.textSecondary} />
           <TextInput
             ref={searchInputRef}
-            style={[s.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
+            style={[s.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
             placeholder={t("searchPlaceholder")}
             placeholderTextColor={colors.textSecondary}
             value={searchText}

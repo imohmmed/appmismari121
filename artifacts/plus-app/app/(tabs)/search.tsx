@@ -84,7 +84,7 @@ export default function SearchScreen() {
         <Feather name="search" size={18} color={colors.textSecondary} />
         <TextInput
           ref={inputRef}
-          style={[styles.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
+          style={[styles.searchInput, { color: colors.text, fontFamily: fontAr("Regular"), textAlign: "left" }]}
           placeholder={t("searchAppPlaceholder")}
           placeholderTextColor={colors.textSecondary}
           value={query}

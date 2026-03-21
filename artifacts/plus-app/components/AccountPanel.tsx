@@ -187,7 +187,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                 <Text style={[styles.menuLabel, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>
                   {item.label}
                 </Text>
-                <Feather name="chevron-left" size={18} color={colors.separator} />
+                <Feather name="chevron-right" size={18} color={colors.separator} />
               </TouchableOpacity>
             ))}
           </View>
