@@ -29,14 +29,14 @@ function NativeTabLayout() {
   ];
 
   const searchTrigger = (
-    <NativeTabs.Trigger key="search" name="search" {...(isArabic ? {} : { role: "search" })}>
+    <NativeTabs.Trigger key="search" name="search" role="search">
       <Icon sf="magnifyingglass" />
       <Label>{t("headerSearch")}</Label>
     </NativeTabs.Trigger>
   );
 
   const orderedChildren = isArabic
-    ? [searchTrigger, ...[...tabTriggers].reverse()]
+    ? [...[...tabTriggers].reverse(), searchTrigger]
     : [...tabTriggers, searchTrigger];
 
   return (
