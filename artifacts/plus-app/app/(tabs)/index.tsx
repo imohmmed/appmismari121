@@ -300,7 +300,10 @@ export default function PlusScreen() {
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
       <View style={[styles.header, isArabic && { flexDirection: "row-reverse" }]}>
-        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("headerPlus")}</Text>
+        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold"), writingDirection: "ltr" }]}>
+          {isArabic ? "مسماري " : "Mismari "}
+          <Text style={{ fontFamily: "Inter_700Bold" }}>+</Text>
+        </Text>
         <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.card }]} onPress={() => setShowAccount(true)} activeOpacity={0.6}>
           <Feather name="user" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
