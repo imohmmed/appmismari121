@@ -1,12 +1,12 @@
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 import {
   FlatList,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,31 +40,33 @@ function getTagColor(tag: string) {
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const params = useLocalSearchParams<{ query?: string }>();
-  const query = params.query || "";
+  const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return ALL_APPS;
-    const q = query.toLowerCase();
-    return ALL_APPS.filter(
-      (app) => app.name.toLowerCase().includes(q) || app.category.toLowerCase().includes(q)
-    );
-  }, [query]);
+  const filtered = query.length > 0
+    ? ALL_APPS.filter((app) => app.name.toLowerCase().includes(query.toLowerCase()))
+    : ALL_APPS;
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {query.trim() ? "Results" : "Search"}
-        </Text>
-        {query.trim() ? (
-          <Text style={styles.headerSubtitle}>
-            {filtered.length} {filtered.length === 1 ? "app" : "apps"} found
-          </Text>
-        ) : (
-          <Text style={styles.headerSubtitle}>
-            Type in the search bar below
-          </Text>
+        <Text style={styles.headerTitle}>Search</Text>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Feather name="search" size={18} color={Colors.light.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search apps & games..."
+          placeholderTextColor={Colors.light.textSecondary}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <Pressable onPress={() => setQuery("")}>
+            <Feather name="x-circle" size={18} color={Colors.light.textSecondary} />
+          </Pressable>
         )}
       </View>
 
@@ -111,7 +113,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   header: { paddingHorizontal: 20, paddingVertical: 12 },
   headerTitle: { fontSize: 32, fontFamily: "Inter_700Bold", color: Colors.light.text },
-  headerSubtitle: { fontSize: 14, fontFamily: "Inter_400Regular", color: Colors.light.textSecondary, marginTop: 4 },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.cardBorder,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+    color: Colors.light.text,
+  },
   appRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 14 },
   appIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   appInfo: { flex: 1, gap: 4 },

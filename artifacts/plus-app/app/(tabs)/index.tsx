@@ -72,7 +72,10 @@ function FilterChip({ item, isActive, onPress }: { item: typeof FILTERS[number];
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.filterChip, isActive && styles.filterChipActive]}
+      style={[
+        styles.filterChip,
+        isActive && styles.filterChipActive,
+      ]}
     >
       {"icon" in item && item.icon === "flame" && (
         <Ionicons name="flame" size={14} color={isActive ? "#FFF" : Colors.light.tagHot} style={{ marginRight: 4 }} />
@@ -129,12 +132,18 @@ export default function PlusScreen() {
 
   const filteredApps = useMemo(() => {
     switch (activeFilter) {
-      case "hot": return ALL_APPS.filter((a) => a.isHot);
-      case "new": return ALL_APPS.filter((a) => a.isNew);
-      case "tweaked": return ALL_APPS.filter((a) => a.tag === "tweaked");
-      case "modded": return ALL_APPS.filter((a) => a.tag === "modded");
-      case "hacked": return ALL_APPS.filter((a) => a.tag === "hacked");
-      default: return ALL_APPS;
+      case "hot":
+        return ALL_APPS.filter((a) => a.isHot);
+      case "new":
+        return ALL_APPS.filter((a) => a.isNew);
+      case "tweaked":
+        return ALL_APPS.filter((a) => a.tag === "tweaked");
+      case "modded":
+        return ALL_APPS.filter((a) => a.tag === "modded");
+      case "hacked":
+        return ALL_APPS.filter((a) => a.tag === "hacked");
+      default:
+        return ALL_APPS;
     }
   }, [activeFilter]);
 
@@ -213,7 +222,9 @@ export default function PlusScreen() {
               <Feather name="chevron-right" size={18} color={Colors.light.textSecondary} />
             </View>
             <View style={styles.appList}>
-              {hotApps.map((app) => <AppRow key={app.id} app={app} />)}
+              {hotApps.map((app) => (
+                <AppRow key={app.id} app={app} />
+              ))}
             </View>
           </View>
         )}
@@ -231,7 +242,9 @@ export default function PlusScreen() {
               </View>
             </View>
             <View style={styles.appList}>
-              {filteredApps.map((app) => <AppRow key={app.id} app={app} />)}
+              {filteredApps.map((app) => (
+                <AppRow key={app.id} app={app} />
+              ))}
             </View>
           </View>
         )}
