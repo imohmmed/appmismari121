@@ -1,18 +1,24 @@
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
+  LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 
 import Colors from "@/constants/colors";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const TAB_ITEMS = [
   { name: "index", label: "PLUS+", icon: "plus-square" },
@@ -21,40 +27,30 @@ const TAB_ITEMS = [
   { name: "numbers", label: "Numbers", icon: "bar-chart-2" },
 ];
 
+const springConfig = LayoutAnimation.create(
+  350,
+  LayoutAnimation.Types.spring,
+  LayoutAnimation.Properties.scaleXY
+);
+
 export default function MismariTabBar({ state, navigation }: BottomTabBarProps) {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchText, setSearchText] = useState("");
   const searchInputRef = useRef<TextInput>(null);
 
-  const tabsWidth = useRef(new Animated.Value(1)).current;
-  const searchWidth = useRef(new Animated.Value(0)).current;
-
   const activeRoute = state.routes[state.index]?.name;
 
-  useEffect(() => {
-    if (isSearchMode) {
-      Animated.parallel([
-        Animated.spring(tabsWidth, { toValue: 0, useNativeDriver: false, tension: 50, friction: 10 }),
-        Animated.spring(searchWidth, { toValue: 1, useNativeDriver: false, tension: 50, friction: 10 }),
-      ]).start(() => {
-        searchInputRef.current?.focus();
-      });
-    } else {
-      searchInputRef.current?.blur();
-      Animated.parallel([
-        Animated.spring(tabsWidth, { toValue: 1, useNativeDriver: false, tension: 50, friction: 10 }),
-        Animated.spring(searchWidth, { toValue: 0, useNativeDriver: false, tension: 50, friction: 10 }),
-      ]).start();
-    }
-  }, [isSearchMode]);
-
   const enterSearchMode = () => {
+    LayoutAnimation.configureNext(springConfig);
     setIsSearchMode(true);
     const searchIdx = state.routes.findIndex((r) => r.name === "search");
     if (searchIdx >= 0) navigation.navigate("search");
+    setTimeout(() => searchInputRef.current?.focus(), 400);
   };
 
   const exitSearchMode = () => {
+    searchInputRef.current?.blur();
+    LayoutAnimation.configureNext(springConfig);
     setIsSearchMode(false);
     setSearchText("");
     const homeIdx = state.routes.findIndex((r) => r.name === "index");
@@ -66,11 +62,6 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
     navigation.navigate(routeName);
   };
 
-  const tabsFlex = tabsWidth.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const searchFlex = searchWidth.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const tabsOpacity = tabsWidth.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
-  const searchInputOpacity = searchWidth.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
-
   const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
 
@@ -81,7 +72,7 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
           <Feather name="home" size={20} color={Colors.light.tint} />
         </Pressable>
       ) : (
-        <Animated.View style={[s.tabsContainer, { flex: tabsFlex, opacity: tabsOpacity }]}>
+        <View style={s.tabsContainer}>
           {TAB_ITEMS.map((tab) => {
             const isActive = activeRoute === tab.name;
             return (
@@ -107,11 +98,11 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
               </Pressable>
             );
           })}
-        </Animated.View>
+        </View>
       )}
 
       {isSearchMode ? (
-        <Animated.View style={[s.searchExpanded, { flex: searchFlex, opacity: searchInputOpacity }]}>
+        <View style={s.searchExpanded}>
           <Feather name="search" size={18} color={Colors.light.textSecondary} />
           <TextInput
             ref={searchInputRef}
@@ -128,7 +119,7 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
               <Feather name="x-circle" size={16} color={Colors.light.textSecondary} />
             </Pressable>
           )}
-        </Animated.View>
+        </View>
       ) : (
         <Pressable onPress={enterSearchMode} style={s.searchBtn}>
           <Feather name="search" size={20} color={Colors.light.tint} />
@@ -201,13 +192,13 @@ const s = StyleSheet.create({
   },
 
   tabsContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(120,120,128,0.08)",
     borderRadius: 22,
     paddingHorizontal: 4,
     paddingVertical: 4,
-    overflow: "hidden",
   },
   tabItem: {
     flex: 1,
@@ -239,6 +230,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   searchExpanded: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(120,120,128,0.08)",
@@ -246,7 +238,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 8,
     height: 44,
-    overflow: "hidden",
   },
   searchInput: {
     flex: 1,
