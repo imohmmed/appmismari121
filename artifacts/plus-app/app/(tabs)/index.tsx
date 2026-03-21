@@ -35,7 +35,7 @@ const CATEGORIES = [
 
 const FEATURED_APPS = [
   { id: 1, title: "Black Friday Sale", subtitle: "50% off all premium subscriptions", color: "#007AFF" },
-  { id: 2, title: "New Apps Added", subtitle: "100+ new tweaked apps this week", color: "#9FBCFF" },
+  { id: 2, title: "New Apps Added", subtitle: "100+ new tweaked apps this week", color: "#5856D6" },
   { id: 3, title: "Premium Bundle", subtitle: "Get all apps with one subscription", color: "#FF9500" },
 ];
 
@@ -256,7 +256,7 @@ export default function PlusScreen() {
     const interval = setInterval(() => {
       featuredIndex.current = (featuredIndex.current + 1) % FEATURED_APPS.length;
       featuredRef.current?.scrollToOffset({
-        offset: featuredIndex.current * (SCREEN_WIDTH - 24),
+        offset: featuredIndex.current * (SCREEN_WIDTH - 48 + 12),
         animated: true,
       });
     }, 3000);
@@ -309,7 +309,7 @@ export default function PlusScreen() {
             data={FEATURED_APPS}
             horizontal
             pagingEnabled={false}
-            snapToInterval={SCREEN_WIDTH - 24}
+            snapToInterval={SCREEN_WIDTH - 48 + 12}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
@@ -322,7 +322,8 @@ export default function PlusScreen() {
           />
           <View style={styles.paginationDots}>
             {FEATURED_APPS.map((_, i) => {
-              const inputRange = [(i - 1) * (SCREEN_WIDTH - 24), i * (SCREEN_WIDTH - 24), (i + 1) * (SCREEN_WIDTH - 24)];
+              const snap = SCREEN_WIDTH - 48 + 12;
+              const inputRange = [(i - 1) * snap, i * snap, (i + 1) * snap];
               const dotWidth = scrollX.interpolate({ inputRange, outputRange: [8, 20, 8], extrapolate: "clamp" });
               const dotOpacity = scrollX.interpolate({ inputRange, outputRange: [0.4, 1, 0.4], extrapolate: "clamp" });
               return <Animated.View key={i} style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]} />;
