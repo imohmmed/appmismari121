@@ -4,13 +4,21 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 
-// Pages
 import Home from "./pages/Home";
 import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminApps from "./pages/admin/Apps";
+import AdminFeatured from "./pages/admin/Featured";
+import AdminSubscribers from "./pages/admin/Subscribers";
+import AdminGroups from "./pages/admin/Groups";
 import AdminCategories from "./pages/admin/Categories";
-import AdminPlans from "./pages/admin/Plans";
+import AdminSubCodes from "./pages/admin/SubCodes";
+import AdminRequests from "./pages/admin/Requests";
+import AdminPackages from "./pages/admin/Packages";
+import AdminPurchases from "./pages/admin/Purchases";
+import AdminNotifications from "./pages/admin/Notifications";
+import AdminDownloads from "./pages/admin/Downloads";
+import AdminSettings from "./pages/admin/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,17 +32,23 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      {/* Public Route */}
       <Route path="/" component={Home} />
-      
-      {/* Admin Routes */}
+
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/apps" component={AdminApps} />
+      <Route path="/admin/featured" component={AdminFeatured} />
+      <Route path="/admin/subscribers" component={AdminSubscribers} />
+      <Route path="/admin/groups" component={AdminGroups} />
       <Route path="/admin/categories" component={AdminCategories} />
-      <Route path="/admin/plans" component={AdminPlans} />
+      <Route path="/admin/subcodes" component={AdminSubCodes} />
+      <Route path="/admin/requests" component={AdminRequests} />
+      <Route path="/admin/packages" component={AdminPackages} />
+      <Route path="/admin/purchases" component={AdminPurchases} />
+      <Route path="/admin/notifications" component={AdminNotifications} />
+      <Route path="/admin/downloads" component={AdminDownloads} />
+      <Route path="/admin/settings" component={AdminSettings} />
 
-      {/* Fallback */}
       <Route component={NotFound} />
     </Switch>
   );

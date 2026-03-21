@@ -1,85 +1,102 @@
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { useAdminGetStats } from "@workspace/api-client-react";
-import { Smartphone, Layers, Users, CreditCard, TrendingUp } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const dummyChartData = [
-  { name: '1', uv: 4000 }, { name: '2', uv: 3000 }, { name: '3', uv: 2000 },
-  { name: '4', uv: 2780 }, { name: '5', uv: 1890 }, { name: '6', uv: 2390 },
-  { name: '7', uv: 3490 }, { name: '8', uv: 4000 }, { name: '9', uv: 3000 },
-  { name: '10', uv: 5000 }, { name: '11', uv: 4800 }, { name: '12', uv: 6000 },
-];
+import {
+  DollarSign, Smartphone, Users, Link2, Package, Star,
+  CreditCard, ShoppingBag
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useAdminGetStats();
 
   const statCards = [
-    { title: "إجمالي التطبيقات", value: stats?.totalApps || 0, icon: Smartphone, color: "from-blue-500 to-cyan-400" },
-    { title: "الأقسام", value: stats?.totalCategories || 0, icon: Layers, color: "from-purple-500 to-pink-500" },
-    { title: "الاشتراكات النشطة", value: stats?.activeSubscriptions || 0, icon: Users, color: "from-emerald-500 to-green-400" },
-    { title: "إجمالي المبيعات", value: stats?.totalSubscriptions || 0, icon: CreditCard, color: "from-orange-500 to-amber-400" },
+    { title: "إجمالي الأرباح", value: "٠ د.ع", icon: DollarSign, color: "#22c55e" },
+    { title: "المشتركين النشطين", value: String(stats?.activeSubscriptions || 0), icon: Users, color: "#8b5cf6" },
+    { title: "إجمالي التطبيقات", value: String(stats?.totalApps || 0), icon: Smartphone, color: "#3b82f6" },
+    { title: "إجمالي التحميلات", value: "0", icon: ShoppingBag, color: "#06b6d4" },
+  ];
+
+  const statCards2 = [
+    { title: "الاشتراكات المفعّلة", value: String(stats?.activeSubscriptions || 0), icon: Star, color: "#f59e0b" },
+    { title: "كودات الاشتراك", value: String(stats?.totalSubscriptions || 0), icon: Link2, color: "#ef4444" },
+    { title: "الباقات", value: "2", icon: Package, color: "#8b5cf6" },
+    { title: "الأقسام", value: String(stats?.totalCategories || 0), icon: CreditCard, color: "#10b981" },
   ];
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
-        
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {statCards.map((stat, i) => (
-            <div key={i} className="bg-card border border-border p-6 rounded-2xl relative overflow-hidden group shadow-sm">
-              <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:opacity-20 transition-opacity`} />
-              
-              <div className="flex items-start justify-between mb-4">
-                <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} bg-opacity-10 shadow-inner`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex items-center gap-1 text-emerald-600 text-sm font-bold bg-emerald-50 px-2 py-1 rounded-lg">
-                  <TrendingUp className="w-3 h-3" /> +12%
+            <div key={i} className="bg-[#22223a] rounded-xl p-5 border border-[#2a2a45]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[#8888aa] text-xs">{stat.title}</span>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: stat.color + "20" }}>
+                  <stat.icon className="w-4 h-4" style={{ color: stat.color }} />
                 </div>
               </div>
-              
-              <div>
-                <h3 className="text-muted-foreground font-medium mb-1">{stat.title}</h3>
-                <p className="text-3xl font-black">
-                  {isLoading ? <span className="animate-pulse bg-muted w-16 h-8 block rounded-md" /> : stat.value.toLocaleString()}
-                </p>
-              </div>
+              <p className="text-2xl font-bold text-white">
+                {isLoading ? "..." : stat.value}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* Chart Section */}
-        <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
-          <div className="mb-6 flex justify-between items-end">
-            <div>
-              <h2 className="text-xl font-bold mb-1">أداء المتجر</h2>
-              <p className="text-sm text-muted-foreground">نظرة عامة على الاشتراكات الجديدة خلال آخر 12 شهر</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards2.map((stat, i) => (
+            <div key={i} className="bg-[#22223a] rounded-xl p-5 border border-[#2a2a45]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[#8888aa] text-xs">{stat.title}</span>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: stat.color + "20" }}>
+                  <stat.icon className="w-4 h-4" style={{ color: stat.color }} />
+                </div>
+              </div>
+              <p className="text-2xl font-bold text-white">
+                {isLoading ? "..." : stat.value}
+              </p>
             </div>
-          </div>
-          
-          <div className="h-[300px] w-full" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dummyChartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value/1000}k`} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '12px', direction: 'rtl', color: 'hsl(var(--foreground))' }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <Area type="monotone" dataKey="uv" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorUv)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          ))}
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-[#22223a] rounded-xl p-5 border border-[#2a2a45]">
+            <h3 className="text-white font-bold mb-1">حالة النظام</h3>
+            <p className="text-[#8888aa] text-xs mb-4">معلومات عامة</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-[#2a2a45]">
+                <span className="text-white text-sm">حالة السيرفر</span>
+                <span className="text-green-400 text-sm flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-green-400" /> يعمل
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-[#2a2a45]">
+                <span className="text-white text-sm">الباقات المفعلة</span>
+                <span className="text-white text-sm">2</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-white text-sm">الأقسام</span>
+                <span className="text-white text-sm">{stats?.totalCategories || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#22223a] rounded-xl p-5 border border-[#2a2a45]">
+            <h3 className="text-white font-bold mb-4">ملخص سريع</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-[#2a2a45]">
+                <span className="text-[#8888aa] text-sm">عدد عمليات الشراء</span>
+                <span className="text-white text-sm">0</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-[#2a2a45]">
+                <span className="text-[#8888aa] text-sm">المشتركين النشطين</span>
+                <span className="text-white text-sm">{stats?.activeSubscriptions || 0}</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-[#8888aa] text-sm">التطبيقات المضافة</span>
+                <span className="text-white text-sm">{stats?.totalApps || 0}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );

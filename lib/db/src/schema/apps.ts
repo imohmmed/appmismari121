@@ -11,10 +11,14 @@ export const appsTable = pgTable("apps", {
   categoryId: integer("category_id").notNull().references(() => categoriesTable.id),
   tag: text("tag").notNull(),
   version: text("version"),
+  bundleId: text("bundle_id"),
   size: text("size"),
   downloads: integer("downloads").notNull().default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
   isHot: boolean("is_hot").notNull().default(false),
+  isHidden: boolean("is_hidden").notNull().default(false),
+  isTestMode: boolean("is_test_mode").notNull().default(false),
+  status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

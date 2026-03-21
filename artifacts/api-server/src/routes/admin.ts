@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql } from "drizzle-orm";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable } from "@workspace/db";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -192,7 +192,7 @@ router.get("/admin/plans", async (_req, res): Promise<void> => {
   const plans = await db.select().from(plansTable);
   res.json(
     AdminListPlansResponse.parse({
-      plans: plans.map((p) => ({ ...p, price: Number(p.price) })),
+      plans: plans.map((p) => ({ ...p, price: Number(p.price), excludedFeatures: p.excludedFeatures ?? [] })),
     })
   );
 });
@@ -210,6 +210,60 @@ router.post("/admin/plans", async (req, res): Promise<void> => {
   }).returning();
 
   res.status(201).json({ ...plan, price: Number(plan.price) });
+});
+
+router.get("/admin/featured", async (_req, res): Promise<void> => {
+  const banners = await db.select().from(featuredBannersTable).orderBy(featuredBannersTable.sortOrder);
+  res.json({ banners });
+});
+
+router.post("/admin/featured", async (req, res): Promise<void> => {
+  const { title, description, image, link } = req.body;
+  const [count] = await db.select({ c: sql<number>`count(*)::int` }).from(featuredBannersTable);
+  const [banner] = await db.insert(featuredBannersTable).values({
+    title: title || "",
+    description: description || "",
+    image: image || "",
+    link: link || "",
+    sortOrder: (count?.c || 0) + 1,
+  }).returning();
+  res.status(201).json(banner);
+});
+
+router.put("/admin/featured/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const { title, description, image, link } = req.body;
+  const [banner] = await db.update(featuredBannersTable).set({
+    title, description, image, link,
+  }).where(eq(featuredBannersTable.id, id)).returning();
+  if (!banner) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(banner);
+});
+
+router.delete("/admin/featured/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  await db.delete(featuredBannersTable).where(eq(featuredBannersTable.id, id));
+  res.sendStatus(204);
+});
+
+router.get("/admin/settings", async (_req, res): Promise<void> => {
+  const settings = await db.select().from(settingsTable);
+  res.json({ settings });
+});
+
+router.put("/admin/settings", async (req, res): Promise<void> => {
+  const { settings } = req.body;
+  if (!Array.isArray(settings)) { res.status(400).json({ error: "settings must be array" }); return; }
+  for (const s of settings) {
+    const existing = await db.select().from(settingsTable).where(eq(settingsTable.key, s.key));
+    if (existing.length > 0) {
+      await db.update(settingsTable).set({ value: s.value }).where(eq(settingsTable.key, s.key));
+    } else {
+      await db.insert(settingsTable).values({ key: s.key, value: s.value });
+    }
+  }
+  const updated = await db.select().from(settingsTable);
+  res.json({ settings: updated });
 });
 
 export default router;

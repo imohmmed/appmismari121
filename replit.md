@@ -43,9 +43,11 @@ artifacts-monorepo/
 ## Database Schema
 
 - **categories**: id (serial PK), name, slug, description, icon, sortOrder
-- **apps**: id (serial PK), name, description, version, size, iconUrl, downloadUrl, categoryId, isFeatured, isHot, type (tweaked/modded/hacked), createdAt
-- **plans**: id (serial PK), name, slug, price, duration, features, excludedFeatures, isPopular, sortOrder
-- **subscriptions**: id (serial PK), email, planId, udid, status, expiresAt, createdAt
+- **apps**: id (serial PK), name, description, version, size, iconUrl, downloadUrl, categoryId, isFeatured, isHot, type (tweaked/modded/hacked), bundleId, isHidden, isTestMode, status, createdAt
+- **plans**: id (serial PK), name, slug, price, duration, features, excludedFeatures (nullable array), isPopular, sortOrder
+- **subscriptions**: id (serial PK), email, planId, udid, phone, deviceType, subscriberName, groupName, status, expiresAt, createdAt
+- **featured_banners**: id (serial PK), title, description, image, link, sortOrder, isActive, createdAt
+- **settings**: id (serial PK), key (unique), value, updatedAt
 
 Seeded with 20 sample apps, 8 categories, 2 plans.
 
@@ -61,6 +63,27 @@ All routes prefixed with `/api`:
 - `POST /api/admin/login` - Admin login (admin/admin123)
 - `GET /api/admin/stats` - Dashboard stats
 - CRUD: `POST/PUT/DELETE /api/admin/apps`, `POST/PUT/DELETE /api/admin/categories`
+- CRUD: `GET/POST/PUT/DELETE /api/admin/featured` - Featured banners
+- `GET/PUT /api/admin/settings` - Site settings (key-value pairs)
+- `GET /api/admin/plans` - List subscription plans
+- `POST /api/admin/plans` - Create plan
+
+## Admin Panel Pages
+
+All admin pages are dark-themed (#1a1a2e bg, #22223a cards, #2a2a45 borders) with RTL layout:
+- `/admin` - Dashboard (stats cards, system status, quick summary)
+- `/admin/apps` - Apps management (table, 3-dot menu, search, bulk actions)
+- `/admin/featured` - Featured banners (add/edit/delete banners with image/title/desc/link)
+- `/admin/subscribers` - Subscriber management (table, search, bulk WhatsApp)
+- `/admin/groups` - Subscriber groups
+- `/admin/categories` - Category management
+- `/admin/subcodes` - Subscription codes
+- `/admin/requests` - Subscription requests
+- `/admin/packages` - Subscription packages/plans (card display)
+- `/admin/purchases` - Purchase history (stats + table)
+- `/admin/notifications` - Push notification sender + history
+- `/admin/downloads` - Download statistics and analytics
+- `/admin/settings` - Maintenance mode toggle + site settings
 
 ## Mobile App (plus-app)
 
@@ -82,7 +105,8 @@ All routes prefixed with `/api`:
 
 Arabic RTL React site with dark purple theme:
 - Hero section, app listings with filters, subscription plans
-- Admin dashboard at /admin with stats, app/category management
+- Admin dashboard at /admin with dark theme matching screenshots
+- 14 admin pages with full sidebar navigation
 - Admin credentials: env vars ADMIN_USERNAME/ADMIN_PASSWORD (default: admin/admin123)
 
 ## TypeScript & Composite Projects
@@ -110,7 +134,7 @@ React + Vite website with Arabic RTL support, dark purple theme, admin dashboard
 Expo SDK 54 mobile app with 5 tabs, Apple Liquid Glass support, dark theme.
 
 ### `lib/db` (`@workspace/db`)
-Drizzle ORM with PostgreSQL. Schema: categories, apps, plans, subscriptions.
+Drizzle ORM with PostgreSQL. Schema: categories, apps, plans, subscriptions, featured_banners, settings.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 OpenAPI 3.1 spec + Orval codegen config.

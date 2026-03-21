@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { useAdminListApps, useAdminCreateApp, useAdminUpdateApp, useAdminDeleteApp } from "@workspace/api-client-react";
-import { Plus, Search, Edit2, Trash2, X, Image as ImageIcon } from "lucide-react";
+import {
+  Plus, Search, X, Upload, Link2, MoreVertical,
+  Copy, Edit2, EyeOff, FlaskConical, Trash2, CheckSquare, Square
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAdminListAppsQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -10,32 +13,70 @@ import type { App } from "@workspace/api-client-react";
 export default function AdminApps() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data, isLoading } = useAdminListApps({ page: 1, limit: 50 });
+  const { data, isLoading } = useAdminListApps({ page: 1, limit: 100 });
   const apps = data?.apps || [];
 
   const createMutation = useAdminCreateApp();
   const updateMutation = useAdminUpdateApp();
   const deleteMutation = useAdminDeleteApp();
 
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<App | null>(null);
+  const [showQuickAction, setShowQuickAction] = useState(false);
   const [formData, setFormData] = useState({
-    name: "", description: "", icon: "", categoryId: 1, tag: "new" as any, version: "", size: "", isFeatured: false, isHot: false
+    name: "", description: "", icon: "", categoryId: 1, tag: "new" as any,
+    version: "", size: "", bundleId: "", isFeatured: false, isHot: false
   });
+
+  const filteredApps = useMemo(() => {
+    if (!search.trim()) return apps;
+    const q = search.toLowerCase();
+    return apps.filter(a =>
+      a.name.toLowerCase().includes(q) ||
+      (a.description || "").toLowerCase().includes(q) ||
+      (a.categoryName || "").toLowerCase().includes(q)
+    );
+  }, [apps, search]);
+
+  const allFilteredSelected = filteredApps.length > 0 && filteredApps.every(a => selectedIds.has(a.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+      setShowQuickAction(false);
+    } else {
+      const ids = new Set(filteredApps.map(a => a.id));
+      setSelectedIds(ids);
+      setShowQuickAction(true);
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+    setShowQuickAction(next.size > 0);
+  };
 
   const openCreate = () => {
     setEditingApp(null);
-    setFormData({ name: "", description: "", icon: "", categoryId: 1, tag: "new", version: "", size: "", isFeatured: false, isHot: false });
+    setFormData({ name: "", description: "", icon: "", categoryId: 1, tag: "new", version: "", size: "", bundleId: "", isFeatured: false, isHot: false });
     setIsModalOpen(true);
   };
 
   const openEdit = (app: App) => {
     setEditingApp(app);
     setFormData({
-      name: app.name, description: app.description || "", icon: app.icon, categoryId: app.categoryId, 
-      tag: app.tag, version: app.version || "", size: app.size || "", isFeatured: app.isFeatured || false, isHot: app.isHot || false
+      name: app.name, description: app.description || "", icon: app.icon, categoryId: app.categoryId,
+      tag: app.tag, version: app.version || "", size: app.size || "", bundleId: (app as any).bundleId || "",
+      isFeatured: app.isFeatured || false, isHot: app.isHot || false
     });
     setIsModalOpen(true);
+    setMenuOpenId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,7 +91,7 @@ export default function AdminApps() {
       }
       queryClient.invalidateQueries({ queryKey: getAdminListAppsQueryKey() });
       setIsModalOpen(false);
-    } catch (err) {
+    } catch {
       toast({ title: "حدث خطأ", variant: "destructive" });
     }
   };
@@ -61,175 +102,216 @@ export default function AdminApps() {
         await deleteMutation.mutateAsync({ id });
         queryClient.invalidateQueries({ queryKey: getAdminListAppsQueryKey() });
         toast({ title: "تم الحذف بنجاح" });
-      } catch (err) {
+      } catch {
         toast({ title: "حدث خطأ", variant: "destructive" });
       }
     }
+    setMenuOpenId(null);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`هل أنت متأكد من حذف ${selectedIds.size} تطبيق؟`)) return;
+    for (const id of selectedIds) {
+      try { await deleteMutation.mutateAsync({ id }); } catch {}
+    }
+    queryClient.invalidateQueries({ queryKey: getAdminListAppsQueryKey() });
+    setSelectedIds(new Set());
+    setShowQuickAction(false);
+    toast({ title: `تم حذف ${selectedIds.size} تطبيق` });
+  };
+
+  const statusBadge = (app: App) => {
+    const a = app as any;
+    if (a.isHidden) return <span className="px-2 py-0.5 rounded text-[10px] bg-yellow-500/20 text-yellow-400">مخفي</span>;
+    if (a.isTestMode) return <span className="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">تجريبي</span>;
+    return <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/20 text-green-400">نشط</span>;
   };
 
   return (
     <AdminLayout>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">إدارة التطبيقات</h2>
-          <p className="text-muted-foreground mt-1">إضافة، تعديل، أو حذف تطبيقات المتجر</p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">قائمة التطبيقات</h2>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#8888aa] hover:text-white bg-[#22223a] border border-[#2a2a45] hover:border-[#3a3a55] transition-colors">
+              <Upload className="w-4 h-4" /> رفع ملف
+            </button>
+            <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[#8888aa] hover:text-white bg-[#22223a] border border-[#2a2a45] hover:border-[#3a3a55] transition-colors">
+              <Link2 className="w-4 h-4" /> عبر رابط
+            </button>
+            <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors">
+              <Plus className="w-4 h-4" /> إضافة
+            </button>
+          </div>
         </div>
-        <button onClick={openCreate} className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all">
-          <Plus className="w-5 h-5" />
-          إضافة تطبيق
-        </button>
-      </div>
 
-      <div className="bg-card rounded-2xl overflow-hidden border border-border shadow-sm">
-        <div className="p-4 border-b border-border flex items-center gap-4 bg-muted/50">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="ابحث عن تطبيق..." 
-              className="w-full bg-background border border-border rounded-lg py-2 pr-10 pl-4 focus:outline-none focus:border-primary text-sm text-foreground"
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8888aa]" />
+            <input
+              type="text"
+              placeholder="ابحث عن تطبيق..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-[#22223a] border border-[#2a2a45] rounded-lg py-2 pr-4 pl-10 text-sm text-white placeholder-[#8888aa] focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-right">
-            <thead className="bg-muted/50 border-b border-border text-muted-foreground">
-              <tr>
-                <th className="px-6 py-4 font-semibold">التطبيق</th>
-                <th className="px-6 py-4 font-semibold">القسم</th>
-                <th className="px-6 py-4 font-semibold">الوسم</th>
-                <th className="px-6 py-4 font-semibold">الحجم/الإصدار</th>
-                <th className="px-6 py-4 font-semibold">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">جاري التحميل...</td></tr>
-              ) : apps.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد تطبيقات</td></tr>
-              ) : (
-                apps.map((app) => (
-                  <tr key={app.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img src={app.icon} alt={app.name} className="w-10 h-10 rounded-xl object-cover bg-card border border-border" />
-                        <div>
-                          <p className="font-bold">{app.name}</p>
-                          <div className="flex gap-1 mt-1">
-                            {app.isFeatured && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 rounded-md">رائج</span>}
-                            {app.isHot && <span className="text-[10px] bg-red-100 text-red-600 px-2 rounded-md">ساخن</span>}
-                          </div>
+        {showQuickAction && selectedIds.size > 0 && (
+          <div className="flex items-center gap-3 bg-[#2a2a50] border border-[#3a3a65] rounded-lg px-4 py-2.5">
+            <span className="text-sm text-white">{selectedIds.size} محدد</span>
+            <div className="flex-1" />
+            <button onClick={handleBulkDelete} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
+              <Trash2 className="w-3 h-3" /> حذف الكل
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors">
+              <EyeOff className="w-3 h-3" /> إخفاء الكل
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors">
+              <FlaskConical className="w-3 h-3" /> وضع التجربة
+            </button>
+          </div>
+        )}
+
+        <div className="bg-[#22223a] rounded-xl border border-[#2a2a45] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-right">
+              <thead className="bg-[#1e1e35] border-b border-[#2a2a45]">
+                <tr>
+                  <th className="px-4 py-3 w-10">
+                    <button onClick={toggleSelectAll} className="text-[#8888aa] hover:text-white">
+                      {allFilteredSelected ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
+                    </button>
+                  </th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">الاسم</th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">الإصدار</th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">Bundle ID</th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">الحجم</th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">الحالة</th>
+                  <th className="px-4 py-3 font-medium text-[#8888aa]">الفئة</th>
+                  <th className="px-4 py-3 w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan={8} className="p-8 text-center text-[#8888aa]">جاري التحميل...</td></tr>
+                ) : filteredApps.length === 0 ? (
+                  <tr><td colSpan={8} className="p-8 text-center text-[#8888aa]">لا توجد تطبيقات</td></tr>
+                ) : (
+                  filteredApps.map((app) => (
+                    <tr key={app.id} className="border-b border-[#2a2a45] hover:bg-[#1e1e35] transition-colors">
+                      <td className="px-4 py-3">
+                        <button onClick={() => toggleSelect(app.id)} className="text-[#8888aa] hover:text-white">
+                          {selectedIds.has(app.id) ? <CheckSquare className="w-4 h-4 text-blue-400" /> : <Square className="w-4 h-4" />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <img src={app.icon} alt={app.name} className="w-9 h-9 rounded-lg object-cover bg-[#2a2a45]" />
+                          <span className="text-white font-medium">{app.name}</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{app.categoryName}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
-                        {app.tag}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      <div className="flex flex-col">
-                        <span>{app.version || '-'}</span>
-                        <span className="text-xs opacity-70">{app.size || '-'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(app)} className="p-2 hover:bg-primary/20 hover:text-primary rounded-lg transition-colors">
-                          <Edit2 className="w-4 h-4" />
+                      </td>
+                      <td className="px-4 py-3 text-[#8888aa]">{app.version || "-"}</td>
+                      <td className="px-4 py-3 text-[#8888aa] text-xs font-mono">{(app as any).bundleId || "-"}</td>
+                      <td className="px-4 py-3 text-[#8888aa]">{app.size || "-"}</td>
+                      <td className="px-4 py-3">{statusBadge(app)}</td>
+                      <td className="px-4 py-3 text-[#8888aa]">{app.categoryName}</td>
+                      <td className="px-4 py-3 relative">
+                        <button
+                          onClick={() => setMenuOpenId(menuOpenId === app.id ? null : app.id)}
+                          className="p-1 rounded hover:bg-[#2a2a50] text-[#8888aa] hover:text-white transition-colors"
+                        >
+                          <MoreVertical className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(app.id)} className="p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        {menuOpenId === app.id && (
+                          <div className="absolute left-0 top-full mt-1 w-44 bg-[#22223a] border border-[#2a2a45] rounded-lg shadow-xl z-50 py-1 text-right">
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/app/${app.id}`); toast({ title: "تم نسخ الرابط" }); setMenuOpenId(null); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#8888aa] hover:text-white hover:bg-[#1e1e35]"
+                            >
+                              <Copy className="w-3.5 h-3.5" /> نسخ الرابط
+                            </button>
+                            <button
+                              onClick={() => openEdit(app)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#8888aa] hover:text-white hover:bg-[#1e1e35]"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" /> تعديل التطبيق
+                            </button>
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-yellow-400 hover:bg-[#1e1e35]">
+                              <EyeOff className="w-3.5 h-3.5" /> وضع الإخفاء
+                            </button>
+                            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-purple-400 hover:bg-[#1e1e35]">
+                              <FlaskConical className="w-3.5 h-3.5" /> وضع التجربة
+                            </button>
+                            <div className="my-1 border-t border-[#2a2a45]" />
+                            <button
+                              onClick={() => handleDelete(app.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#1e1e35]"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> حذف
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* Modal Overlay */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-          <div className="bg-background border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <h3 className="text-xl font-bold text-foreground">{editingApp ? "تعديل تطبيق" : "إضافة تطبيق جديد"}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-muted rounded-full text-muted-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-[#22223a] border border-[#2a2a45] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden" dir="rtl">
+            <div className="flex items-center justify-between p-5 border-b border-[#2a2a45]">
+              <h3 className="text-lg font-bold text-white">{editingApp ? "تعديل تطبيق" : "إضافة تطبيق جديد"}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg hover:bg-[#1e1e35] text-[#8888aa]">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 sm:col-span-1 space-y-2">
-                  <label className="text-sm text-muted-foreground">اسم التطبيق</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" />
-                </div>
-                <div className="col-span-2 sm:col-span-1 space-y-2">
-                  <label className="text-sm text-muted-foreground">رابط الأيقونة</label>
-                  <div className="flex gap-2">
-                    <input required value={formData.icon} onChange={e => setFormData({...formData, icon: e.target.value})} className="flex-1 bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" />
-                    {formData.icon && <img src={formData.icon} className="w-10 h-10 rounded-xl object-cover bg-card" />}
-                  </div>
-                </div>
-                
-                <div className="col-span-2 space-y-2">
-                  <label className="text-sm text-muted-foreground">الوصف</label>
-                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary h-20 text-foreground" />
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">القسم</label>
-                  <select value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: Number(e.target.value)})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary appearance-none text-foreground">
+            <form onSubmit={handleSubmit} className="p-5 overflow-y-auto flex-1 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">اسم التطبيق</label>
+                  <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">رابط الأيقونة</label>
+                  <input required value={formData.icon} onChange={e => setFormData({ ...formData, icon: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none" dir="ltr" />
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">الوصف</label>
+                  <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white h-20 focus:border-blue-500 focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">Bundle ID</label>
+                  <input value={formData.bundleId} onChange={e => setFormData({ ...formData, bundleId: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none" dir="ltr" placeholder="com.example.app" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">القسم</label>
+                  <select value={formData.categoryId} onChange={e => setFormData({ ...formData, categoryId: Number(e.target.value) })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none appearance-none">
                     <option value={1}>تطبيقات بلس</option>
                     <option value={2}>ألعاب مهكرة</option>
                     <option value={3}>أفلام ومسلسلات</option>
                   </select>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">الوسم (Tag)</label>
-                  <select value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value as any})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary appearance-none text-foreground">
-                    <option value="new">جديد</option>
-                    <option value="hot">ساخن</option>
-                    <option value="tweaked">بلس</option>
-                    <option value="modded">معدل</option>
-                    <option value="hacked">مهكر</option>
-                  </select>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">الإصدار</label>
+                  <input value={formData.version} onChange={e => setFormData({ ...formData, version: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none" dir="ltr" />
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">الإصدار</label>
-                  <input value={formData.version} onChange={e => setFormData({...formData, version: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">الحجم</label>
-                  <input value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-background border border-border rounded-xl py-2 px-3 focus:border-primary text-foreground" dir="ltr" placeholder="ex: 150 MB" />
-                </div>
-
-                <div className="col-span-2 flex gap-6 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.isFeatured} onChange={e => setFormData({...formData, isFeatured: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-border" />
-                    <span className="text-foreground">تطبيق رائج (في السلايدر)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={formData.isHot} onChange={e => setFormData({...formData, isHot: e.target.checked})} className="w-4 h-4 rounded accent-primary bg-background border-border" />
-                    <span>تطبيق ساخن (الأكثر تحميلاً)</span>
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-[#8888aa]">الحجم</label>
+                  <input value={formData.size} onChange={e => setFormData({ ...formData, size: e.target.value })} className="w-full bg-[#1a1a2e] border border-[#2a2a45] rounded-lg py-2 px-3 text-sm text-white focus:border-blue-500 focus:outline-none" dir="ltr" placeholder="150 MB" />
                 </div>
               </div>
-              
-              <div className="pt-6 border-t border-border flex justify-end gap-3 mt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 rounded-xl border border-border hover:bg-muted text-foreground">إلغاء</button>
-                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="px-8 py-2 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
-                  حفظ
-                </button>
+
+              <div className="pt-4 border-t border-[#2a2a45] flex justify-end gap-3">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg border border-[#2a2a45] text-[#8888aa] hover:text-white text-sm">إلغاء</button>
+                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm disabled:opacity-50">حفظ</button>
               </div>
             </form>
           </div>
