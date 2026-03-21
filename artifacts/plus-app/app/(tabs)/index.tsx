@@ -21,50 +21,10 @@ import SlidePanel from "@/components/SlidePanel";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import GlassBackButton from "@/components/GlassBackButton";
 import AccountPanel from "@/components/AccountPanel";
+import { ALL_APPS, type AppItem } from "@/constants/apps";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PAGE_WIDTH = SCREEN_WIDTH - 80;
-
-type AppItem = {
-  id: number;
-  name: string;
-  descAr: string;
-  descEn: string;
-  category: string;
-  tag: "tweaked" | "modded" | "hacked";
-  icon: string;
-  isHot?: boolean;
-  isNew?: boolean;
-  isMostDownloaded?: boolean;
-  catKey?: string;
-};
-
-const ALL_APPS: AppItem[] = [
-  { id: 1, name: "WhatsApp++", descAr: "ميزات مخفية مفعّلة", descEn: "Hidden features unlocked", category: "social", tag: "tweaked", icon: "message-circle", isHot: true, isMostDownloaded: true, catKey: "social" },
-  { id: 2, name: "Snapchat++", descAr: "حفظ السنابات والقصص", descEn: "Save snaps & stories", category: "social", tag: "tweaked", icon: "camera", isHot: true, isMostDownloaded: true, catKey: "social" },
-  { id: 3, name: "Instagram++", descAr: "تحميل القصص والريلز", descEn: "Download stories & reels", category: "social", tag: "tweaked", icon: "instagram", isHot: true, isMostDownloaded: true, catKey: "social" },
-  { id: 4, name: "TikTok++", descAr: "بدون إعلانات، تحميل الفيديو", descEn: "No ads, video download", category: "social", tag: "tweaked", icon: "video", isHot: true, catKey: "social" },
-  { id: 5, name: "Telegram++", descAr: "ميزات بريميوم مجانية", descEn: "Free premium features", category: "social", tag: "tweaked", icon: "send", catKey: "social" },
-  { id: 6, name: "Twitter++", descAr: "تحميل الفيديوهات والثريدات", descEn: "Download videos & threads", category: "social", tag: "tweaked", icon: "twitter", catKey: "social" },
-  { id: 7, name: "ChatGPT Pro", descAr: "وصول GPT-4 مفعّل", descEn: "GPT-4 access unlocked", category: "ai", tag: "modded", icon: "cpu", isHot: true, isMostDownloaded: true, catKey: "ai" },
-  { id: 8, name: "Copilot+", descAr: "مساعد برمجة بالذكاء الاصطناعي", descEn: "AI coding assistant", category: "ai", tag: "modded", icon: "zap", isNew: true, catKey: "ai" },
-  { id: 9, name: "Gemini Pro", descAr: "Google AI بريميوم", descEn: "Google AI Premium", category: "ai", tag: "modded", icon: "star", isNew: true, catKey: "ai" },
-  { id: 10, name: "CapCut Pro", descAr: "أدوات تعديل متقدمة", descEn: "Advanced editing tools", category: "edit", tag: "modded", icon: "scissors", isHot: true, isNew: true, catKey: "edit" },
-  { id: 11, name: "Canva Pro", descAr: "جميع القوالب مفتوحة", descEn: "All templates unlocked", category: "edit", tag: "modded", icon: "edit", isNew: true, catKey: "edit" },
-  { id: 12, name: "Lightroom++", descAr: "فلاتر بريميوم مجانية", descEn: "Free premium filters", category: "edit", tag: "tweaked", icon: "aperture", catKey: "edit" },
-  { id: 13, name: "PUBG Hack", descAr: "تصويب تلقائي و ESP", descEn: "Aimbot & ESP", category: "games", tag: "hacked", icon: "crosshair", isHot: true, isMostDownloaded: true, catKey: "games" },
-  { id: 14, name: "Minecraft+", descAr: "جميع السكنات مفتوحة", descEn: "All skins unlocked", category: "games", tag: "hacked", icon: "box", catKey: "games" },
-  { id: 15, name: "Roblox Mod", descAr: "روبوكس غير محدود", descEn: "Unlimited Robux", category: "games", tag: "modded", icon: "play", isNew: true, catKey: "games" },
-  { id: 16, name: "YouTube Premium", descAr: "بدون إعلانات، تشغيل بالخلفية", descEn: "No ads, background play", category: "tweaked", tag: "tweaked", icon: "youtube", isHot: true, isMostDownloaded: true, catKey: "tweaked" },
-  { id: 17, name: "Spotify++", descAr: "ميزات بريميوم مجانية", descEn: "Free premium features", category: "tweaked", tag: "tweaked", icon: "music", isHot: true, isMostDownloaded: true, catKey: "tweaked" },
-  { id: 18, name: "SoundCloud++", descAr: "تحميل بدون إنترنت", descEn: "Offline download", category: "tweaked", tag: "tweaked", icon: "headphones", catKey: "tweaked" },
-  { id: 19, name: "Netflix", descAr: "جميع المحتوى مفتوح", descEn: "All content unlocked", category: "tv", tag: "modded", icon: "film", isHot: true, isMostDownloaded: true, catKey: "tv" },
-  { id: 20, name: "Disney+", descAr: "ديزني و مارفل مباشر", descEn: "Disney & Marvel streaming", category: "tv", tag: "modded", icon: "play-circle", catKey: "tv" },
-  { id: 21, name: "Shahid VIP", descAr: "محتوى عربي بريميوم", descEn: "Premium Arabic content", category: "tv", tag: "tweaked", icon: "tv", isNew: true, catKey: "tv" },
-  { id: 22, name: "Xcode Helper", descAr: "أدوات تطوير iOS", descEn: "iOS dev tools", category: "develop", tag: "modded", icon: "terminal", catKey: "develop" },
-  { id: 23, name: "iSH Shell", descAr: "طرفية لينكس على iOS", descEn: "Linux terminal on iOS", category: "develop", tag: "tweaked", icon: "code", isNew: true, catKey: "develop" },
-  { id: 24, name: "Pythonista+", descAr: "بايثون IDE بريميوم", descEn: "Premium Python IDE", category: "develop", tag: "modded", icon: "file-text", catKey: "develop" },
-];
 
 const CATEGORY_KEYS = ["social", "ai", "edit", "games", "tweaked", "tv", "develop"] as const;
 const CATEGORY_ICONS: Record<string, string> = {
@@ -297,8 +257,8 @@ export default function PlusScreen() {
   }, []);
 
   const hotApps = ALL_APPS.filter((a) => a.isHot);
-  const mostDownloaded = ALL_APPS.filter((a) => a.isMostDownloaded);
-  const newAdds = ALL_APPS.filter((a) => a.isNew);
+  const mostDownloaded = [...ALL_APPS].sort((a, b) => b.downloadCount - a.downloadCount).slice(0, 30);
+  const newAdds = [...ALL_APPS].sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()).slice(0, 10);
 
   const handleAppPress = (app: AppItem) => setSelectedApp(app);
 
@@ -337,10 +297,7 @@ export default function PlusScreen() {
         contentContainerStyle={{ paddingBottom: isWeb ? 34 : 80 }}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionLabel, { color: colors.tint, fontFamily: fontAr("SemiBold"), writingDirection: "ltr" }]}>{t("featured")}</Text>
-          </View>
+        <View style={{ marginTop: 8 }}>
           <FlatList
             ref={featuredRef}
             data={FEATURED_APPS}
