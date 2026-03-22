@@ -7,6 +7,7 @@ export const enrollmentRequestsTable = pgTable("enrollment_requests", {
   phone: text("phone"),
   email: text("email"),
   udid: text("udid").notNull(),
+  deviceName: text("device_name"),
   deviceType: text("device_type"),
   planId: integer("plan_id").references(() => plansTable.id),
   notes: text("notes"),

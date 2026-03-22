@@ -70,9 +70,9 @@ router.get("/profile/enroll", (req, res): void => {
     <key>DeviceAttributes</key>
     <array>
       <string>UDID</string>
-      <string>PRODUCT</string>
+      <string>DEVICE_NAME</string>
       <string>VERSION</string>
-      <string>SERIAL</string>
+      <string>PRODUCT</string>
     </array>
   </dict>
   <key>PayloadOrganization</key>
@@ -115,6 +115,8 @@ router.post(
       // Accept any alphanumeric UDID format (old hex, new alphanumeric)
       const udidMatch = bodyStr.match(/<key>UDID<\/key>\s*<string>([A-Za-z0-9-]+)<\/string>/);
       const udid = udidMatch?.[1]?.trim();
+      const deviceNameMatch = bodyStr.match(/<key>DEVICE_NAME<\/key>\s*<string>([^<]+)<\/string>/);
+      const deviceName = deviceNameMatch?.[1]?.trim() || null;
 
       if (!udid) {
         console.error("UDID extraction failed. Body:", bodyStr.substring(0, 500));
@@ -126,6 +128,8 @@ router.post(
       const token = (req.query.token as string) || "";
       const base = getBaseUrl(req);
 
+      console.info(`[callback] UDID: ${udid}, device: ${deviceName || "unknown"}, source: ${source}`);
+
       // Save UDID to token store (for app polling)
       if (token) {
         udidTokenStore.set(token, { udid, createdAt: Date.now() });
@@ -135,6 +139,7 @@ router.post(
       if (source === "web") {
         await db.insert(enrollmentRequestsTable).values({
           udid,
+          deviceName,
           status: "pending",
         }).onConflictDoNothing();
       }
