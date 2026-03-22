@@ -432,19 +432,30 @@ router.delete("/admin/featured/:id", async (req, res): Promise<void> => {
 router.get("/admin/groups", async (_req, res): Promise<void> => {
   const groups = await db.select().from(groupsTable).orderBy(desc(groupsTable.createdAt));
   const result = await Promise.all(groups.map(async (g) => {
-    const [{ total }] = await db
-      .select({ total: sql<number>`count(*)::int` })
+    const all = await db
+      .select({
+        platform: subscriptionsTable.applePlatform,
+        deviceType: subscriptionsTable.deviceType,
+        appleStatus: subscriptionsTable.appleStatus,
+      })
       .from(subscriptionsTable)
       .where(eq(subscriptionsTable.groupName, g.certName));
-    const pending = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(subscriptionsTable)
-      .where(eq(subscriptionsTable.groupName, g.certName));
+
+    const iosCount = all.filter(d => d.platform === "IOS").length;
+    const macCount = all.filter(d => d.platform === "MAC").length;
+    const ipadCount = all.filter(d => d.platform === "IPAD_OS").length;
+    const pendingCount = all.filter(d => d.appleStatus === "PROCESSING").length;
+    const activeCount = all.filter(d => d.appleStatus === "ENABLED").length;
+
     return {
       ...g,
       privateKey: g.privateKey ? "••••••••" : "",
-      deviceCount: total,
-      pendingCount: 0,
+      iosCount,
+      macCount,
+      ipadCount,
+      pendingCount,
+      activeCount,
+      totalDevices: all.length,
     };
   }));
   res.json({ groups: result });
@@ -460,6 +471,67 @@ router.get("/admin/groups/:id/devices", async (req, res): Promise<void> => {
     .where(eq(subscriptionsTable.groupName, group.certName))
     .orderBy(desc(subscriptionsTable.createdAt));
   res.json({ devices, certName: group.certName });
+});
+
+// Smart platform resolver: decides IOS / MAC / IPAD_OS based on current slot usage
+router.post("/admin/groups/:id/resolve-platform", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const { deviceType } = req.body; // "iPhone" | "iPad"
+  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
+  if (!group) { res.status(404).json({ error: "Not found" }); return; }
+
+  const all = await db
+    .select({ platform: subscriptionsTable.applePlatform })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.groupName, group.certName));
+
+  const iosCount = all.filter(d => d.platform === "IOS").length;
+  const macCount = all.filter(d => d.platform === "MAC").length;
+  const ipadCount = all.filter(d => d.platform === "IPAD_OS").length;
+
+  let platform = "";
+  let message = "";
+  let canRegister = true;
+
+  if (deviceType === "iPad") {
+    if (ipadCount < 100) {
+      platform = "IPAD_OS";
+      message = `تسجيل آيباد كـ IPAD_OS (${ipadCount + 1}/100)`;
+    } else {
+      canRegister = false;
+      message = "الشهادة ممتلئة للآيبادات (100/100). انتقل لشهادة جديدة.";
+    }
+  } else {
+    // iPhone
+    if (iosCount < 100) {
+      platform = "IOS";
+      message = `تسجيل آيفون كـ IOS (${iosCount + 1}/100)`;
+    } else if (macCount < 100) {
+      platform = "MAC";
+      message = `الـ IOS امتلأت (100/100). التحويل التلقائي لـ MAC bypass (${macCount + 1}/100) 🔀`;
+    } else {
+      canRegister = false;
+      message = "الشهادة ممتلئة للآيفونات (200/200). انتقل لشهادة جديدة.";
+    }
+  }
+
+  res.json({ platform, message, canRegister, iosCount, macCount, ipadCount });
+});
+
+// Update device apple status (PROCESSING → ENABLED)
+router.patch("/admin/groups/device/:subId/status", async (req, res): Promise<void> => {
+  const subId = Number(req.params.subId);
+  const { appleStatus, applePlatform } = req.body;
+  const updateData: Record<string, string> = {};
+  if (appleStatus) updateData.appleStatus = appleStatus;
+  if (applePlatform) updateData.applePlatform = applePlatform;
+  const [updated] = await db
+    .update(subscriptionsTable)
+    .set(updateData)
+    .where(eq(subscriptionsTable.id, subId))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(updated);
 });
 
 router.post("/admin/groups", async (req, res): Promise<void> => {

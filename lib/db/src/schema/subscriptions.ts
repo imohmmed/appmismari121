@@ -12,6 +12,8 @@ export const subscriptionsTable = pgTable("subscriptions", {
   subscriberName: text("subscriber_name"),
   groupName: text("group_name"),
   planId: integer("plan_id").notNull().references(() => plansTable.id),
+  applePlatform: text("apple_platform").default("IOS"),
+  appleStatus: text("apple_status").default("PROCESSING"),
   isActive: text("is_active").notNull().default("true"),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
