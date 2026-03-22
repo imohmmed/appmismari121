@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Plus, Loader2, RefreshCw, X, Eye, EyeOff,
@@ -345,7 +345,7 @@ function CodeModal({ onClose }: { onClose: () => void }) {
 // ─── Platform Badge ───────────────────────────────────────────────────────────
 function PlatformBadge({ platform }: { platform: string | null }) {
   if (!platform) return <span className="text-white/20 text-xs">—</span>;
-  const map: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+  const map: Record<string, { label: string; color: string; icon: React.ReactElement }> = {
     IOS: { label: "IOS", color: "#22c55e", icon: <Smartphone className="w-3 h-3" /> },
     MAC: { label: "MAC ⚡", color: "#f59e0b", icon: <Monitor className="w-3 h-3" /> },
     IPAD_OS: { label: "iPadOS", color: A, icon: <Tablet className="w-3 h-3" /> },
@@ -367,7 +367,7 @@ function AppleStatusBadge({ status }: { status: string | null }) {
 
 // ─── Slot Bar ─────────────────────────────────────────────────────────────────
 function SlotBar({ icon, label, used, limit, color, safetyNote }:
-  { icon: JSX.Element; label: string; used: number; limit: number; color: string; safetyNote?: string }) {
+  { icon: React.ReactElement; label: string; used: number; limit: number; color: string; safetyNote?: string }) {
   const pct = Math.min(100, Math.round((used / limit) * 100));
   return (
     <div className="space-y-1">

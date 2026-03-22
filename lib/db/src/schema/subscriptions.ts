@@ -18,6 +18,9 @@ export const subscriptionsTable = pgTable("subscriptions", {
   // Required for deletion: DELETE /v1/devices/{appleDeviceId}
   // Apple does NOT accept UDID for deletion — only their own ID
   appleDeviceId: text("apple_device_id"),
+  email: text("email"),
+  // "subscription_code" | "enrollment_request"
+  sourceType: text("source_type").notNull().default("subscription_code"),
   isActive: text("is_active").notNull().default("true"),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),

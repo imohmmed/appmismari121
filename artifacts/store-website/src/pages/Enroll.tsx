@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Loader2, CheckCircle2, Smartphone, Send, AlertCircle, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle2, Smartphone, Send, AlertCircle, ArrowLeft, Package } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
 const A = "#9fbcff";
@@ -16,6 +16,14 @@ interface CheckResult {
   };
 }
 
+interface Plan {
+  id: number;
+  name: string;
+  nameAr: string | null;
+  price: number | null;
+  durationDays: number | null;
+}
+
 type Step = "checking" | "already-subscribed" | "form" | "submitting" | "success" | "error";
 
 export default function Enroll() {
@@ -24,28 +32,33 @@ export default function Enroll() {
 
   const [step, setStep] = useState<Step>(udid ? "checking" : "form");
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [deviceType, setDeviceType] = useState("iPhone");
+  const [planId, setPlanId] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // Fetch plans
+    fetch(`${API}/api/subscriptions/plans`)
+      .then(r => r.json())
+      .then(d => setPlans(d?.plans || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!udid) return;
     fetch(`${API}/api/enroll/check?udid=${encodeURIComponent(udid)}`)
-      .then((r) => r.json())
+      .then(r => r.json())
       .then((data: CheckResult) => {
         setCheckResult(data);
-        if (data.found) {
-          setStep("already-subscribed");
-        } else {
-          setStep("form");
-        }
+        setStep(data.found ? "already-subscribed" : "form");
       })
-      .catch(() => {
-        setStep("form");
-      });
+      .catch(() => { setStep("form"); });
   }, [udid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +73,15 @@ export default function Enroll() {
       const res = await fetch(`${API}/api/enroll/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), udid, deviceType, notes: notes.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          udid,
+          deviceType,
+          planId: planId || undefined,
+          notes: notes.trim() || undefined,
+        }),
       });
       if (!res.ok) throw new Error("Server error");
       setStep("success");
@@ -69,9 +90,12 @@ export default function Enroll() {
     }
   };
 
+  const inp = "w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20";
+
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
       <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${A}20`, border: `1px solid ${A}30` }}>
             <Smartphone className="w-8 h-8" style={{ color: A }} />
@@ -82,6 +106,7 @@ export default function Enroll() {
           <p className="text-white/40 text-sm">تسجيل طلب الاشتراك</p>
         </div>
 
+        {/* Checking */}
         {step === "checking" && (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-white/40" />
@@ -89,6 +114,7 @@ export default function Enroll() {
           </div>
         )}
 
+        {/* Already subscribed */}
         {step === "already-subscribed" && checkResult?.subscriber && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 text-center space-y-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto" style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
@@ -128,6 +154,7 @@ export default function Enroll() {
           </div>
         )}
 
+        {/* Form */}
         {(step === "form" || step === "submitting") && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/5">
@@ -136,13 +163,13 @@ export default function Enroll() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              {/* UDID display */}
               {udid && (
                 <div className="bg-black/30 rounded-xl p-3">
                   <p className="text-white/30 text-xs mb-1">معرّف الجهاز (UDID)</p>
                   <p className="font-mono text-xs text-white/50 break-all">{udid}</p>
                 </div>
               )}
-
               {!udid && (
                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
@@ -152,34 +179,50 @@ export default function Enroll() {
                 </div>
               )}
 
+              {/* Name */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">الاسم الكامل *</label>
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   placeholder="أدخل اسمك الكامل"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 text-right"
+                  className={inp + " text-right"}
                   style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif" }}
                 />
               </div>
 
+              {/* Phone */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">رقم الهاتف *</label>
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={e => setPhone(e.target.value)}
                   placeholder="05XXXXXXXX"
                   dir="ltr"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 text-left font-mono"
+                  className={inp + " text-left font-mono"}
                 />
               </div>
 
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium text-white/50 mb-1.5">البريد الإلكتروني</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  dir="ltr"
+                  className={inp + " text-left"}
+                />
+              </div>
+
+              {/* Device type */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">نوع الجهاز</label>
                 <div className="flex gap-2">
-                  {["iPhone", "iPad", "Mac"].map((type) => (
+                  {["iPhone", "iPad", "Mac"].map(type => (
                     <button
                       key={type}
                       type="button"
@@ -196,14 +239,53 @@ export default function Enroll() {
                 </div>
               </div>
 
+              {/* Plan selection */}
+              {plans.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5 flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5" />
+                    الباقة المطلوبة
+                  </label>
+                  <div className="space-y-2">
+                    {plans.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setPlanId(p.id === planId ? "" : p.id)}
+                        className="w-full flex items-center justify-between p-3 rounded-xl border text-right transition-all"
+                        style={planId === p.id
+                          ? { background: `${A}15`, borderColor: `${A}40` }
+                          : { background: "rgba(0,0,0,0.3)", borderColor: "rgba(255,255,255,0.08)" }
+                        }
+                      >
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.8)" }}>
+                            {p.nameAr || p.name}
+                          </p>
+                          {p.durationDays && (
+                            <p className="text-xs text-white/30">{p.durationDays} يوم</p>
+                          )}
+                        </div>
+                        {p.price != null && (
+                          <span className="text-sm font-bold" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.4)" }}>
+                            {p.price === 0 ? "مجاني" : `${p.price} ر.س`}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">ملاحظات (اختياري)</label>
                 <textarea
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={e => setNotes(e.target.value)}
                   placeholder="أي معلومات إضافية..."
                   rows={3}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 text-right resize-none"
+                  className={inp + " text-right resize-none"}
                   style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif" }}
                 />
               </div>
@@ -221,17 +303,16 @@ export default function Enroll() {
                 className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 style={{ background: A, color: "#000" }}
               >
-                {step === "submitting" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
+                {step === "submitting"
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Send className="w-4 h-4" />}
                 {step === "submitting" ? "جارٍ الإرسال..." : "إرسال الطلب"}
               </button>
             </form>
           </div>
         )}
 
+        {/* Success */}
         {step === "success" && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 text-center space-y-4">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
@@ -250,6 +331,7 @@ export default function Enroll() {
           </div>
         )}
 
+        {/* Error */}
         {step === "error" && (
           <div className="bg-[#0a0a0a] border border-red-500/20 rounded-2xl p-8 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />

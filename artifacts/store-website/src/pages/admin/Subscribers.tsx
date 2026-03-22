@@ -26,12 +26,14 @@ interface Sub {
   code: string;
   subscriberName: string | null;
   phone: string | null;
+  email: string | null;
   udid: string | null;
   deviceType: string | null;
   groupName: string | null;
   planId: number;
   planName: string | null;
   planNameAr: string | null;
+  sourceType: string | null;
   isActive: string;
   activatedAt: string | null;
   expiresAt: string | null;
@@ -55,7 +57,7 @@ function Select({ ...p }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...p} className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none appearance-none" />;
 }
 
-const blankForm = { code: "", subscriberName: "", phone: "", udid: "", deviceType: "iPhone", groupName: "", planId: "", isActive: "true" };
+const blankForm = { code: "", subscriberName: "", phone: "", email: "", udid: "", deviceType: "iPhone", groupName: "", planId: "", isActive: "true" };
 
 function NotifyModal({ sub, onClose }: { sub: Sub; onClose: () => void }) {
   const { toast } = useToast();
@@ -132,6 +134,7 @@ function SubModal({ sub, plans, onClose, onSaved }: { sub?: Sub; plans: Plan[]; 
     code: sub.code,
     subscriberName: sub.subscriberName || "",
     phone: sub.phone || "",
+    email: sub.email || "",
     udid: sub.udid || "",
     deviceType: sub.deviceType || "iPhone",
     groupName: sub.groupName || "",
@@ -188,6 +191,11 @@ function SubModal({ sub, plans, onClose, onSaved }: { sub?: Sub; plans: Plan[]; 
             <FieldGroup label="رقم الهاتف">
               <Input dir="ltr" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+964..." />
             </FieldGroup>
+            <div className="col-span-2">
+              <FieldGroup label="البريد الإلكتروني">
+                <Input type="email" dir="ltr" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
+              </FieldGroup>
+            </div>
             <FieldGroup label="UDID">
               <Input dir="ltr" value={form.udid} onChange={e => setForm({ ...form, udid: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" />
             </FieldGroup>
@@ -261,6 +269,7 @@ export default function AdminSubscribers() {
     return subs.filter(s =>
       (s.subscriberName || "").toLowerCase().includes(q) ||
       (s.phone || "").includes(q) ||
+      (s.email || "").toLowerCase().includes(q) ||
       (s.udid || "").toLowerCase().includes(q) ||
       s.code.toLowerCase().includes(q)
     );
@@ -339,12 +348,12 @@ export default function AdminSubscribers() {
                     </button>
                   </th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">المشترك</th>
-                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الهاتف</th>
+                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">البريد</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">UDID</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الجهاز</th>
-                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">كود الاشتراك</th>
-                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">المجموعة</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الباقة</th>
+                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">نوع التسجيل</th>
+                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">المجموعة</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الحالة</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">تاريخ التسجيل</th>
                   <th className="px-3 py-3 w-16" />
@@ -362,11 +371,19 @@ export default function AdminSubscribers() {
                         {selectedIds.has(sub.id) ? <CheckSquare className="w-4 h-4" style={{ color: A }} /> : <Square className="w-4 h-4 text-white/30" />}
                       </button>
                     </td>
-                    <td className="px-3 py-3 font-medium text-white whitespace-nowrap">{sub.subscriberName || <span className="text-white/30">-</span>}</td>
-                    <td className="px-3 py-3 text-white/60 text-xs whitespace-nowrap font-mono">{sub.phone || "-"}</td>
+                    {/* Name + Phone */}
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <p className="font-medium text-white text-sm">{sub.subscriberName || <span className="text-white/30">—</span>}</p>
+                      <p className="text-white/40 text-xs font-mono">{sub.phone || "—"}</p>
+                    </td>
+                    {/* Email */}
+                    <td className="px-3 py-3 text-white/50 text-xs max-w-[150px]">
+                      <span className="truncate block">{sub.email || <span className="text-white/20">—</span>}</span>
+                    </td>
+                    {/* UDID */}
                     <td className="px-3 py-3 text-white/40 text-xs font-mono max-w-[140px]">
                       <div className="flex items-center gap-1">
-                        <span className="truncate">{sub.udid ? sub.udid.slice(0, 14) + "…" : "-"}</span>
+                        <span className="truncate">{sub.udid ? sub.udid.slice(0, 14) + "…" : "—"}</span>
                         {sub.udid && (
                           <button onClick={() => { navigator.clipboard.writeText(sub.udid!); }} className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-white/30 hover:text-white">
                             <Copy className="w-3 h-3" />
@@ -374,28 +391,31 @@ export default function AdminSubscribers() {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-white/60 text-xs whitespace-nowrap">{sub.deviceType || "-"}</td>
-                    <td className="px-3 py-3 text-xs font-mono whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        <span style={{ color: A }}>{sub.code}</span>
-                        <button onClick={() => navigator.clipboard.writeText(sub.code)} className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-white/30 hover:text-white">
-                          <Copy className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-white/60 text-xs whitespace-nowrap">{sub.groupName || "-"}</td>
+                    {/* Device */}
+                    <td className="px-3 py-3 text-white/60 text-xs whitespace-nowrap">{sub.deviceType || "—"}</td>
+                    {/* Plan */}
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: `${A}20`, color: A }}>
-                        {sub.planNameAr || sub.planName || "-"}
+                        {sub.planNameAr || sub.planName || "—"}
                       </span>
                     </td>
+                    {/* Source type */}
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {sub.sourceType === "enrollment_request"
+                        ? <span className="px-2 py-0.5 rounded-full text-xs bg-purple-500/15 text-purple-400">طلب اشتراك</span>
+                        : <span className="px-2 py-0.5 rounded-full text-xs bg-white/8 text-white/40">كود اشتراك</span>}
+                    </td>
+                    {/* Group */}
+                    <td className="px-3 py-3 text-white/60 text-xs whitespace-nowrap">{sub.groupName || "—"}</td>
+                    {/* Status */}
                     <td className="px-3 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${sub.isActive === "true" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                         {sub.isActive === "true" ? "نشط" : "غير نشط"}
                       </span>
                     </td>
+                    {/* Date */}
                     <td className="px-3 py-3 text-white/40 text-xs whitespace-nowrap">
-                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("ar-IQ") : "-"}
+                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("ar-IQ") : "—"}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

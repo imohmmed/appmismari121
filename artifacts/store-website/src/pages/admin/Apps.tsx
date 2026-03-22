@@ -538,7 +538,7 @@ function EditAppModal({ app, onClose }: { app: App; onClose: () => void }) {
                 </Select>
               </FieldGroup>
               <FieldGroup label="النوع">
-                <Select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value })}>
+                <Select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value as any })}>
                   {TAGS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </Select>
               </FieldGroup>

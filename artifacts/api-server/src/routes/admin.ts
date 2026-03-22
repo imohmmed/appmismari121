@@ -325,6 +325,7 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
     conditions.push(or(
       ilike(subscriptionsTable.subscriberName, `%${search}%`),
       ilike(subscriptionsTable.phone, `%${search}%`),
+      ilike(subscriptionsTable.email, `%${search}%`),
       ilike(subscriptionsTable.code, `%${search}%`),
       ilike(subscriptionsTable.udid, `%${search}%`),
     ));
@@ -336,12 +337,14 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
       code: subscriptionsTable.code,
       udid: subscriptionsTable.udid,
       phone: subscriptionsTable.phone,
+      email: subscriptionsTable.email,
       deviceType: subscriptionsTable.deviceType,
       subscriberName: subscriptionsTable.subscriberName,
       groupName: subscriptionsTable.groupName,
       planId: subscriptionsTable.planId,
       planName: plansTable.name,
       planNameAr: plansTable.nameAr,
+      sourceType: subscriptionsTable.sourceType,
       isActive: subscriptionsTable.isActive,
       activatedAt: subscriptionsTable.activatedAt,
       expiresAt: subscriptionsTable.expiresAt,
@@ -360,13 +363,14 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
 });
 
 router.post("/admin/subscriptions", async (req, res): Promise<void> => {
-  const { code, udid, phone, deviceType, subscriberName, groupName, planId, isActive, activatedAt, expiresAt } = req.body;
+  const { code, udid, phone, email, deviceType, subscriberName, groupName, planId, isActive, activatedAt, expiresAt } = req.body;
   if (!code || !planId) { res.status(400).json({ error: "code and planId are required" }); return; }
 
   const [sub] = await db.insert(subscriptionsTable).values({
     code,
     udid: udid || null,
     phone: phone || null,
+    email: email || null,
     deviceType: deviceType || null,
     subscriberName: subscriberName || null,
     groupName: groupName || null,
@@ -382,11 +386,12 @@ router.post("/admin/subscriptions", async (req, res): Promise<void> => {
 router.put("/admin/subscriptions/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const { code, udid, phone, deviceType, subscriberName, groupName, planId, isActive, expiresAt } = req.body;
+  const { code, udid, phone, email, deviceType, subscriberName, groupName, planId, isActive, expiresAt } = req.body;
   const [sub] = await db.update(subscriptionsTable).set({
     ...(code !== undefined && { code }),
     ...(udid !== undefined && { udid }),
     ...(phone !== undefined && { phone }),
+    ...(email !== undefined && { email }),
     ...(deviceType !== undefined && { deviceType }),
     ...(subscriberName !== undefined && { subscriberName }),
     ...(groupName !== undefined && { groupName }),

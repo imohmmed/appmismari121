@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, subscriptionsTable, enrollmentRequestsTable } from "@workspace/db";
+import { db, subscriptionsTable, enrollmentRequestsTable, plansTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -10,6 +10,18 @@ function getBaseUrl(req: import("express").Request): string {
   return `${proto}://${host}`;
 }
 
+function requireAdmin(req: import("express").Request, res: import("express").Response): boolean {
+  const token = req.headers["x-admin-token"] as string;
+  if (!token) { res.status(401).json({ error: "Unauthorized" }); return false; }
+  return true;
+}
+
+function randomCode(len = 10): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+// ─── UDID enrollment profile ─────────────────────────────────────────────────
 router.get("/profile/enroll", (req, res): void => {
   const base = getBaseUrl(req);
   const callbackUrl = `${base}/api/profile/callback`;
@@ -52,6 +64,7 @@ router.get("/profile/enroll", (req, res): void => {
   res.send(profile);
 });
 
+// ─── Profile callback: extract UDID ──────────────────────────────────────────
 router.post(
   "/profile/callback",
   (req, _res, next) => {
@@ -79,12 +92,10 @@ router.post(
   }
 );
 
+// ─── Check if UDID already subscribed ────────────────────────────────────────
 router.get("/enroll/check", async (req, res): Promise<void> => {
   const { udid } = req.query as { udid?: string };
-  if (!udid) {
-    res.status(400).json({ error: "udid required" });
-    return;
-  }
+  if (!udid) { res.status(400).json({ error: "udid required" }); return; }
 
   try {
     const [sub] = await db
@@ -110,19 +121,19 @@ router.get("/enroll/check", async (req, res): Promise<void> => {
   }
 });
 
+// ─── POST /enroll/request — submit enrollment request ────────────────────────
 router.post("/enroll/request", async (req, res): Promise<void> => {
-  const { name, phone, udid, deviceType, notes } = req.body as {
+  const { name, phone, email, udid, deviceType, planId, notes } = req.body as {
     name?: string;
     phone?: string;
+    email?: string;
     udid?: string;
     deviceType?: string;
+    planId?: number | string;
     notes?: string;
   };
 
-  if (!udid) {
-    res.status(400).json({ error: "udid required" });
-    return;
-  }
+  if (!udid) { res.status(400).json({ error: "udid required" }); return; }
 
   try {
     const [existing] = await db
@@ -139,8 +150,10 @@ router.post("/enroll/request", async (req, res): Promise<void> => {
     await db.insert(enrollmentRequestsTable).values({
       name: name?.trim() || null,
       phone: phone?.trim() || null,
+      email: email?.trim() || null,
       udid: udid.trim(),
       deviceType: deviceType?.trim() || null,
+      planId: planId ? Number(planId) : null,
       notes: notes?.trim() || null,
       status: "pending",
     });
@@ -152,26 +165,40 @@ router.post("/enroll/request", async (req, res): Promise<void> => {
   }
 });
 
+// ─── GET /admin/enroll-requests ──────────────────────────────────────────────
 router.get("/admin/enroll-requests", async (req, res): Promise<void> => {
-  const token = req.headers["x-admin-token"] as string;
-  if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!requireAdmin(req, res)) return;
 
   try {
-    const requests = await db
-      .select()
+    const rows = await db
+      .select({
+        id: enrollmentRequestsTable.id,
+        name: enrollmentRequestsTable.name,
+        phone: enrollmentRequestsTable.phone,
+        email: enrollmentRequestsTable.email,
+        udid: enrollmentRequestsTable.udid,
+        deviceType: enrollmentRequestsTable.deviceType,
+        planId: enrollmentRequestsTable.planId,
+        planName: plansTable.name,
+        planNameAr: plansTable.nameAr,
+        notes: enrollmentRequestsTable.notes,
+        status: enrollmentRequestsTable.status,
+        createdAt: enrollmentRequestsTable.createdAt,
+      })
       .from(enrollmentRequestsTable)
+      .leftJoin(plansTable, eq(enrollmentRequestsTable.planId, plansTable.id))
       .orderBy(enrollmentRequestsTable.createdAt);
 
-    res.json({ requests });
+    res.json({ requests: rows });
   } catch (err) {
     console.error("Admin enroll-requests error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+// ─── PUT /admin/enroll-requests/:id — update status ──────────────────────────
 router.put("/admin/enroll-requests/:id", async (req, res): Promise<void> => {
-  const token = req.headers["x-admin-token"] as string;
-  if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!requireAdmin(req, res)) return;
 
   const id = parseInt(req.params.id, 10);
   const { status } = req.body as { status?: string };
@@ -188,9 +215,76 @@ router.put("/admin/enroll-requests/:id", async (req, res): Promise<void> => {
   }
 });
 
+// ─── POST /admin/enroll-requests/:id/approve ─────────────────────────────────
+// Approves enrollment request + creates subscriber in subscriptions table
+router.post("/admin/enroll-requests/:id/approve", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+
+  const id = parseInt(req.params.id, 10);
+  const { groupName, planId: overridePlanId } = req.body as { groupName?: string; planId?: number | string };
+
+  if (!groupName?.trim()) {
+    res.status(400).json({ error: "groupName مطلوب" });
+    return;
+  }
+
+  try {
+    // Get the enrollment request
+    const [row] = await db
+      .select()
+      .from(enrollmentRequestsTable)
+      .where(eq(enrollmentRequestsTable.id, id))
+      .limit(1);
+
+    if (!row) { res.status(404).json({ error: "الطلب غير موجود" }); return; }
+    if (row.status === "approved") { res.status(409).json({ error: "تم قبول هذا الطلب مسبقاً" }); return; }
+
+    // Determine planId
+    const finalPlanId = overridePlanId ? Number(overridePlanId) : (row.planId || null);
+    if (!finalPlanId) {
+      res.status(400).json({ error: "يجب تحديد الباقة" });
+      return;
+    }
+
+    // Generate unique code
+    let code = randomCode(10);
+    for (let i = 0; i < 5; i++) {
+      const existing = await db.select({ id: subscriptionsTable.id }).from(subscriptionsTable).where(eq(subscriptionsTable.code, code)).limit(1);
+      if (existing.length === 0) break;
+      code = randomCode(10);
+    }
+
+    // Create subscription
+    const [sub] = await db.insert(subscriptionsTable).values({
+      code,
+      udid: row.udid || null,
+      phone: row.phone || null,
+      email: row.email || null,
+      deviceType: row.deviceType || null,
+      subscriberName: row.name || null,
+      groupName: groupName.trim(),
+      planId: finalPlanId,
+      sourceType: "enrollment_request",
+      isActive: "true",
+      activatedAt: new Date(),
+    }).returning();
+
+    // Update enrollment request status to approved
+    await db
+      .update(enrollmentRequestsTable)
+      .set({ status: "approved" })
+      .where(eq(enrollmentRequestsTable.id, id));
+
+    res.status(201).json({ success: true, subscription: sub });
+  } catch (err) {
+    console.error("Admin enroll approve error:", err);
+    res.status(500).json({ error: "حدث خطأ أثناء الموافقة" });
+  }
+});
+
+// ─── DELETE /admin/enroll-requests/:id ───────────────────────────────────────
 router.delete("/admin/enroll-requests/:id", async (req, res): Promise<void> => {
-  const token = req.headers["x-admin-token"] as string;
-  if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+  if (!requireAdmin(req, res)) return;
 
   const id = parseInt(req.params.id, 10);
   try {
