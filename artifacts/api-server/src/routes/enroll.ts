@@ -107,23 +107,26 @@ router.post(
   async (req, res): Promise<void> => {
     try {
       const bodyStr = ((req as any).rawBody as Buffer | undefined)?.toString("utf8") || "";
-      const udidMatch = bodyStr.match(/<key>UDID<\/key>\s*<string>([A-Fa-f0-9-]+)<\/string>/);
+      // Accept any alphanumeric UDID format (old hex, new alphanumeric)
+      const udidMatch = bodyStr.match(/<key>UDID<\/key>\s*<string>([A-Za-z0-9-]+)<\/string>/);
       const udid = udidMatch?.[1]?.trim();
 
       if (!udid) {
+        console.error("UDID extraction failed. Body:", bodyStr.substring(0, 500));
         res.status(400).send("Could not extract UDID from device response");
         return;
       }
 
       const source = (req.query.source as string) || "web";
       const token = (req.query.token as string) || "";
+      const base = getBaseUrl(req);
 
-      // Save UDID to token store (for app polling) and DB
+      // Save UDID to token store (for app polling)
       if (token) {
         udidTokenStore.set(token, { udid, createdAt: Date.now() });
       }
 
-      // For web source, also save UDID as a pending enrollment request
+      // For web source, save UDID as a pending enrollment request
       if (source === "web") {
         await db.insert(enrollmentRequestsTable).values({
           udid,
@@ -131,12 +134,13 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      // Return a non-empty profile with a single WiFi payload.
-      // iOS 17+ rejects empty profiles ("Empty profile" error).
-      // A WiFi payload with a placeholder SSID is harmless — iOS just ignores
-      // it if the network doesn't exist, and the profile appears in Settings.
+      // Return a Web Clip profile pointing to the enrollment form with UDID pre-filled.
+      // This creates an app icon on the home screen that opens the enrollment form.
+      // WiFi profiles cause "Profile Installation Failed" on iOS 17+ when unsigned.
       const profileUuid = crypto.randomUUID();
-      const payloadUuid = crypto.randomUUID();
+      const webClipUuid = crypto.randomUUID();
+      const enrollUrl = `${base}/enroll?udid=${encodeURIComponent(udid)}`;
+
       const responseProfile = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -145,27 +149,29 @@ router.post(
   <array>
     <dict>
       <key>PayloadType</key>
-      <string>com.apple.wifi.managed</string>
+      <string>com.apple.webClip.managed</string>
       <key>PayloadVersion</key>
       <integer>1</integer>
       <key>PayloadIdentifier</key>
-      <string>com.mismari.wifi.${payloadUuid}</string>
+      <string>com.mismari.webclip.${webClipUuid}</string>
       <key>PayloadUUID</key>
-      <string>${payloadUuid}</string>
+      <string>${webClipUuid}</string>
       <key>PayloadDisplayName</key>
-      <string>Mismari Network</string>
-      <key>SSID_STR</key>
-      <string>Mismari</string>
-      <key>EncryptionType</key>
-      <string>None</string>
-      <key>AutoJoin</key>
-      <false/>
+      <string>Mismari Enrollment</string>
+      <key>Label</key>
+      <string>مسماري+</string>
+      <key>URL</key>
+      <string>${enrollUrl}</string>
+      <key>FullScreen</key>
+      <true/>
+      <key>IsRemovable</key>
+      <true/>
     </dict>
   </array>
   <key>PayloadDescription</key>
-  <string>Mismari device registration</string>
+  <string>اكمل تسجيل اشتراكك في مسماري</string>
   <key>PayloadDisplayName</key>
-  <string>Mismari</string>
+  <string>مسماري - تسجيل الاشتراك</string>
   <key>PayloadIdentifier</key>
   <string>com.mismari.enrolled.${profileUuid}</string>
   <key>PayloadRemovalDisallowed</key>

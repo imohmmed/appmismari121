@@ -145,7 +145,7 @@ export default function Enroll() {
               )}
             </div>
             <button
-              onClick={() => navigate(`/subscriber/${checkResult.subscriber!.id}`)}
+              onClick={() => navigate(`/subscriber/${checkResult.subscriber!.code}`)}
               className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
               style={{ background: `${A}20`, color: A, border: `1px solid ${A}30` }}
             >
