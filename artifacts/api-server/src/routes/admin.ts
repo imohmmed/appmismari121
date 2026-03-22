@@ -428,39 +428,42 @@ router.delete("/admin/featured/:id", async (req, res): Promise<void> => {
 });
 
 // ─── GROUPS ────────────────────────────────────────────────────────────────
+// Safety buffer: stop 2 slots before the hard limit to keep emergency seats
+const IPHONE_IOS_LIMIT = 98;   // Apple hard limit: 100  (we stop at 98)
+const IPHONE_MAC_LIMIT = 98;   // MAC bypass hard limit: 100 (we stop at 98)
+const IPAD_LIMIT_NUM   = 98;   // iPad hard limit: 100 (we stop at 98)
 
+// Helper: rebuild cached counts from subscriptions (used by sync endpoint)
+async function rebuildGroupStats(certName: string) {
+  const all = await db
+    .select({ platform: subscriptionsTable.applePlatform, appleStatus: subscriptionsTable.appleStatus })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.groupName, certName));
+  return {
+    iphoneOfficialCount: all.filter(d => d.platform === "IOS").length,
+    iphoneMacCount: all.filter(d => d.platform === "MAC").length,
+    ipadCount: all.filter(d => d.platform === "IPAD_OS").length,
+    pendingCount: all.filter(d => d.appleStatus === "PROCESSING").length,
+    activeCount: all.filter(d => d.appleStatus === "ENABLED").length,
+    totalDevices: all.length,
+  };
+}
+
+// GET /admin/groups — reads from local cache (fast, no Apple API call)
 router.get("/admin/groups", async (_req, res): Promise<void> => {
   const groups = await db.select().from(groupsTable).orderBy(desc(groupsTable.createdAt));
   const result = await Promise.all(groups.map(async (g) => {
-    const all = await db
-      .select({
-        platform: subscriptionsTable.applePlatform,
-        deviceType: subscriptionsTable.deviceType,
-        appleStatus: subscriptionsTable.appleStatus,
-      })
-      .from(subscriptionsTable)
-      .where(eq(subscriptionsTable.groupName, g.certName));
-
-    const iosCount = all.filter(d => d.platform === "IOS").length;
-    const macCount = all.filter(d => d.platform === "MAC").length;
-    const ipadCount = all.filter(d => d.platform === "IPAD_OS").length;
-    const pendingCount = all.filter(d => d.appleStatus === "PROCESSING").length;
-    const activeCount = all.filter(d => d.appleStatus === "ENABLED").length;
-
+    const live = await rebuildGroupStats(g.certName);
     return {
       ...g,
       privateKey: g.privateKey ? "••••••••" : "",
-      iosCount,
-      macCount,
-      ipadCount,
-      pendingCount,
-      activeCount,
-      totalDevices: all.length,
+      ...live,
     };
   }));
   res.json({ groups: result });
 });
 
+// GET /admin/groups/:id/devices — full device list for a certificate
 router.get("/admin/groups/:id/devices", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
@@ -473,52 +476,137 @@ router.get("/admin/groups/:id/devices", async (req, res): Promise<void> => {
   res.json({ devices, certName: group.certName });
 });
 
-// Smart platform resolver: decides IOS / MAC / IPAD_OS based on current slot usage
+// POST /admin/groups/:id/resolve-platform
+// THE PRE-FLIGHT CHECK — decides which Apple platform to use before registering
+// Returns the platform + the exact Apple API payload to send
 router.post("/admin/groups/:id/resolve-platform", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const { deviceType } = req.body; // "iPhone" | "iPad"
+  const { deviceType, udid, deviceName } = req.body; // deviceType: "iPhone" | "iPad"
+
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
   if (!group) { res.status(404).json({ error: "Not found" }); return; }
 
-  const all = await db
-    .select({ platform: subscriptionsTable.applePlatform })
-    .from(subscriptionsTable)
-    .where(eq(subscriptionsTable.groupName, group.certName));
+  // ── UDID duplicate check (Safety Lock) ──────────────────────────────────
+  if (udid) {
+    const existing = await db
+      .select({ id: subscriptionsTable.id, applePlatform: subscriptionsTable.applePlatform })
+      .from(subscriptionsTable)
+      .where(sql`${subscriptionsTable.groupName} = ${group.certName} AND ${subscriptionsTable.udid} = ${udid}`);
 
-  const iosCount = all.filter(d => d.platform === "IOS").length;
-  const macCount = all.filter(d => d.platform === "MAC").length;
-  const ipadCount = all.filter(d => d.platform === "IPAD_OS").length;
-
-  let platform = "";
-  let message = "";
-  let canRegister = true;
-
-  if (deviceType === "iPad") {
-    if (ipadCount < 100) {
-      platform = "IPAD_OS";
-      message = `تسجيل آيباد كـ IPAD_OS (${ipadCount + 1}/100)`;
-    } else {
-      canRegister = false;
-      message = "الشهادة ممتلئة للآيبادات (100/100). انتقل لشهادة جديدة.";
-    }
-  } else {
-    // iPhone
-    if (iosCount < 100) {
-      platform = "IOS";
-      message = `تسجيل آيفون كـ IOS (${iosCount + 1}/100)`;
-    } else if (macCount < 100) {
-      platform = "MAC";
-      message = `الـ IOS امتلأت (100/100). التحويل التلقائي لـ MAC bypass (${macCount + 1}/100) 🔀`;
-    } else {
-      canRegister = false;
-      message = "الشهادة ممتلئة للآيفونات (200/200). انتقل لشهادة جديدة.";
+    if (existing.length > 0) {
+      const existingPlatform = existing[0].applePlatform || "IOS";
+      res.json({
+        isDuplicate: true,
+        platform: existingPlatform,
+        canRegister: false,
+        message: `⚠️ هذا الـ UDID مسجل مسبقاً في هذه الشهادة كـ ${existingPlatform}. لن يُستهلك مقعد جديد — يُحدَّث الـ Provisioning Profile فقط.`,
+        applePayload: null,
+        stats: await rebuildGroupStats(group.certName),
+      });
+      return;
     }
   }
 
-  res.json({ platform, message, canRegister, iosCount, macCount, ipadCount });
+  // ── Read local DB stats (no Apple API call here) ─────────────────────────
+  const stats = await rebuildGroupStats(group.certName);
+  const { iphoneOfficialCount: ios, iphoneMacCount: mac, ipadCount: ipad } = stats;
+
+  let platform = "";
+  let canRegister = true;
+  let message = "";
+  let applePayload: object | null = null;
+
+  if (deviceType === "iPad") {
+    if (ipad < IPAD_LIMIT_NUM) {
+      platform = "IPAD_OS";
+      message = `✅ مقعد آيباد متاح (${ipad + 1}/${IPAD_LIMIT_NUM}) — تسجيل كـ IOS platform لدى أبل`;
+      applePayload = {
+        data: {
+          type: "devices",
+          attributes: {
+            name: deviceName || `Mismari_iPad_${ipad + 1}`,
+            udid: udid || "UDID_HERE",
+            platform: "IOS",  // Apple uses IOS for both iPhone & iPad in DevConnect
+          },
+        },
+      };
+    } else {
+      canRegister = false;
+      message = `🚫 الشهادة ممتلئة للآيبادات (${IPAD_LIMIT_NUM}/${IPAD_LIMIT_NUM}). الرجاء الانتقال لشهادة جديدة.`;
+    }
+  } else {
+    // iPhone — Smart routing: IOS first, then MAC bypass
+    if (ios < IPHONE_IOS_LIMIT) {
+      platform = "IOS";
+      message = `✅ مقعد IOS متاح (${ios + 1}/${IPHONE_IOS_LIMIT}) — تسجيل رسمي عادي`;
+      applePayload = {
+        data: {
+          type: "devices",
+          attributes: {
+            name: deviceName || `Mismari_iPhone_${ios + 1}`,
+            udid: udid || "UDID_HERE",
+            platform: "IOS",  // Standard iPhone registration
+          },
+        },
+      };
+    } else if (mac < IPHONE_MAC_LIMIT) {
+      platform = "MAC";
+      message = `⚡ IOS امتلأت (${IPHONE_IOS_LIMIT}/${IPHONE_IOS_LIMIT}). تحويل تلقائي لـ MAC bypass (${mac + 1}/${IPHONE_MAC_LIMIT})`;
+      applePayload = {
+        data: {
+          type: "devices",
+          attributes: {
+            name: deviceName || `Mismari_iPhone_MAC_${mac + 1}`,
+            udid: udid || "UDID_HERE",
+            platform: "MAC_OS",  // ← الثغرة: آيفون حقيقي مسجل كـ Mac
+          },
+        },
+      };
+    } else {
+      canRegister = false;
+      message = `🚫 الشهادة ممتلئة للآيفونات (${IPHONE_IOS_LIMIT + IPHONE_MAC_LIMIT}/${IPHONE_IOS_LIMIT + IPHONE_MAC_LIMIT}). الرجاء الانتقال لشهادة جديدة.`;
+    }
+  }
+
+  res.json({
+    isDuplicate: false,
+    platform,
+    canRegister,
+    message,
+    applePayload,   // The exact JSON body to POST to Apple DevConnect API
+    appleEndpoint: "POST https://api.appstoreconnect.apple.com/v1/devices",
+    stats,
+    safetyNote: `حد الأمان: ${IPHONE_IOS_LIMIT} بدل 100 (مقعدان للطوارئ)`,
+  });
 });
 
-// Update device apple status (PROCESSING → ENABLED)
+// POST /admin/groups/:id/sync — Manual sync: recount from subscriptions, update cached stats
+// Trigger: Admin clicks "تحديث" button. NOT called automatically on page load.
+router.post("/admin/groups/:id/sync", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
+  if (!group) { res.status(404).json({ error: "Not found" }); return; }
+
+  const stats = await rebuildGroupStats(group.certName);
+
+  // Update cached counters in groupsTable
+  const [updated] = await db.update(groupsTable).set({
+    iphoneOfficialCount: stats.iphoneOfficialCount,
+    iphoneMacCount: stats.iphoneMacCount,
+    ipadCount: stats.ipadCount,
+    lastSyncAt: new Date(),
+    lastSyncNote: `تمت المزامنة من قاعدة البيانات المحلية — ${stats.totalDevices} جهاز`,
+  }).where(eq(groupsTable.id, id)).returning();
+
+  res.json({
+    success: true,
+    message: `تمت المزامنة بنجاح`,
+    stats,
+    syncedAt: updated.lastSyncAt,
+  });
+});
+
+// PATCH /admin/groups/device/:subId/status — Update Apple status for a device (PROCESSING → ENABLED)
 router.patch("/admin/groups/device/:subId/status", async (req, res): Promise<void> => {
   const subId = Number(req.params.subId);
   const { appleStatus, applePlatform } = req.body;
