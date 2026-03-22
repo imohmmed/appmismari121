@@ -153,6 +153,17 @@ export default function SectionDetailScreen() {
           <AppDetailPanel
             app={apiAppToDetail(selectedApp)}
             onClose={() => setSelectedApp(null)}
+            onCategoryPress={() => {
+              setSelectedApp(null);
+              router.push({
+                pathname: "/category/[id]",
+                params: {
+                  id: String(selectedApp.categoryId),
+                  name: selectedApp.categoryName,
+                  color: "#9fbcff",
+                },
+              } as any);
+            }}
             relatedApps={relatedApps}
             onRelatedAppPress={(a) => {
               const found = apps.find(x => x.id === a.id);

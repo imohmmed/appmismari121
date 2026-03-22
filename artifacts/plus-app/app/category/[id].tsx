@@ -143,6 +143,7 @@ export default function CategoryDetailScreen() {
           <AppDetailPanel
             app={apiAppToDetail(selectedApp)}
             onClose={() => setSelectedApp(null)}
+            onCategoryPress={() => setSelectedApp(null)}
             relatedApps={relatedApps}
             onRelatedAppPress={(a) => {
               const found = apps.find(x => x.id === a.id);

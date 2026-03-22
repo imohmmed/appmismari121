@@ -335,7 +335,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             </View>
           ))}
 
-          <TapToRate onRate={setReviewRating} />
+          <View style={{ alignSelf: "stretch" }}>
+            <TapToRate onRate={setReviewRating} />
+          </View>
 
           <View style={[st.writeReviewSection, { alignSelf: "stretch" }]}>
             <Text style={[st.writeReviewTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>{t("writeReview")}</Text>
