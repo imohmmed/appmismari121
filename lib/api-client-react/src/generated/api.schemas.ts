@@ -23,7 +23,11 @@ export interface App {
   id: number;
   name: string;
   description?: string;
+  descriptionAr?: string | null;
+  descriptionEn?: string | null;
   icon: string;
+  ipaPath?: string | null;
+  iconPath?: string | null;
   categoryId: number;
   categoryName: string;
   tag: AppTag;
@@ -36,6 +40,7 @@ export interface App {
   isHot?: boolean;
   isHidden?: boolean;
   isTestMode?: boolean;
+  status?: string | null;
   createdAt?: string;
 }
 
@@ -99,7 +104,11 @@ export const CreateAppRequestTag = {
 export interface CreateAppRequest {
   name: string;
   description?: string;
+  descriptionAr?: string;
+  descriptionEn?: string;
   icon: string;
+  ipaPath?: string;
+  iconPath?: string;
   categoryId: number;
   tag: CreateAppRequestTag;
   version?: string;

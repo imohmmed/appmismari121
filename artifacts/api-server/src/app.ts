@@ -1,10 +1,18 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+app.use("/admin/FilesIPA", express.static(path.join(uploadsDir, "FilesIPA"), {
+  setHeaders(res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  },
+}));
 
 app.use(
   pinoHttp({

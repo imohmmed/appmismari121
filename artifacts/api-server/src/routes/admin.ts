@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, ilike, or, and } from "drizzle-orm";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable } from "@workspace/db";
+import fs from "fs";
+import path from "path";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable } from "@workspace/db";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -82,7 +84,11 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
       id: appsTable.id,
       name: appsTable.name,
       description: appsTable.description,
+      descriptionAr: appsTable.descriptionAr,
+      descriptionEn: appsTable.descriptionEn,
       icon: appsTable.icon,
+      ipaPath: appsTable.ipaPath,
+      iconPath: appsTable.iconPath,
       categoryId: appsTable.categoryId,
       categoryName: categoriesTable.name,
       tag: appsTable.tag,
@@ -199,6 +205,17 @@ router.delete("/admin/apps/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "App not found" });
     return;
   }
+
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  const tryDelete = (relPath: string | null | undefined) => {
+    if (!relPath) return;
+    try {
+      const full = path.join(uploadsDir, relPath.replace(/^\/admin\/FilesIPA\//, "FilesIPA/"));
+      if (fs.existsSync(full)) fs.unlinkSync(full);
+    } catch {}
+  };
+  tryDelete(app.ipaPath);
+  tryDelete(app.iconPath);
 
   res.sendStatus(204);
 });
@@ -673,6 +690,102 @@ router.put("/admin/groups/:id", async (req, res): Promise<void> => {
 router.delete("/admin/groups/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   await db.delete(groupsTable).where(eq(groupsTable.id, id));
+  res.sendStatus(204);
+});
+
+// ─── REVENUE ───────────────────────────────────────────────────────────────
+
+router.get("/admin/revenue", async (_req, res): Promise<void> => {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const rows = await db
+    .select({
+      planId: subscriptionsTable.planId,
+      planName: plansTable.name,
+      planNameAr: plansTable.nameAr,
+      price: plansTable.price,
+      currency: plansTable.currency,
+      isActive: subscriptionsTable.isActive,
+      createdAt: subscriptionsTable.createdAt,
+    })
+    .from(subscriptionsTable)
+    .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id));
+
+  let totalRevenue = 0;
+  let thisMonthRevenue = 0;
+  let totalCount = 0;
+  let thisMonthCount = 0;
+
+  const planMap: Record<number, { nameAr: string | null; name: string; price: number; currency: string; count: number; revenue: number }> = {};
+
+  for (const row of rows) {
+    if (row.isActive !== "true") continue;
+    const price = Number(row.price || 0);
+    totalRevenue += price;
+    totalCount++;
+    if (row.createdAt && row.createdAt >= startOfMonth) {
+      thisMonthRevenue += price;
+      thisMonthCount++;
+    }
+    if (row.planId) {
+      if (!planMap[row.planId]) {
+        planMap[row.planId] = {
+          nameAr: row.planNameAr ?? null,
+          name: row.planName ?? "غير محدد",
+          price,
+          currency: row.currency ?? "IQD",
+          count: 0,
+          revenue: 0,
+        };
+      }
+      planMap[row.planId].count++;
+      planMap[row.planId].revenue += price;
+    }
+  }
+
+  const breakdown = Object.entries(planMap).map(([, v]) => v).sort((a, b) => b.revenue - a.revenue);
+
+  res.json({ totalRevenue, thisMonthRevenue, totalCount, thisMonthCount, breakdown });
+});
+
+// ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
+
+router.get("/admin/notifications", async (_req, res): Promise<void> => {
+  const notifications = await db
+    .select()
+    .from(notificationsTable)
+    .orderBy(desc(notificationsTable.sentAt))
+    .limit(100);
+  res.json({ notifications });
+});
+
+router.post("/admin/notifications", async (req, res): Promise<void> => {
+  const { title, body, target } = req.body;
+  if (!title || !body) {
+    res.status(400).json({ error: "title and body are required" });
+    return;
+  }
+
+  const [{ totalActive }] = await db
+    .select({ totalActive: sql<number>`count(*)::int` })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.isActive, "true"));
+
+  const recipientCount = target === "all" ? totalActive : 0;
+
+  const [notification] = await db
+    .insert(notificationsTable)
+    .values({ title, body, target: target || "all", recipientCount })
+    .returning();
+
+  res.status(201).json({ success: true, notification });
+});
+
+router.delete("/admin/notifications/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
+  await db.delete(notificationsTable).where(eq(notificationsTable.id, id));
   res.sendStatus(204);
 });
 

@@ -67,7 +67,7 @@ const translations = {
     reviewPlaceholder: "اكتب مراجعتك هنا...",
     submitReview: "إرسال المراجعة",
     youMayLike: "قد يعجبك أيضاً",
-    retry: "إعادة",
+    retry: "تكرار",
     now: "الآن",
 
     totalApps: "إجمالي التطبيقات",
