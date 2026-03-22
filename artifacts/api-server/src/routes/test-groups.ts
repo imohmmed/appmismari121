@@ -15,15 +15,6 @@ import { db, groupsTable } from "@workspace/db";
 const router: IRouter = Router();
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-function requireAdmin(req: import("express").Request, res: import("express").Response): boolean {
-  const token = req.headers["x-admin-token"] as string;
-  if (!token) {
-    res.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-  return true;
-}
-
 // ─── Parse .mobileprovision ──────────────────────────────────────────────────
 function parseMobileprovision(buf: Buffer): Record<string, unknown> {
   // .mobileprovision is a CMS/PKCS7 DER-encoded binary
@@ -91,8 +82,6 @@ router.post(
     { name: "mobileprovision", maxCount: 1 },
   ]),
   async (req: any, res): Promise<void> => {
-    if (!requireAdmin(req, res)) return;
-
     const files = req.files as Record<string, Express.Multer.File[]>;
     const password = (req.body?.password as string) || "";
 
@@ -159,8 +148,6 @@ router.post(
     { name: "mobileprovision", maxCount: 1 },
   ]),
   async (req: any, res): Promise<void> => {
-    if (!requireAdmin(req, res)) return;
-
     const files = req.files as Record<string, Express.Multer.File[]>;
     const {
       certName,
@@ -221,7 +208,6 @@ router.post(
 // ─── GET /admin/groups/:id/provision-udids ────────────────────────────────────
 // Returns list of UDIDs from the saved mobileprovision
 router.get("/admin/groups/:id/provision-udids", async (req, res): Promise<void> => {
-  if (!requireAdmin(req, res)) return;
   const id = parseInt(req.params.id, 10);
   try {
     const [group] = await db.select({ provisionedUdids: groupsTable.provisionedUdids }).from(groupsTable).where(eq(groupsTable.id, id));

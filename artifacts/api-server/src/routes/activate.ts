@@ -13,15 +13,6 @@ function getBaseUrl(req: import("express").Request): string {
   return `${proto}://${host}`;
 }
 
-function requireAdmin(req: import("express").Request, res: import("express").Response): boolean {
-  const token = req.headers["x-admin-token"] as string;
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
-  if (!token || !Buffer.from(token, "base64").toString().includes(":")) {
-    res.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-  return true;
-}
 
 // ─── Storage for store IPA uploads ────────────────────────────────────────────
 const uploadsDir = path.join(process.cwd(), "uploads", "StoreIPA");
@@ -274,10 +265,6 @@ router.post("/activate/complete", async (req, res): Promise<void> => {
 // ─── Admin: Upload store IPA for a group ──────────────────────────────────────
 router.post(
   "/admin/groups/:id/store-ipa",
-  (req, res, next) => {
-    if (!requireAdmin(req, res)) return;
-    next();
-  },
   storeIpaUpload.single("ipa"),
   async (req, res): Promise<void> => {
     const id = Number(req.params.id);
@@ -311,7 +298,6 @@ router.post(
 
 // ─── Admin: Remove store IPA from a group ────────────────────────────────────
 router.delete("/admin/groups/:id/store-ipa", async (req, res): Promise<void> => {
-  if (!requireAdmin(req, res)) return;
   const id = Number(req.params.id);
 
   const [group] = await db
