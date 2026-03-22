@@ -69,16 +69,26 @@ function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; 
 
   return (
     <View style={styles.scrollContainer}>
-      {/* Track: absolute-positioned words, clipped by scrollContainer overflow:hidden */}
       <Animated.View style={[styles.scrollTrack, { transform: [{ translateY: scrollY }] }]}>
         {slots.map((w) => {
-          const distance = Math.abs(w.n - activeWord);
-          const isActive = distance === 0;
-          const opacity = isActive ? 1 : 0.22;
-          const scl = isActive ? 1 : 0.82;
+          // scrollY value when THIS word is exactly at center
+          const center = w.n * WORD_HEIGHT + WORD_HEIGHT;
+
+          // opacity & scale driven by scrollY — animates in sync with position (no double effect)
+          // words fully transparent near clip edges so overflow:hidden shows no hard cut
+          const opacity = scrollY.interpolate({
+            inputRange: [center - WORD_HEIGHT * 1.4, center, center + WORD_HEIGHT * 1.4],
+            outputRange: [0, 1, 0],
+            extrapolate: "clamp",
+          });
+          const scale = scrollY.interpolate({
+            inputRange: [center - WORD_HEIGHT, center, center + WORD_HEIGHT],
+            outputRange: [0.76, 1, 0.76],
+            extrapolate: "clamp",
+          });
 
           return (
-            <View
+            <Animated.View
               key={w.n}
               style={[styles.wordRow, {
                 position: "absolute",
@@ -86,38 +96,22 @@ function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; 
                 left: 0,
                 right: 0,
                 height: WORD_HEIGHT,
+                opacity,
+                transform: [{ scale }],
               }]}
             >
-              <View style={[styles.wordRowInner, { opacity, transform: [{ scale: scl }] }]}>
-                {isActive && (
-                  <View style={[styles.wordIcon, { backgroundColor: w.color + "22" }]}>
-                    <Feather name={w.icon} size={22} color={w.color} />
-                  </View>
-                )}
-                <Text style={[
-                  styles.wordText,
-                  { fontFamily: fontArFn("ExtraBold") },
-                  isActive && styles.wordActive,
-                ]}>
+              <View style={styles.wordRowInner}>
+                <View style={[styles.wordIcon, { backgroundColor: w.color + "22" }]}>
+                  <Feather name={w.icon} size={22} color={w.color} />
+                </View>
+                <Text style={[styles.wordText, { fontFamily: fontArFn("ExtraBold"), color: DARK }]}>
                   {w.text}
                 </Text>
               </View>
-            </View>
+            </Animated.View>
           );
         })}
       </Animated.View>
-
-      {/* Symmetric gradient fades — each covers exactly 1 word slot */}
-      <LinearGradient
-        colors={[WHITE, WHITE + "00"]}
-        style={styles.scrollFadeTop}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={[WHITE + "00", WHITE]}
-        style={styles.scrollFadeBottom}
-        pointerEvents="none"
-      />
     </View>
   );
 }
@@ -537,22 +531,6 @@ const styles = StyleSheet.create({
   scrollTrack: {
     alignItems: "center",
   },
-  scrollFadeTop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: WORD_HEIGHT,
-    zIndex: 10,
-  },
-  scrollFadeBottom: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: WORD_HEIGHT,
-    zIndex: 10,
-  },
   wordRow: {
     justifyContent: "center",
     alignItems: "center",
@@ -572,9 +550,6 @@ const styles = StyleSheet.create({
   wordText: {
     fontSize: 38,
     fontWeight: "800",
-    color: DARK + "30",
-  },
-  wordActive: {
     color: DARK,
   },
 
