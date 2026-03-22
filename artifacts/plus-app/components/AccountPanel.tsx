@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import React from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Linking,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
 import SettingsPanel from "@/components/SettingsPanel";
+import { useSign } from "@/hooks/useSign";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -35,7 +37,8 @@ interface AccountPanelProps {
 
 export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const insets = useSafeAreaInsets();
-  const { colors, t, fontAr, isArabic } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
+  const { signStore, state: signState, error: signError, reset: resetSign } = useSign();
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = React.useRef(new Animated.Value(0)).current;
   const panY = React.useRef(new Animated.Value(0)).current;
@@ -43,6 +46,13 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const [showSettings, setShowSettings] = React.useState(false);
   const [socialLinks, setSocialLinks] = React.useState<SocialLink[]>(DEFAULT_SOCIAL);
   const isClosing = React.useRef(false);
+
+  const isSigningStore = signState === "signing" || signState === "opening";
+
+  const handleDownloadStore = React.useCallback(async () => {
+    resetSign();
+    await signStore(subscriptionCode);
+  }, [subscriptionCode, signStore, resetSign]);
 
   React.useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -154,6 +164,42 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
               </Text>
             </View>
           </View>
+
+          {/* ─── Download Store Button ─── */}
+          {subscriptionCode ? (
+            <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+              <TouchableOpacity
+                style={[
+                  styles.downloadStoreBtn,
+                  { backgroundColor: colors.tint, opacity: isSigningStore ? 0.7 : 1 },
+                ]}
+                activeOpacity={0.8}
+                onPress={handleDownloadStore}
+                disabled={isSigningStore}
+              >
+                {isSigningStore ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Feather name="download" size={18} color="#000" />
+                )}
+                <Text style={[styles.downloadStoreBtnText, { fontFamily: fontAr("Bold") }]}>
+                  {isSigningStore
+                    ? (signState === "signing" ? "جارٍ التوقيع..." : "جارٍ التثبيت...")
+                    : "تحميل المتجر بشهادتك"}
+                </Text>
+              </TouchableOpacity>
+              {signError && signState === "error" && (
+                <Text style={[styles.downloadStoreError, { fontFamily: fontAr("Regular") }]}>
+                  {signError}
+                </Text>
+              )}
+              {signState === "done" && (
+                <Text style={[styles.downloadStoreDone, { fontFamily: fontAr("Regular") }]}>
+                  ✓ تم فتح رابط التثبيت
+                </Text>
+              )}
+            </View>
+          ) : null}
 
           <View style={[styles.menuSection, { backgroundColor: colors.card }]}>
             {MENU_ITEMS.map((item) => (
@@ -326,5 +372,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_600SemiBold",
     color: "#FFF",
+  },
+  downloadStoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 15,
+    borderRadius: 16,
+  },
+  downloadStoreBtnText: {
+    fontSize: 15,
+    color: "#000",
+  },
+  downloadStoreError: {
+    fontSize: 12,
+    color: "#FF3B30",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  downloadStoreDone: {
+    fontSize: 12,
+    color: "#34C759",
+    textAlign: "center",
+    marginTop: 8,
   },
 });
