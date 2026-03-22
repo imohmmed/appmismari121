@@ -41,6 +41,8 @@ router.get("/profile/enroll", (req, res): void => {
     ? "يتيح لك هذا الملف بتفعيل اشتراكك للحصول على تطبيق مسماري"
     : "يتيح لك هذا الملف بتسجيل طلب اشتراك للحصول على تطبيق مسماري";
 
+  const uuid = crypto.randomUUID();
+
   const profile = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -58,17 +60,17 @@ router.get("/profile/enroll", (req, res): void => {
     </array>
   </dict>
   <key>PayloadOrganization</key>
-  <string>Mismari App</string>
+  <string>Mismari</string>
   <key>PayloadDisplayName</key>
   <string>${displayName}</string>
   <key>PayloadDescription</key>
-  <string>${subtitle} — ${description}</string>
+  <string>${subtitle} - ${description}</string>
   <key>PayloadVersion</key>
   <integer>1</integer>
   <key>PayloadUUID</key>
-  <string>3C4DC7D2-E475-4522-A890-5F7E75D4C6A9</string>
+  <string>${uuid}</string>
   <key>PayloadIdentifier</key>
-  <string>com.mismari.udid-service</string>
+  <string>com.mismari.udid-service.${uuid}</string>
   <key>PayloadType</key>
   <string>Profile Service</string>
 </dict>

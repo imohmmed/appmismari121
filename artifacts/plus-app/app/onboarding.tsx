@@ -42,42 +42,56 @@ const WORDS = [
   { text: "محدّث", icon: "refresh-cw" as const, color: PURPLE },
 ];
 
-const WORD_HEIGHT = 70;
+const WORD_HEIGHT = 72;
 const VISIBLE_COUNT = 5;
 
+// Words slide DOWN: new word enters from TOP, old exits at BOTTOM
+// Word n is at absolute track position: top = -n * WORD_HEIGHT
+// translateY = activeWord * WORD_HEIGHT + (VISIBLE_COUNT/2 | 0) * WORD_HEIGHT
+// → word n appears at container y = -n*WH + activeWord*WH + 2*WH = (activeWord-n+2)*WH
+// → active word (n=activeWord) always at 2*WH = center
 function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; fontAr: (w: string) => string }) {
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(WORD_HEIGHT * 2)).current;
 
   useEffect(() => {
     Animated.timing(scrollY, {
-      toValue: -activeWord * WORD_HEIGHT,
-      duration: 600,
+      toValue: activeWord * WORD_HEIGHT + WORD_HEIGHT * 2,
+      duration: 650,
       easing: Easing.inOut(Easing.cubic),
       useNativeDriver: true,
     }).start();
   }, [activeWord]);
 
-  const totalSlots = activeWord + 6;
   const slots = [];
-  for (let i = -2; i < totalSlots; i++) {
-    const wIdx = ((i % WORDS.length) + WORDS.length) % WORDS.length;
-    slots.push({ ...WORDS[wIdx], slotIndex: i });
+  for (let n = activeWord - 2; n <= activeWord + 3; n++) {
+    const wIdx = ((n % WORDS.length) + WORDS.length) % WORDS.length;
+    slots.push({ ...WORDS[wIdx], n });
   }
 
   return (
     <View style={styles.scrollContainer}>
-      <Animated.View style={[styles.scrollTrack, { transform: [{ translateY: Animated.add(scrollY, new Animated.Value(WORD_HEIGHT * 2)) }] }]}>
+      {/* Track: absolute children, track itself has 0 height — clipped by scrollContainer */}
+      <Animated.View style={[styles.scrollTrack, { transform: [{ translateY: scrollY }] }]}>
         {slots.map((w) => {
-          const distance = Math.abs(w.slotIndex - activeWord);
+          const distance = Math.abs(w.n - activeWord);
           const isActive = distance === 0;
-          const opacity = isActive ? 1 : distance === 1 ? 0.3 : 0.12;
-          const scl = isActive ? 1 : distance === 1 ? 0.88 : 0.78;
+          const opacity = isActive ? 1 : distance === 1 ? 0.28 : 0.1;
+          const scl = isActive ? 1 : distance === 1 ? 0.86 : 0.76;
 
           return (
-            <View key={w.slotIndex} style={[styles.wordRow, { height: WORD_HEIGHT }]}>
+            <View
+              key={w.n}
+              style={[styles.wordRow, {
+                position: "absolute",
+                top: -w.n * WORD_HEIGHT,
+                left: 0,
+                right: 0,
+                height: WORD_HEIGHT,
+              }]}
+            >
               <View style={[styles.wordRowInner, { opacity, transform: [{ scale: scl }] }]}>
                 {isActive && (
-                  <View style={[styles.wordIcon, { backgroundColor: w.color + "20" }]}>
+                  <View style={[styles.wordIcon, { backgroundColor: w.color + "22" }]}>
                     <Feather name={w.icon} size={22} color={w.color} />
                   </View>
                 )}
