@@ -200,7 +200,8 @@ export default function Enroll() {
                 {[
                   { num: "١", text: "اضغط «تحميل الملف» أدناه" },
                   { num: "٢", text: "افتح الإعدادات ← الملف الذي تم تحميله ← ثبّت" },
-                  { num: "٣", text: "عُد لهذه الصفحة — ستظهر بياناتك تلقائياً" },
+                  { num: "٣", text: "إذا ظهرت رسالة بعد التثبيت، اضغط OK وارجع لهذه الصفحة" },
+                  { num: "٤", text: "ستظهر بياناتك هنا تلقائياً" },
                 ].map(s => (
                   <div key={s.num} className="flex items-start gap-3">
                     <div
@@ -228,10 +229,17 @@ export default function Enroll() {
                 <span>في انتظار التثبيت{pollCount > 0 ? ` (${pollCount})` : ""}...</span>
               </div>
 
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/5 rounded-xl border border-yellow-500/10">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-yellow-500/60" />
+                <p className="text-yellow-500/60 text-xs leading-relaxed">
+                  قد يظهر iOS رسالة بعد التثبيت — هذا طبيعي. فقط اضغط <strong>OK</strong> وارجع لهذه الصفحة وستظهر بياناتك تلقائياً.
+                </p>
+              </div>
+
               <div className="flex items-start gap-2 p-3 bg-white/[0.03] rounded-xl border border-white/5">
                 <Shield className="w-4 h-4 shrink-0 mt-0.5" style={{ color: `${A}80` }} />
                 <p className="text-white/30 text-xs leading-relaxed">
-                  الملف آمن ومعتمد من <span style={{ color: A }}>app.mismari.com</span> — يُستخدم فقط للتعرف على جهازك ولا يُثبَّت أي محتوى
+                  الملف آمن ومعتمد من <span style={{ color: A }}>app.mismari.com</span> — يُستخدم فقط للتعرف على جهازك
                 </p>
               </div>
             </div>

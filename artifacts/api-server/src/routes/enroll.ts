@@ -139,21 +139,44 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      // Return a minimal empty configuration profile.
-      // Empty profiles install silently on iOS without "Profile Installation Failed".
-      // The UDID is already saved above — the website polls via token to retrieve it.
+      // Return a Web Clip profile (non-managed) pointing to the enrollment form.
+      // com.apple.webClip (not .managed) works on non-supervised devices.
+      // The UDID is already saved above; the website polls via token.
       const profileUuid = crypto.randomUUID();
+      const webClipUuid = crypto.randomUUID();
+      const enrollUrl = `${base}/enroll?udid=${encodeURIComponent(udid)}`;
 
       const responseProfile = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>PayloadContent</key>
-  <array/>
+  <array>
+    <dict>
+      <key>PayloadType</key>
+      <string>com.apple.webClip</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+      <key>PayloadIdentifier</key>
+      <string>com.mismari.webclip.${webClipUuid}</string>
+      <key>PayloadUUID</key>
+      <string>${webClipUuid}</string>
+      <key>PayloadDisplayName</key>
+      <string>مسماري — أكمل طلبك</string>
+      <key>Label</key>
+      <string>مسماري+</string>
+      <key>URL</key>
+      <string>${enrollUrl}</string>
+      <key>FullScreen</key>
+      <true/>
+      <key>IsRemovable</key>
+      <true/>
+    </dict>
+  </array>
   <key>PayloadDescription</key>
-  <string>تم تسجيل جهازك في مسماري — أكمل طلبك على الموقع</string>
+  <string>اكمل تسجيل اشتراكك في مسماري</string>
   <key>PayloadDisplayName</key>
-  <string>مسماري — تم استلام الطلب</string>
+  <string>مسماري — تسجيل الاشتراك</string>
   <key>PayloadIdentifier</key>
   <string>com.mismari.enrolled.${profileUuid}</string>
   <key>PayloadOrganization</key>
