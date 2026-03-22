@@ -1,5 +1,5 @@
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import React from "react";
 
@@ -61,6 +61,12 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const { onboardingDone } = useSettings();
+
+  if (!onboardingDone) {
+    return <Redirect href="/onboarding" />;
+  }
+
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }

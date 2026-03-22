@@ -30,6 +30,7 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="category/[id]" options={{ headerShown: false, presentation: "card", gestureEnabled: true, fullScreenGestureEnabled: true }} />
       <Stack.Screen name="section/[type]" options={{ headerShown: false, presentation: "card", gestureEnabled: true, fullScreenGestureEnabled: true }} />

@@ -24,7 +24,8 @@ function randomCode(len = 10): string {
 // ─── UDID enrollment profile ─────────────────────────────────────────────────
 router.get("/profile/enroll", (req, res): void => {
   const base = getBaseUrl(req);
-  const callbackUrl = `${base}/api/profile/callback`;
+  const source = (req.query.source as string) || "web";
+  const callbackUrl = `${base}/api/profile/callback?source=${encodeURIComponent(source)}`;
 
   const profile = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -83,8 +84,13 @@ router.post(
         return;
       }
 
-      const base = getBaseUrl(req);
-      res.redirect(302, `${base}/enroll?udid=${encodeURIComponent(udid)}`);
+      const source = (req.query.source as string) || "web";
+      if (source === "app") {
+        res.redirect(302, `mismari://onboarding?udid=${encodeURIComponent(udid)}`);
+      } else {
+        const base = getBaseUrl(req);
+        res.redirect(302, `${base}/enroll?udid=${encodeURIComponent(udid)}`);
+      }
     } catch (err) {
       console.error("Profile callback error:", err);
       res.status(500).send("Server error");

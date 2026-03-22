@@ -91,13 +91,29 @@ All admin pages are dark-themed (#1a1a2e bg, #22223a cards, #2a2a45 borders) wit
 - Uses Apple Liquid Glass tab bar (NativeTabs) on iOS 26+, BlurView fallback for older
 - Home tab has category pills, featured carousel, trending/most-downloaded/recently-added sections
 - Search is a separate tab with category browsing and app search
+- **Bundle ID**: `com.mismari.app`
+- **Deep Link Scheme**: `mismari://`
+
+### Onboarding Flow (`app/onboarding.tsx`)
+Multi-step animated onboarding:
+1. **Landing**: Animated cycling words (سريع, آمن, موثوق, محدّث) with blue gradient blob, Continue button
+2. **Download Profile**: Opens `/api/profile/enroll?source=app` in browser → iOS prompts to install mobileconfig
+3. **Install Profile**: Instructions to install in Settings → General → VPN & Device Management
+4. **Your UDID**: Deep link `mismari://onboarding?udid=xxx` returns UDID → user submits for verification
+5. **Checking**: API call to `/api/enroll/check?udid=xxx` to verify subscription
+6. **Result**: Success → enter store, or Error → skip
+
+Colors per step: Blue (#9fbcff), Orange (#FF8A50), Purple (#B07DFF)
+- Onboarding state persisted via `@mismari_onboarding_done` in AsyncStorage
+- UDID persisted via `@mismari_device_udid`
+- Tabs layout checks `onboardingDone` and redirects if needed
 
 ### Theme & Localization System
-- **SettingsContext** (`contexts/SettingsContext.tsx`): Manages language (AR/EN), theme mode (light/dark/system)
+- **SettingsContext** (`contexts/SettingsContext.tsx`): Manages language (AR/EN), theme mode (light/dark/system), onboardingDone, deviceUdid
 - **Colors**: Light mode (white bg, dark text) and Dark mode (#2B283B bg, white text, #9FBCFF secondary)
 - **Translations**: Full AR/EN in `constants/translations.ts` with `t(key)` helper
 - **Font**: Arabic text → Mestika-{weight} via `fontAr()`, English → Inter
-- **Persistence**: AsyncStorage keys `@mismari_language`, `@mismari_theme`
+- **Persistence**: AsyncStorage keys `@mismari_language`, `@mismari_theme`, `@mismari_onboarding_done`, `@mismari_device_udid`
 - **SettingsPanel**: Accessible from Account panel → Settings, with language & appearance togglers
 - All screens use `useSettings()` hook for dynamic colors, translations, and font selection
 

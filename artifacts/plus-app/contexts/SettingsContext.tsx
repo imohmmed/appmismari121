@@ -19,6 +19,10 @@ interface SettingsContextType {
   fontAr: (weight: "Regular" | "Medium" | "SemiBold" | "Bold" | "ExtraBold" | "Black" | "Light") => string;
   subscriptionCode: string;
   setSubscriptionCode: (code: string) => void;
+  onboardingDone: boolean;
+  setOnboardingDone: (done: boolean) => void;
+  deviceUdid: string;
+  setDeviceUdid: (udid: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -26,25 +30,33 @@ const SettingsContext = createContext<SettingsContextType | null>(null);
 const LANG_KEY = "@mismari_language";
 const THEME_KEY = "@mismari_theme";
 const CODE_KEY = "@mismari_subscription_code";
+const ONBOARDING_KEY = "@mismari_onboarding_done";
+const UDID_KEY = "@mismari_device_udid";
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [language, setLanguageState] = useState<Language>("ar");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [subscriptionCode, setSubscriptionCodeState] = useState("");
+  const [onboardingDone, setOnboardingDoneState] = useState(false);
+  const [deviceUdid, setDeviceUdidState] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [savedLang, savedTheme, savedCode] = await Promise.all([
+        const [savedLang, savedTheme, savedCode, savedOnboarding, savedUdid] = await Promise.all([
           AsyncStorage.getItem(LANG_KEY),
           AsyncStorage.getItem(THEME_KEY),
           AsyncStorage.getItem(CODE_KEY),
+          AsyncStorage.getItem(ONBOARDING_KEY),
+          AsyncStorage.getItem(UDID_KEY),
         ]);
         if (savedLang === "ar" || savedLang === "en") setLanguageState(savedLang);
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") setThemeModeState(savedTheme);
         if (savedCode) setSubscriptionCodeState(savedCode);
+        if (savedOnboarding === "true") setOnboardingDoneState(true);
+        if (savedUdid) setDeviceUdidState(savedUdid);
       } catch {}
       setLoaded(true);
     })();
@@ -63,6 +75,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setSubscriptionCode = (code: string) => {
     setSubscriptionCodeState(code);
     AsyncStorage.setItem(CODE_KEY, code).catch(() => {});
+  };
+
+  const setOnboardingDone = (done: boolean) => {
+    setOnboardingDoneState(done);
+    AsyncStorage.setItem(ONBOARDING_KEY, done ? "true" : "false").catch(() => {});
+  };
+
+  const setDeviceUdid = (udid: string) => {
+    setDeviceUdidState(udid);
+    AsyncStorage.setItem(UDID_KEY, udid).catch(() => {});
   };
 
   const resolvedTheme =
@@ -111,6 +133,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         fontAr,
         subscriptionCode,
         setSubscriptionCode,
+        onboardingDone,
+        setOnboardingDone,
+        deviceUdid,
+        setDeviceUdid,
       }}
     >
       {children}
