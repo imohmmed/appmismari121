@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Plus, Search, CheckSquare, Square, Trash2, X,
-  Loader2, Copy, RefreshCw, Download, Smartphone, Tablet, Shield
+  Loader2, Copy, RefreshCw, Download, Smartphone, Tablet, Shield,
+  FlaskConical, AlertCircle, Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,7 +34,14 @@ interface Sub {
 }
 
 interface Plan { id: number; name: string; nameAr: string | null; }
-interface Group { id: number; certName: string; iphoneOfficialCount: number; iphoneMacCount: number; ipadCount: number; }
+interface Group {
+  id: number;
+  certName: string;
+  groupType: string;
+  iphoneOfficialCount: number;
+  iphoneMacCount: number;
+  ipadCount: number;
+}
 
 function generateCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -101,6 +109,7 @@ export default function AdminSubCodes() {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!genPlanId) { toast({ title: "اختر الباقة", variant: "destructive" }); return; }
+    if (!genGroupName.trim()) { toast({ title: "⚠️ يجب اختيار مجموعة", description: "لا يمكن إنشاء كود بدون مجموعة", variant: "destructive" }); return; }
     setGenerating(true);
     const codes: string[] = [];
     for (let i = 0; i < genCount; i++) {
@@ -112,12 +121,12 @@ export default function AdminSubCodes() {
           planId: Number(genPlanId),
           isActive: "false",
           deviceType: genDeviceType,
-          groupName: genGroupName.trim() || null,
+          groupName: genGroupName.trim(),
         }),
       });
       codes.push(code);
     }
-    toast({ title: `تم إنشاء ${genCount} كود اشتراك` });
+    toast({ title: `✅ تم إنشاء ${genCount} كود اشتراك`, description: `المجموعة: ${genGroupName}` });
     setModal(false);
     setGenGroupName("");
     fetchData();
@@ -276,42 +285,76 @@ export default function AdminSubCodes() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium" style={{ color: `${A}99` }}>المجموعة</label>
-                {groups.length > 0 && (
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto mb-2">
+              {/* ── Group Picker (required) ── */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold flex items-center gap-1" style={{ color: A }}>
+                    <Shield className="w-3 h-3" />
+                    المجموعة <span className="text-red-400">*</span>
+                  </label>
+                  {genGroupName && (
+                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: `${A}20`, color: A }}>
+                      <Check className="w-3 h-3" />{genGroupName}
+                    </span>
+                  )}
+                </div>
+
+                {groups.length === 0 ? (
+                  <div className="flex items-center gap-2 px-3 py-3 rounded-xl border border-red-500/20 bg-red-500/5">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span className="text-red-400 text-xs">لا توجد مجموعات متاحة — أضف مجموعة أولاً</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto rounded-xl border border-white/10 p-2"
+                    style={{ background: "rgba(0,0,0,0.3)" }}>
                     {groups.map(g => {
                       const iphoneCount = (g.iphoneOfficialCount || 0) + (g.iphoneMacCount || 0);
                       const ipadCount = g.ipadCount || 0;
+                      const isTest = g.groupType === "test_certificate";
                       const isSelected = genGroupName === g.certName;
                       return (
                         <button
                           key={g.id}
                           type="button"
-                          onClick={() => setGenGroupName(isSelected ? "" : g.certName)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-right transition-all text-sm"
+                          onClick={() => setGenGroupName(g.certName)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-right transition-all"
                           style={isSelected
-                            ? { background: `${A}15`, borderColor: `${A}30`, color: A }
-                            : { background: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }
+                            ? { background: `${A}18`, borderColor: `${A}45`, color: A }
+                            : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.75)" }
                           }
                         >
-                          <Shield className="w-3.5 h-3.5 shrink-0" />
-                          <span className="flex-1 truncate">{g.certName}</span>
-                          <span className="text-xs text-white/30 flex items-center gap-1.5 shrink-0">
-                            <span className="flex items-center gap-0.5"><Smartphone className="w-2.5 h-2.5" />{iphoneCount}</span>
-                            <span className="flex items-center gap-0.5"><Tablet className="w-2.5 h-2.5" />{ipadCount}</span>
-                          </span>
+                          {isSelected
+                            ? <Check className="w-3.5 h-3.5 shrink-0" style={{ color: A }} />
+                            : isTest
+                              ? <FlaskConical className="w-3.5 h-3.5 shrink-0 text-yellow-400" />
+                              : <Shield className="w-3.5 h-3.5 shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
+                          }
+                          <div className="flex-1 min-w-0 text-right">
+                            <p className="text-sm font-medium truncate">{g.certName}</p>
+                            {isTest && (
+                              <p className="text-xs text-yellow-400/70 mt-0.5">شهادة تجريبية</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                            <span className="flex items-center gap-0.5">
+                              <Smartphone className="w-2.5 h-2.5" />{iphoneCount}
+                            </span>
+                            <span className="flex items-center gap-0.5">
+                              <Tablet className="w-2.5 h-2.5" />{ipadCount}
+                            </span>
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 )}
-                <input
-                  value={genGroupName}
-                  onChange={e => setGenGroupName(e.target.value)}
-                  className={inp}
-                  placeholder="أو اكتب اسم المجموعة..."
-                />
+
+                {!genGroupName && groups.length > 0 && (
+                  <p className="text-xs text-white/30 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                    مطلوب — اختر مجموعة لإنشاء الكود
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -322,9 +365,14 @@ export default function AdminSubCodes() {
             </form>
             <div className="border-t border-white/5 p-4 flex justify-end gap-2 shrink-0">
               <button type="button" onClick={() => setModal(false)} className="px-4 py-2 rounded-lg border border-white/10 text-white/50 text-sm">إلغاء</button>
-              <button onClick={handleGenerate as any} disabled={generating} className="px-5 py-2 rounded-lg text-sm font-bold text-black disabled:opacity-50 flex items-center gap-1.5" style={{ background: A }}>
+              <button
+                onClick={handleGenerate as any}
+                disabled={generating || !genGroupName || !genPlanId || groups.length === 0}
+                className="px-5 py-2 rounded-lg text-sm font-bold text-black disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-opacity"
+                style={{ background: A }}
+              >
                 {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                إنشاء
+                {!genGroupName ? "اختر مجموعة أولاً" : !genPlanId ? "اختر الباقة أولاً" : "إنشاء"}
               </button>
             </div>
           </div>
