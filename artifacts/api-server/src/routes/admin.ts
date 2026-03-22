@@ -803,6 +803,36 @@ router.delete("/admin/notifications/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+// ─── TRANSLATE ─────────────────────────────────────────────────────────────
+
+router.post("/admin/translate", async (req, res): Promise<void> => {
+  const { text, from, to } = req.body;
+  if (!text?.trim()) { res.json({ translated: "" }); return; }
+
+  const LANG_MAP: Record<string, string> = { ar: "ar", en: "en", auto: "auto" };
+  const srcLang = LANG_MAP[from] || "auto";
+  const tgtLang = LANG_MAP[to] || "en";
+
+  try {
+    const resp = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: text,
+        source: srcLang,
+        target: tgtLang,
+        format: "text",
+      }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json() as any;
+    res.json({ translated: data.translatedText || text });
+  } catch {
+    // Fallback: return original text
+    res.json({ translated: text, fallback: true });
+  }
+});
+
 // ─── SETTINGS ──────────────────────────────────────────────────────────────
 
 router.get("/admin/settings", async (_req, res): Promise<void> => {

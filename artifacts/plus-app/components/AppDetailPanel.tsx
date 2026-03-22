@@ -1,9 +1,12 @@
 import { Feather, FontAwesome } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { ThemeColors } from "@/constants/colors";
 import GlassBackButton from "@/components/GlassBackButton";
+import { useSign } from "@/hooks/useSign";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_COLLAPSE_POINT = 120;
@@ -187,15 +191,67 @@ const APP_SIZES: Record<string, string> = {
 export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedApps = [], onRelatedAppPress }: AppDetailProps) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { colors, t, fontAr, isArabic } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode, setSubscriptionCode } = useSettings();
   const tagColor = getTagColor(app.tag, colors);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const { signAndInstall, cloneAndInstall, isLoading, error: signError, state: signState, reset: resetSign } = useSign();
 
   const mockUser = isArabic ? MOCK_USER_AR : MOCK_USER_EN;
   const [descExpanded, setDescExpanded] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(isArabic ? MOCK_REVIEWS_AR : MOCK_REVIEWS_EN);
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showCloneModal, setShowCloneModal] = useState(false);
+  const [codeInput, setCodeInput] = useState(subscriptionCode);
+  const [cloneName, setCloneName] = useState("");
+  const [pendingAction, setPendingAction] = useState<"download" | "clone" | null>(null);
+
+  const handleDownload = () => {
+    if (!subscriptionCode) {
+      setPendingAction("download");
+      setCodeInput("");
+      setShowCodeModal(true);
+    } else {
+      resetSign();
+      signAndInstall(subscriptionCode, app.id);
+    }
+  };
+
+  const handleClone = () => {
+    if (!subscriptionCode) {
+      setPendingAction("clone");
+      setCodeInput("");
+      setShowCodeModal(true);
+    } else {
+      setCloneName("");
+      setShowCloneModal(true);
+    }
+  };
+
+  const handleSaveCode = () => {
+    const trimmed = codeInput.trim().toUpperCase();
+    if (!trimmed) return;
+    setSubscriptionCode(trimmed);
+    setShowCodeModal(false);
+    if (pendingAction === "download") {
+      resetSign();
+      signAndInstall(trimmed, app.id);
+    } else if (pendingAction === "clone") {
+      setCloneName("");
+      setShowCloneModal(true);
+    }
+    setPendingAction(null);
+  };
+
+  const handleCloneConfirm = () => {
+    setShowCloneModal(false);
+    resetSign();
+    cloneAndInstall(subscriptionCode, app.id, cloneName);
+  };
+
+  const downloadBtnLabel = signState === "signing" ? t("signing") : signState === "opening" ? t("installing") : t("download");
+  const cloneBtnLabel = signState === "signing" ? t("signing") : signState === "opening" ? t("installing") : t("retry");
 
   const appDesc = isArabic ? (app.descAr || app.desc || "") : (app.descEn || app.desc || "");
   const catName = app.category || (app as any).categoryName || "";
@@ -243,8 +299,15 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           </View>
         </Animated.View>
         <Animated.View style={{ opacity: stickyOpacity }}>
-          <Pressable style={[st.stickyGetBtn, { backgroundColor: colors.tint }]}>
-            <Text style={[st.stickyGetText, { fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+          <Pressable
+            style={[st.stickyGetBtn, { backgroundColor: colors.tint, opacity: isLoading ? 0.6 : 1 }]}
+            onPress={handleDownload}
+            disabled={isLoading}
+          >
+            {isLoading
+              ? <ActivityIndicator size="small" color="#000" />
+              : <Text style={[st.stickyGetText, { fontFamily: fontAr("Bold") }]}>{downloadBtnLabel}</Text>
+            }
           </Pressable>
         </Animated.View>
       </View>
@@ -267,12 +330,26 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             <Text style={[st.appName, { color: colors.text }]} numberOfLines={2}>{app.name}</Text>
             <Text style={[st.appSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{appDesc}</Text>
             <View style={st.heroButtons}>
-              <Pressable style={[st.repeatBtn, { backgroundColor: colors.card }]}>
-                <Feather name="repeat" size={14} color={colors.tint} />
-                <Text style={[st.repeatText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("retry")}</Text>
+              <Pressable
+                style={[st.repeatBtn, { backgroundColor: colors.card, opacity: isLoading ? 0.5 : 1 }]}
+                onPress={handleClone}
+                disabled={isLoading}
+              >
+                {isLoading && signState === "signing"
+                  ? <ActivityIndicator size="small" color={colors.tint} />
+                  : <Feather name="repeat" size={14} color={colors.tint} />
+                }
+                <Text style={[st.repeatText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{cloneBtnLabel}</Text>
               </Pressable>
-              <Pressable style={[st.getBtn, { backgroundColor: colors.tint }]}>
-                <Text style={[st.getBtnText, { fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+              <Pressable
+                style={[st.getBtn, { backgroundColor: colors.tint, opacity: isLoading ? 0.6 : 1 }]}
+                onPress={handleDownload}
+                disabled={isLoading}
+              >
+                {isLoading
+                  ? <ActivityIndicator size="small" color="#000" />
+                  : <Text style={[st.getBtnText, { fontFamily: fontAr("Bold") }]}>{downloadBtnLabel}</Text>
+                }
               </Pressable>
             </View>
           </View>
@@ -378,6 +455,76 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           </>
         )}
       </Animated.ScrollView>
+
+      {/* ── Code Entry Modal ── */}
+      <Modal visible={showCodeModal} transparent animationType="fade" onRequestClose={() => setShowCodeModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={st.modalOverlay}>
+          <View style={[st.modalBox, { backgroundColor: colors.background, borderColor: colors.separator }]}>
+            <Text style={[st.modalTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>{t("enterCode")}</Text>
+            <Text style={[st.modalHint, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>{t("codeHint")}</Text>
+            <TextInput
+              value={codeInput}
+              onChangeText={setCodeInput}
+              placeholder="XXXX-XXXX-XXXX"
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={[st.modalInput, {
+                color: colors.text,
+                backgroundColor: colors.card,
+                borderColor: colors.separator,
+                fontFamily: "Inter_500Medium",
+                textAlign: "center",
+              }]}
+            />
+            {signError && (
+              <Text style={[st.modalError, { fontFamily: fontAr("Regular") }]}>{signError}</Text>
+            )}
+            <View style={[st.modalBtns, isArabic && { flexDirection: "row-reverse" }]}>
+              <Pressable style={[st.modalCancelBtn, { borderColor: colors.separator }]} onPress={() => setShowCodeModal(false)}>
+                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>إلغاء</Text>
+              </Pressable>
+              <Pressable style={[st.modalConfirmBtn, { backgroundColor: colors.tint }]} onPress={handleSaveCode}>
+                <Text style={[{ color: "#fff", fontFamily: fontAr("Bold") }]}>{t("saveCode")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Clone Modal ── */}
+      <Modal visible={showCloneModal} transparent animationType="fade" onRequestClose={() => setShowCloneModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={st.modalOverlay}>
+          <View style={[st.modalBox, { backgroundColor: colors.background, borderColor: colors.separator }]}>
+            <Text style={[st.modalTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>{t("cloneTitle")}</Text>
+            <Text style={[st.modalHint, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
+              {isArabic ? `سيتم إنشاء نسخة جديدة من ${app.name} بـ Bundle ID مختلف` : `A new copy of ${app.name} will be created with a different Bundle ID`}
+            </Text>
+            <TextInput
+              value={cloneName}
+              onChangeText={setCloneName}
+              placeholder={isArabic ? `${app.name} 2` : `${app.name} 2`}
+              placeholderTextColor={colors.textSecondary}
+              autoCorrect={false}
+              style={[st.modalInput, {
+                color: colors.text,
+                backgroundColor: colors.card,
+                borderColor: colors.separator,
+                fontFamily: fontAr("Regular"),
+                textAlign: isArabic ? "right" : "left",
+              }]}
+            />
+            <View style={[st.modalBtns, isArabic && { flexDirection: "row-reverse" }]}>
+              <Pressable style={[st.modalCancelBtn, { borderColor: colors.separator }]} onPress={() => setShowCloneModal(false)}>
+                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>إلغاء</Text>
+              </Pressable>
+              <Pressable style={[st.modalConfirmBtn, { backgroundColor: colors.tint }]} onPress={handleCloneConfirm}>
+                <Text style={[{ color: "#fff", fontFamily: fontAr("Bold") }]}>{t("cloneBtn")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -521,4 +668,59 @@ const st = StyleSheet.create({
   relatedGetBtn: { paddingHorizontal: 22, paddingVertical: 7, borderRadius: 18 },
   relatedGetText: { fontSize: 15 },
   relatedDivider: { height: StyleSheet.hairlineWidth, marginLeft: 68 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalBox: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 22,
+    gap: 14,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  modalHint: {
+    fontSize: 13,
+    lineHeight: 20,
+    opacity: 0.7,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    letterSpacing: 1.5,
+  },
+  modalError: {
+    fontSize: 12,
+    color: "#ff6b6b",
+    textAlign: "center",
+  },
+  modalBtns: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  modalConfirmBtn: {
+    flex: 2,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
 });

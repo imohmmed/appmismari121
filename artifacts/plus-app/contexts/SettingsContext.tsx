@@ -17,28 +17,34 @@ interface SettingsContextType {
   t: (key: TranslationKey) => string;
   isArabic: boolean;
   fontAr: (weight: "Regular" | "Medium" | "SemiBold" | "Bold" | "ExtraBold" | "Black" | "Light") => string;
+  subscriptionCode: string;
+  setSubscriptionCode: (code: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 const LANG_KEY = "@mismari_language";
 const THEME_KEY = "@mismari_theme";
+const CODE_KEY = "@mismari_subscription_code";
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [language, setLanguageState] = useState<Language>("ar");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
+  const [subscriptionCode, setSubscriptionCodeState] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [savedLang, savedTheme] = await Promise.all([
+        const [savedLang, savedTheme, savedCode] = await Promise.all([
           AsyncStorage.getItem(LANG_KEY),
           AsyncStorage.getItem(THEME_KEY),
+          AsyncStorage.getItem(CODE_KEY),
         ]);
         if (savedLang === "ar" || savedLang === "en") setLanguageState(savedLang);
         if (savedTheme === "light" || savedTheme === "dark" || savedTheme === "system") setThemeModeState(savedTheme);
+        if (savedCode) setSubscriptionCodeState(savedCode);
       } catch {}
       setLoaded(true);
     })();
@@ -52,6 +58,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setThemeMode = (mode: ThemeMode) => {
     setThemeModeState(mode);
     AsyncStorage.setItem(THEME_KEY, mode).catch(() => {});
+  };
+
+  const setSubscriptionCode = (code: string) => {
+    setSubscriptionCodeState(code);
+    AsyncStorage.setItem(CODE_KEY, code).catch(() => {});
   };
 
   const resolvedTheme =
@@ -98,6 +109,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         t,
         isArabic,
         fontAr,
+        subscriptionCode,
+        setSubscriptionCode,
       }}
     >
       {children}
