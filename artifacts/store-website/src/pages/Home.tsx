@@ -7,6 +7,7 @@ import { PublicLayout } from "@/components/layout/PublicLayout";
 const PRIMARY = "#9fbcff";
 const TEXT = "#2b283b";
 const API = import.meta.env.VITE_API_URL || "";
+const BASE = import.meta.env.BASE_URL || "/";
 
 interface AppItem {
   id: number;
@@ -196,9 +197,9 @@ const FEATURES = [
 ];
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-function goToEnroll() {
-  // Direct navigation so iOS shows "Install Profile" dialog
-  window.location.href = `${API}/api/profile/enroll`;
+function goToEnroll(planName?: string) {
+  const url = `${BASE}enroll${planName ? `?plan=${encodeURIComponent(planName)}` : ""}`;
+  window.location.href = url;
 }
 
 interface ActivateResult {
@@ -452,7 +453,7 @@ export default function Home() {
                     ))}
                   </div>
                   <button
-                    onClick={goToEnroll}
+                    onClick={() => goToEnroll(plan.nameAr || plan.name)}
                     className="block w-full py-3.5 rounded-2xl font-bold text-sm transition-all hover:opacity-90"
                     style={{ background: PRIMARY, color: TEXT }}
                   >
