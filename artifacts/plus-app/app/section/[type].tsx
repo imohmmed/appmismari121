@@ -16,6 +16,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useApps, getTagColor, type ApiApp } from "@/hooks/useAppData";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import SlidePanel from "@/components/SlidePanel";
+import CategorySlideContent from "@/components/CategorySlideContent";
 
 const SECTION_EMOJI: Record<string, string> = {
   trending: "🔥",
@@ -58,6 +59,7 @@ export default function SectionDetailScreen() {
   const apiSection = sectionTypeToApi(type);
   const { apps, loading } = useApps({ section: apiSection, limit: 50 });
   const [selectedApp, setSelectedApp] = useState<ApiApp | null>(null);
+  const [activeCat, setActiveCat] = useState<{ id: number; name?: string; nameAr?: string } | null>(null);
 
   const emoji = SECTION_EMOJI[type] || "";
 
@@ -155,20 +157,32 @@ export default function SectionDetailScreen() {
             onClose={() => setSelectedApp(null)}
             onCategoryPress={() => {
               setSelectedApp(null);
-              router.push({
-                pathname: "/category/[id]",
-                params: {
-                  id: String(selectedApp.categoryId),
+              if (selectedApp?.categoryId) {
+                setActiveCat({
+                  id: selectedApp.categoryId,
                   name: selectedApp.categoryName,
-                  color: "#9fbcff",
-                },
-              } as any);
+                  nameAr: selectedApp.categoryNameAr ?? undefined,
+                });
+              }
             }}
             relatedApps={relatedApps}
             onRelatedAppPress={(a) => {
               const found = apps.find(x => x.id === a.id);
               if (found) setSelectedApp(found);
             }}
+          />
+        )}
+      </SlidePanel>
+
+      {/* Category slide panel — opens on top without leaving the section page */}
+      <SlidePanel visible={activeCat !== null} onClose={() => setActiveCat(null)}>
+        {activeCat && (
+          <CategorySlideContent
+            categoryId={activeCat.id}
+            categoryName={activeCat.name}
+            categoryNameAr={activeCat.nameAr}
+            color="#9fbcff"
+            onClose={() => setActiveCat(null)}
           />
         )}
       </SlidePanel>

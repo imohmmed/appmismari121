@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
   Animated,
@@ -80,23 +80,36 @@ function StarRow({ rating, size = 14, color = "#FFD700" }: { rating: number; siz
   const { colors } = useSettings();
   return (
     <View style={{ flexDirection: "row", gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((sv) => (
-        <Feather key={sv} name="star" size={size} color={sv <= rating ? color : colors.separator} />
-      ))}
+      {[1, 2, 3, 4, 5].map((sv) => {
+        const filled = sv <= Math.floor(rating);
+        const half = !filled && sv === Math.ceil(rating) && rating % 1 >= 0.25;
+        return (
+          <FontAwesome
+            key={sv}
+            name={filled ? "star" : half ? "star-half-o" : "star-o"}
+            size={size}
+            color={filled || half ? color : colors.separator}
+          />
+        );
+      })}
     </View>
   );
 }
 
 function TapToRate({ onRate }: { onRate: (r: number) => void }) {
-  const [hover, setHover] = useState(0);
+  const [selected, setSelected] = useState(0);
   const { colors, t, fontAr } = useSettings();
   return (
     <View style={st.tapToRate}>
       <Text style={[st.tapToRateLabel, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>{t("tapToRate")}</Text>
       <View style={st.tapStars}>
         {[1, 2, 3, 4, 5].map((v) => (
-          <Pressable key={v} onPress={() => { setHover(v); onRate(v); }}>
-            <Feather name="star" size={32} color={v <= hover ? "#FFD700" : colors.separator} />
+          <Pressable key={v} onPress={() => { setSelected(v); onRate(v); }}>
+            <FontAwesome
+              name={v <= selected ? "star" : "star-o"}
+              size={32}
+              color={v <= selected ? "#FFD700" : colors.separator}
+            />
           </Pressable>
         ))}
       </View>
