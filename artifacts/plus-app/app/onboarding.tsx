@@ -128,7 +128,57 @@ export default function OnboardingScreen() {
   const [checkResult, setCheckResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [socialLinks, setSocialLinks] = useState({ whatsapp: "", telegram: "", instagram: "" });
+  const [supportExpanded, setSupportExpanded] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Support button animations
+  const supportBtnScale = useRef(new Animated.Value(1)).current;
+  const supportBtnOpacity = useRef(new Animated.Value(1)).current;
+  const wa_scale = useRef(new Animated.Value(0)).current;
+  const wa_opacity = useRef(new Animated.Value(0)).current;
+  const tg_scale = useRef(new Animated.Value(0)).current;
+  const tg_opacity = useRef(new Animated.Value(0)).current;
+  const ig_scale = useRef(new Animated.Value(0)).current;
+  const ig_opacity = useRef(new Animated.Value(0)).current;
+
+  const expandSupport = () => {
+    setSupportExpanded(true);
+    Animated.parallel([
+      Animated.timing(supportBtnScale, { toValue: 0.7, duration: 200, useNativeDriver: true }),
+      Animated.timing(supportBtnOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
+    Animated.stagger(80, [
+      Animated.parallel([
+        Animated.spring(wa_scale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+        Animated.timing(wa_opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.spring(tg_scale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+        Animated.timing(tg_opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.spring(ig_scale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+        Animated.timing(ig_opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+    ]).start();
+  };
+
+  const collapseSupport = () => {
+    Animated.parallel([
+      Animated.timing(wa_scale, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(wa_opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(tg_scale, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(tg_opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(ig_scale, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(ig_opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      setSupportExpanded(false);
+      Animated.parallel([
+        Animated.spring(supportBtnScale, { toValue: 1, friction: 5, useNativeDriver: true }),
+        Animated.timing(supportBtnOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    });
+  };
 
   // Fetch contact links from admin settings
   useEffect(() => {
@@ -571,49 +621,76 @@ export default function OnboardingScreen() {
                   <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>الدخول للمتجر</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={{ gap: 12, width: "100%" }}>
-                  <Text style={[styles.supportLabel, { fontFamily: fontAr("SemiBold") }]}>
-                    تواصل مع الدعم للاشتراك
-                  </Text>
-                  <View style={styles.supportRow}>
-                    {socialLinks.whatsapp ? (
+                <View style={{ gap: 14, width: "100%", alignItems: "center" }}>
+                  {/* Animated support button → 3 app buttons */}
+                  <View style={{ minHeight: 64, width: "100%", alignItems: "center", justifyContent: "center" }}>
+                    {/* Main button — fades out on expand */}
+                    <Animated.View
+                      style={{
+                        position: "absolute",
+                        width: "100%",
+                        opacity: supportBtnOpacity,
+                        transform: [{ scale: supportBtnScale }],
+                      }}
+                      pointerEvents={supportExpanded ? "none" : "auto"}
+                    >
                       <TouchableOpacity
-                        style={[styles.supportBtn, { backgroundColor: "#25D366" }]}
+                        style={[styles.actionBtn, { backgroundColor: ACCENT }]}
                         activeOpacity={0.85}
-                        onPress={() => Linking.openURL(socialLinks.whatsapp)}
+                        onPress={expandSupport}
                       >
-                        <Feather name="phone" size={20} color={WHITE} />
-                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>واتساب</Text>
+                        <Feather name="message-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
+                        <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تواصل مع الدعم</Text>
                       </TouchableOpacity>
-                    ) : null}
-                    {socialLinks.telegram ? (
-                      <TouchableOpacity
-                        style={[styles.supportBtn, { backgroundColor: "#0088CC" }]}
-                        activeOpacity={0.85}
-                        onPress={() => Linking.openURL(socialLinks.telegram)}
-                      >
-                        <Feather name="send" size={20} color={WHITE} />
-                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>تيليكرام</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {socialLinks.instagram ? (
-                      <TouchableOpacity
-                        style={[styles.supportBtn, { backgroundColor: "#E1306C" }]}
-                        activeOpacity={0.85}
-                        onPress={() => Linking.openURL(socialLinks.instagram)}
-                      >
-                        <Feather name="instagram" size={20} color={WHITE} />
-                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>انستكرام</Text>
-                      </TouchableOpacity>
-                    ) : null}
+                    </Animated.View>
+
+                    {/* 3 app circle buttons — appear on expand */}
+                    <View style={{ flexDirection: "row-reverse", gap: 20, alignItems: "center", justifyContent: "center" }}>
+                      {/* WhatsApp */}
+                      <Animated.View style={{ opacity: wa_opacity, transform: [{ scale: wa_scale }] }}>
+                        <TouchableOpacity
+                          style={[styles.appCircleBtn, { backgroundColor: "#25D366", shadowColor: "#25D366" }]}
+                          activeOpacity={0.8}
+                          onPress={() => { collapseSupport(); setTimeout(() => Linking.openURL(socialLinks.whatsapp), 300); }}
+                        >
+                          <Feather name="phone" size={26} color={WHITE} />
+                        </TouchableOpacity>
+                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#25D366" }]}>واتساب</Text>
+                      </Animated.View>
+
+                      {/* Telegram */}
+                      <Animated.View style={{ opacity: tg_opacity, transform: [{ scale: tg_scale }] }}>
+                        <TouchableOpacity
+                          style={[styles.appCircleBtn, { backgroundColor: "#0088CC", shadowColor: "#0088CC" }]}
+                          activeOpacity={0.8}
+                          onPress={() => { collapseSupport(); setTimeout(() => Linking.openURL(socialLinks.telegram), 300); }}
+                        >
+                          <Feather name="send" size={26} color={WHITE} />
+                        </TouchableOpacity>
+                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#0088CC" }]}>تيليكرام</Text>
+                      </Animated.View>
+
+                      {/* Instagram */}
+                      <Animated.View style={{ opacity: ig_opacity, transform: [{ scale: ig_scale }] }}>
+                        <TouchableOpacity
+                          style={[styles.appCircleBtn, { backgroundColor: "#E1306C", shadowColor: "#E1306C" }]}
+                          activeOpacity={0.8}
+                          onPress={() => { collapseSupport(); setTimeout(() => Linking.openURL(socialLinks.instagram), 300); }}
+                        >
+                          <Feather name="instagram" size={26} color={WHITE} />
+                        </TouchableOpacity>
+                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#E1306C" }]}>انستكرام</Text>
+                      </Animated.View>
+                    </View>
                   </View>
+
                   <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: "#FF3B30" + "22", borderWidth: 1, borderColor: "#FF3B3060" }]}
+                    style={[styles.actionBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: DARK + "25" }]}
                     activeOpacity={0.85}
-                    onPress={() => transition("download")}
+                    onPress={() => { collapseSupport(); transition("download"); }}
                   >
-                    <Feather name="rotate-ccw" size={18} color="#FF3B30" style={{ marginLeft: 8 }} />
-                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold"), color: "#FF3B30" }]}>إعادة المحاولة</Text>
+                    <Feather name="rotate-ccw" size={16} color={DARK + "70"} style={{ marginLeft: 8 }} />
+                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold"), color: DARK + "70" }]}>إعادة المحاولة</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -851,33 +928,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
-  supportLabel: {
-    fontSize: 15,
-    color: DARK + "90",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  supportRow: {
-    flexDirection: "row-reverse",
-    justifyContent: "center",
-    gap: 10,
-  },
-  supportBtn: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
+  appCircleBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  supportBtnText: {
+  appCircleLabel: {
     fontSize: 13,
-    color: WHITE,
+    textAlign: "center",
+    marginTop: 8,
   },
 
   resultDesc: {
