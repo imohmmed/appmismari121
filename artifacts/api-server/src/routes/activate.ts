@@ -127,12 +127,24 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
   }
 
   const base = getBaseUrl(req);
-  // Derive the IPA URL from path
-  const ipaUrl = group.storeIpaPath.startsWith("http")
-    ? group.storeIpaPath
-    : `${base}${group.storeIpaPath}`;
 
-  const bundleId = group.bundleId || "com.mismari.store";
+  // Build a publicly accessible IPA URL.
+  // Old records may have been stored with /api/admin/FilesIPA/StoreIPA/... which is NOT publicly served.
+  // Static middleware in app.ts serves StoreIPA at /admin/FilesIPA/StoreIPA/ (no /api/ prefix).
+  let rawIpaUrl = group.storeIpaPath;
+  let ipaUrl: string;
+  if (rawIpaUrl.startsWith("http")) {
+    // Fix legacy URLs that accidentally contain /api/admin/FilesIPA/StoreIPA/
+    ipaUrl = rawIpaUrl.replace(
+      /\/api\/admin\/FilesIPA\/StoreIPA\//,
+      "/admin/FilesIPA/StoreIPA/"
+    );
+  } else {
+    ipaUrl = `${base}${rawIpaUrl}`;
+  }
+
+  // bundleId: prefer group's bundleId (from mobileprovision), fall back to Mismari+ default
+  const bundleId = group.bundleId || "com.mismari.plus";
 
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -155,7 +167,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
         <key>bundle-identifier</key>
         <string>${bundleId}</string>
         <key>bundle-version</key>
-        <string>1.0</string>
+        <string>1.0.0</string>
         <key>kind</key>
         <string>software</string>
         <key>title</key>
@@ -167,6 +179,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
 </plist>`;
 
   res.setHeader("Content-Type", "text/xml; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
   res.send(plist);
 });
 
@@ -275,9 +288,9 @@ router.post(
       return;
     }
 
-    // Build public URL path for the IPA
+    // Build public URL — WITHOUT /api/ prefix so iOS can download it directly
     const base = getBaseUrl(req);
-    const ipaUrl = `${base}/api/admin/FilesIPA/StoreIPA/${req.file.filename}`;
+    const ipaUrl = `${base}/admin/FilesIPA/StoreIPA/${req.file.filename}`;
 
     const [group] = await db
       .update(groupsTable)
@@ -344,7 +357,8 @@ router.post(
     }
 
     const base = getBaseUrl(req);
-    const ipaUrl = `${base}/api/admin/FilesIPA/StoreIPA/${req.file.filename}`;
+    // WITHOUT /api/ prefix so iOS can download directly via the static handler
+    const ipaUrl = `${base}/admin/FilesIPA/StoreIPA/${req.file.filename}`;
 
     // Update ALL groups
     const groups = await db
