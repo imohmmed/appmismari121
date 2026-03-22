@@ -70,7 +70,8 @@ router.get("/profile/enroll", (req, res): void => {
     <key>DeviceAttributes</key>
     <array>
       <string>UDID</string>
-      <string>DEVICE_NAME</string>
+      <string>IMEI</string>
+      <string>ICCID</string>
       <string>VERSION</string>
       <string>PRODUCT</string>
     </array>
