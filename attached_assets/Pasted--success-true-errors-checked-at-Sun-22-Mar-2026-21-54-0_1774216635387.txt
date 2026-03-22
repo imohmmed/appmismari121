@@ -1,0 +1,117 @@
+{
+  "success": true,
+  "errors": [],
+  "checked_at": "Sun, 22 Mar 2026 21:54:01 +0000",
+  "data": [
+    {
+      "name": "Frontend",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "AppAddict frontend",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "App previews",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Backend",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "API",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "SCEP",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "PLUS activations",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Status page and API",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Signing queue length",
+      "is_online": true,
+      "data": 0
+    },
+    {
+      "name": "Max wait time (seconds)",
+      "is_online": true,
+      "data": 0
+    },
+    {
+      "name": "Signing queue length (2nd backend)",
+      "is_online": true,
+      "data": 0
+    },
+    {
+      "name": "Max wait time (seconds) (2nd backend)",
+      "is_online": true,
+      "data": 0
+    },
+    {
+      "name": "Active dev center links (24h)",
+      "is_online": true,
+      "data": 1068
+    },
+    {
+      "name": "Active free dev API links (24h)",
+      "is_online": true,
+      "data": 136
+    },
+    {
+      "name": "Free dev app installations",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "URL shortener",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Dev center bridge",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Free signing",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "MyAppStore (personal IPA libraries)",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Personal Dylib libraries",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Telegram bot",
+      "is_online": true,
+      "data": null
+    },
+    {
+      "name": "Database",
+      "is_online": true,
+      "data": null
+    }
+  ]
+}
