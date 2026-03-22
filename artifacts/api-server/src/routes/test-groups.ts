@@ -38,10 +38,18 @@ function parseP12(buf: Buffer, password: string): { commonName: string; issuer: 
     fs.writeFileSync(p12Path, buf);
 
     // Export certificate as PEM (no key, no CA certs)
-    execSync(
-      `openssl pkcs12 -in "${p12Path}" -passin "pass:${password.replace(/"/g, '\\"')}" -nokeys -clcerts -out "${certPath}" 2>/dev/null`,
-      { timeout: 10000 }
-    );
+    // -legacy flag required for OpenSSL 3.x to support RC2/3DES-based p12 files
+    const tryExport = (extraFlag: string) =>
+      execSync(
+        `openssl pkcs12 ${extraFlag} -in "${p12Path}" -passin "pass:${password.replace(/"/g, '\\"')}" -nokeys -clcerts -out "${certPath}" 2>/dev/null`,
+        { timeout: 10000 }
+      );
+
+    try {
+      tryExport("-legacy");
+    } catch {
+      tryExport(""); // fallback for newer p12 formats that don't need -legacy
+    }
 
     // Read certificate info
     const info = execSync(

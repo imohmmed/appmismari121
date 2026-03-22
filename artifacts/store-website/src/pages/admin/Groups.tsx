@@ -1159,77 +1159,99 @@ function GroupCard({ group, onDelete, onEdit, onViewDevices, onRefresh }: {
           </div>
         </div>
 
-        {/* MAC Bypass Alert */}
-        {bypassActive && (
-          <div className="flex items-center gap-2 bg-yellow-500/8 border border-yellow-500/15 rounded-xl px-3 py-2 mb-3">
-            <Zap className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
-            <span className="text-yellow-400 text-xs font-medium">MAC Bypass نشط — {mac} جهاز إضافي ({ios + mac}/{IPHONE_TOTAL})</span>
+        {group.groupType === "test_certificate" ? (
+          /* ── Test Certificate Summary ── */
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[
+              {
+                l: "أجهزة البروفايل",
+                v: group.provisionedUdidCount ? String(group.provisionedUdidCount) : "0",
+                c: "#f59e0b",
+              },
+              { l: "نشط", v: String(group.activeCount ?? 0), c: "#22c55e" },
+              { l: "معلق", v: String(group.pendingCount ?? 0), c: A },
+            ].map(s => (
+              <div key={s.l} className="bg-[#0a0a0a] rounded-xl p-2 text-center">
+                <p className="font-bold text-base leading-tight" style={{ fontFamily: "Outfit, sans-serif", color: s.c }}>{s.v}</p>
+                <p className="text-white/30 text-xs mt-0.5">{s.l}</p>
+              </div>
+            ))}
           </div>
+        ) : (
+          <>
+            {/* MAC Bypass Alert */}
+            {bypassActive && (
+              <div className="flex items-center gap-2 bg-yellow-500/8 border border-yellow-500/15 rounded-xl px-3 py-2 mb-3">
+                <Zap className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                <span className="text-yellow-400 text-xs font-medium">MAC Bypass نشط — {mac} جهاز إضافي ({ios + mac}/{IPHONE_TOTAL})</span>
+              </div>
+            )}
+
+            {/* Slot Bars */}
+            <div className="space-y-2.5 mb-4">
+              <SlotBar icon={<Smartphone className="w-3.5 h-3.5" />} label="آيفون (IOS رسمي)"
+                used={ios} limit={IOS_LIMIT} color="#22c55e" safetyNote="حد الأمان 98" />
+              <SlotBar icon={<Monitor className="w-3.5 h-3.5" />} label="آيفون (MAC Bypass ⚡)"
+                used={mac} limit={MAC_LIMIT} color="#f59e0b" />
+              <SlotBar icon={<Tablet className="w-3.5 h-3.5" />} label="آيباد"
+                used={ipad} limit={IPAD_LIMIT} color={A} />
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[
+                { l: "آيفون", v: iphoneTotal, max: IPHONE_TOTAL, c: ios >= IOS_LIMIT ? "#f59e0b" : "#22c55e" },
+                { l: "آيباد", v: ipad, max: IPAD_LIMIT, c: A },
+                { l: "نشط", v: group.activeCount, c: "#22c55e" },
+                { l: "معلق", v: group.pendingCount, c: "#f59e0b" },
+              ].map(s => (
+                <div key={s.l} className="bg-[#0a0a0a] rounded-xl p-2 text-center">
+                  <p className="font-bold text-base leading-tight" style={{ fontFamily: "Outfit, sans-serif", color: s.c }}>{s.v}</p>
+                  {"max" in s && <p className="text-white/15 text-xs font-mono">{s.v}/{s.max}</p>}
+                  <p className="text-white/30 text-xs mt-0.5">{s.l}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Stacked bar */}
+            <div className="mb-3">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-white/30">الاستخدام الإجمالي</span>
+                <span className="text-white/50 font-mono">{totalUsed}/{totalCap}</span>
+              </div>
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden flex">
+                <div className="h-full bg-green-500/70 transition-all duration-700"
+                  style={{ width: `${(ios / totalCap) * 100}%` }} />
+                <div className="h-full bg-yellow-400/70 transition-all duration-700"
+                  style={{ width: `${(mac / totalCap) * 100}%` }} />
+                <div className="h-full transition-all duration-700"
+                  style={{ width: `${(ipad / totalCap) * 100}%`, background: `${A}80` }} />
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm bg-green-500/70" />IOS</span>
+                <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm bg-yellow-400/70" />MAC⚡</span>
+                <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm" style={{ background: `${A}80` }} />iPad</span>
+              </div>
+            </div>
+
+            {/* Last Sync */}
+            <div className="flex items-center justify-between px-3 py-2 bg-[#0a0a0a] rounded-xl mb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-3.5 h-3.5 text-white/25" />
+                <div>
+                  <p className="text-white/40 text-xs">آخر مزامنة</p>
+                  <p className="text-white/60 text-xs font-medium">{syncAgo}</p>
+                </div>
+              </div>
+              <button onClick={handleSync} disabled={syncing}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
+                style={{ background: `${A}15`, color: A }}>
+                {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                {syncing ? "جاري..." : "تحديث"}
+              </button>
+            </div>
+          </>
         )}
-
-        {/* Slot Bars */}
-        <div className="space-y-2.5 mb-4">
-          <SlotBar icon={<Smartphone className="w-3.5 h-3.5" />} label="آيفون (IOS رسمي)"
-            used={ios} limit={IOS_LIMIT} color="#22c55e" safetyNote="حد الأمان 98" />
-          <SlotBar icon={<Monitor className="w-3.5 h-3.5" />} label="آيفون (MAC Bypass ⚡)"
-            used={mac} limit={MAC_LIMIT} color="#f59e0b" />
-          <SlotBar icon={<Tablet className="w-3.5 h-3.5" />} label="آيباد"
-            used={ipad} limit={IPAD_LIMIT} color={A} />
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {[
-            { l: "آيفون", v: iphoneTotal, max: IPHONE_TOTAL, c: ios >= IOS_LIMIT ? "#f59e0b" : "#22c55e" },
-            { l: "آيباد", v: ipad, max: IPAD_LIMIT, c: A },
-            { l: "نشط", v: group.activeCount, c: "#22c55e" },
-            { l: "معلق", v: group.pendingCount, c: "#f59e0b" },
-          ].map(s => (
-            <div key={s.l} className="bg-[#0a0a0a] rounded-xl p-2 text-center">
-              <p className="font-bold text-base leading-tight" style={{ fontFamily: "Outfit, sans-serif", color: s.c }}>{s.v}</p>
-              {"max" in s && <p className="text-white/15 text-xs font-mono">{s.v}/{s.max}</p>}
-              <p className="text-white/30 text-xs mt-0.5">{s.l}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Stacked bar */}
-        <div className="mb-3">
-          <div className="flex justify-between text-xs mb-1">
-            <span className="text-white/30">الاستخدام الإجمالي</span>
-            <span className="text-white/50 font-mono">{totalUsed}/{totalCap}</span>
-          </div>
-          <div className="h-2 bg-white/5 rounded-full overflow-hidden flex">
-            <div className="h-full bg-green-500/70 transition-all duration-700"
-              style={{ width: `${(ios / totalCap) * 100}%` }} />
-            <div className="h-full bg-yellow-400/70 transition-all duration-700"
-              style={{ width: `${(mac / totalCap) * 100}%` }} />
-            <div className="h-full transition-all duration-700"
-              style={{ width: `${(ipad / totalCap) * 100}%`, background: `${A}80` }} />
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm bg-green-500/70" />IOS</span>
-            <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm bg-yellow-400/70" />MAC⚡</span>
-            <span className="flex items-center gap-1 text-white/20 text-xs"><span className="w-2 h-1.5 rounded-sm" style={{ background: `${A}80` }} />iPad</span>
-          </div>
-        </div>
-
-        {/* Last Sync */}
-        <div className="flex items-center justify-between px-3 py-2 bg-[#0a0a0a] rounded-xl mb-3">
-          <div className="flex items-center gap-2">
-            <RotateCcw className="w-3.5 h-3.5 text-white/25" />
-            <div>
-              <p className="text-white/40 text-xs">آخر مزامنة</p>
-              <p className="text-white/60 text-xs font-medium">{syncAgo}</p>
-            </div>
-          </div>
-          <button onClick={handleSync} disabled={syncing}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-40"
-            style={{ background: `${A}15`, color: A }}>
-            {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-            {syncing ? "جاري..." : "تحديث"}
-          </button>
-        </div>
 
         {/* Store IPA Section */}
         <div className="mb-3 p-3 rounded-xl border"
