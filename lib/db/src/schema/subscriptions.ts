@@ -12,8 +12,12 @@ export const subscriptionsTable = pgTable("subscriptions", {
   subscriberName: text("subscriber_name"),
   groupName: text("group_name"),
   planId: integer("plan_id").notNull().references(() => plansTable.id),
-  applePlatform: text("apple_platform").default("IOS"),
+  applePlatform: text("apple_platform").default("IOS"),  // IOS | MAC | IPAD_OS (our internal)
   appleStatus: text("apple_status").default("PROCESSING"),
+  // Apple's returned device ID after successful registration
+  // Required for deletion: DELETE /v1/devices/{appleDeviceId}
+  // Apple does NOT accept UDID for deletion — only their own ID
+  appleDeviceId: text("apple_device_id"),
   isActive: text("is_active").notNull().default("true"),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),

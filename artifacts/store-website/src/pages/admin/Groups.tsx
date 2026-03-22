@@ -82,8 +82,9 @@ Content-Type: application/json
 // يُحسب في: خانة iPhone الرسمية (0-100)`,
 
   MAC: (udid: string, name: string) => `// ⚡ آيفون كـ MAC (مقعد ${IOS_LIMIT + 1}-${IPHONE_TOTAL}) — MAC Bypass
-// يُستخدم عندما: iphoneOfficialCount >= ${IOS_LIMIT} && iphoneMacCount < ${MAC_LIMIT}
-// أبل لا تدقق UDID مقابل النوع الفيزيائي → الثغرة تنجح
+// يُستخدم عندما: المستخدم رقم 99-196 (بعد امتلاء خانة IOS)
+// القاعدة: نفس UDID لا يُسجَّل مرتين — كل شخص إما IOS أو MAC، ليس كليهما
+// أبل تعطي خطأ 409 Conflict إذا حاولت تسجيل UDID موجود مسبقاً
 
 POST https://api.appstoreconnect.apple.com/v1/devices
 Authorization: Bearer {JWT_TOKEN}
@@ -95,14 +96,20 @@ Content-Type: application/json
     "attributes": {
       "name": "${name || "Mismari_iPhone_MAC_101"}",
       "udid": "${udid || "00008030-001234567890002E"}",
-      "platform": "MAC_OS"   // ← الثغرة: آيفون حقيقي مسجل كـ Mac
+      "platform": "MAC"   // ✅ القيمة الصحيحة عند أبل هي MAC وليس MAC_OS
     }
   }
 }
 
-// النتيجة في أبل:
-// platform: MAC_OS  |  (آيفون مسجل في خانة الـ Mac)
-// يُحسب في: خانة MAC bypass (101-200)`,
+// ما تعيده أبل عند النجاح (مهم! احفظ الـ id):
+// {
+//   "data": {
+//     "id": "APPLE_DEVICE_ID_HERE",   ← احفظه في DB (appleDeviceId)
+//     "attributes": { "platform": "MAC", "status": "ENABLED" }
+//   }
+// }
+// لحذف الجهاز لاحقاً: DELETE /v1/devices/{appleDeviceId}
+// أبل لا تقبل UDID للحذف — فقط الـ id الخاص بها`,
 
   IPAD: (udid: string, name: string) => `// 🟦 آيباد رسمي (مقعد 1-${IPAD_LIMIT})
 // يُستخدم عندما: ipadCount < ${IPAD_LIMIT}
@@ -127,44 +134,68 @@ Content-Type: application/json
 // platform: IOS  |  deviceClass: IPAD
 // يُحسب في: خانة iPad المنفصلة (0-100)`,
 
-  LOGIC: () => `// 🧠 منطق Pre-Flight Check (قبل إرسال أي طلب لأبل)
+  LOGIC: () => `// 🧠 منطق Pre-Flight Check الكامل (مضاد للرصاص)
 // يعمل محلياً من DB — لا يتصل بأبل هنا
+// كل شخص يحصل على خانة واحدة فقط (IOS أو MAC) — لا تكرار
 
-async function getTargetPlatform(udid, deviceType, certId) {
-  // 1. فحص UDID مكرر (Safety Lock)
+async function registerDevice(udid, deviceType, certId) {
+  // ─── 1. فحص UDID مكرر (Safety Lock) ────────────────────────
   const duplicate = await db.findByUDID(certId, udid);
   if (duplicate) {
-    // لا تستهلك مقعداً — حدّث Provisioning Profile فقط
-    return { platform: duplicate.platform, isDuplicate: true };
+    // نفس الشهادة + نفس UDID → لا تستهلك مقعداً
+    // فقط حدّث Provisioning Profile للشخص الموجود
+    return { isDuplicate: true, platform: duplicate.platform };
   }
 
-  // 2. قراءة الإحصائيات من DB المحلية (سريعة جداً)
+  // ─── 2. قراءة العدادات من DB المحلية ───────────────────────
   const stats = await db.getStats(certId);
-  const SAFETY = ${IOS_LIMIT}; // حد الأمان (98 بدل 100)
+  const LIMIT = ${IOS_LIMIT}; // حد الأمان (98 بدل 100)
+
+  let applePayload;
 
   if (deviceType === "iPhone") {
-    if (stats.iphone_official_count < SAFETY)
-      return { platform: "IOS" };       // مقعد رسمي ✅
-    else if (stats.iphone_mac_count < SAFETY)
-      return { platform: "MAC_OS" };    // MAC bypass ⚡
-    else
-      return { platform: "FULL" };      // انتقل لشهادة جديدة 🚫
+    const totalIphones = stats.iphone_official + stats.iphone_mac;
+
+    if (totalIphones < LIMIT) {
+      // المستخدم رقم 1-98 → IOS رسمي
+      applePayload = { platform: "IOS" };
+      await db.markAs(sub, "IOS"); // internal_status = OFFICIAL
+
+    } else if (totalIphones < LIMIT * 2) {
+      // المستخدم رقم 99-196 → MAC bypass
+      // ⚠️ UDID مختلف تماماً (شخص جديد) — ليس نفس الشخص مرتين
+      applePayload = { platform: "MAC" }; // القيمة الصحيحة عند أبل
+      await db.markAs(sub, "MAC"); // internal_status = MAC_TRICK
+
+    } else {
+      return { platform: "FULL" }; // 🚫 قفل → انتقل لشهادة جديدة
+    }
   }
 
-  if (deviceType === "iPad") {
-    if (stats.ipad_count < SAFETY)
-      return { platform: "IOS" };       // آيباد رسمي ✅
-    else
-      return { platform: "FULL" };      // انتقل لشهادة جديدة 🚫
-  }
+  // ─── 3. إرسال الطلب لأبل ────────────────────────────────────
+  const appleResponse = await apple.registerDevice({
+    name: generateName(deviceType, stats),
+    udid: udid,
+    ...applePayload
+  });
+
+  // ─── 4. احفظ Apple Device ID الذي أعادته أبل ────────────────
+  // مطلوب لاحقاً لحذف الجهاز عند انتهاء الاشتراك
+  // أبل لا تقبل UDID للحذف — فقط الـ id الخاص بها
+  const appleDeviceId = appleResponse.data.id; // مثال: "APPLE123456789"
+  await db.saveAppleDeviceId(sub.id, appleDeviceId);
+
+  // ─── 5. حدّث العداد المحلي فوراً (+1) ───────────────────────
+  await db.incrementCount(certId, applePayload.platform);
 }
 
-// 3. بعد التسجيل الناجح — حدّث DB فوراً (+1)
-await db.incrementCount(certId, platform);
-
-// 4. تدقيق يومي — Cron Job 4 صباحاً (مرة واحدة/24 ساعة)
-// يتصل بأبل: GET /v1/devices
-// يصحح الأرقام في DB إذا وجد فروقات`,
+// ─── حذف جهاز (عند انتهاء الاشتراك) ───────────────────────────
+async function removeDevice(subId) {
+  const sub = await db.getSubscription(subId);
+  // استخدم الـ appleDeviceId المخزن — وليس الـ UDID
+  await apple.delete(\`/v1/devices/\${sub.appleDeviceId}\`);
+  await db.decrementCount(certId, sub.platform); // (-1) من العداد
+}`,
 };
 
 // ─── Code Modal ───────────────────────────────────────────────────────────────

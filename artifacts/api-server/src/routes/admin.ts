@@ -558,7 +558,7 @@ router.post("/admin/groups/:id/resolve-platform", async (req, res): Promise<void
           attributes: {
             name: deviceName || `Mismari_iPhone_MAC_${mac + 1}`,
             udid: udid || "UDID_HERE",
-            platform: "MAC_OS",  // ← الثغرة: آيفون حقيقي مسجل كـ Mac
+            platform: "MAC",  // ← الثغرة: القيمة الصحيحة عند أبل هي MAC وليس MAC_OS
           },
         },
       };
@@ -606,13 +606,16 @@ router.post("/admin/groups/:id/sync", async (req, res): Promise<void> => {
   });
 });
 
-// PATCH /admin/groups/device/:subId/status — Update Apple status for a device (PROCESSING → ENABLED)
+// PATCH /admin/groups/device/:subId/status
+// Updates Apple status, platform, and the Apple Device ID returned after registration
+// appleDeviceId is critical: Apple requires it for DELETE /v1/devices/{id}
 router.patch("/admin/groups/device/:subId/status", async (req, res): Promise<void> => {
   const subId = Number(req.params.subId);
-  const { appleStatus, applePlatform } = req.body;
+  const { appleStatus, applePlatform, appleDeviceId } = req.body;
   const updateData: Record<string, string> = {};
-  if (appleStatus) updateData.appleStatus = appleStatus;
+  if (appleStatus)   updateData.appleStatus   = appleStatus;
   if (applePlatform) updateData.applePlatform = applePlatform;
+  if (appleDeviceId) updateData.appleDeviceId = appleDeviceId; // Store Apple's returned ID
   const [updated] = await db
     .update(subscriptionsTable)
     .set(updateData)
