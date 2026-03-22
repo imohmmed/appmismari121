@@ -170,7 +170,7 @@ export default function OnboardingScreen() {
   const stepsList = [
     { key: "download", label: "تحميل ملف التعريف", icon: "file-text" as const },
     { key: "install", label: "تثبيت ملف التعريف", icon: "shield" as const },
-    { key: "udid", label: "الـ UDID الخاص بك", icon: "hash" as const },
+    { key: "udid", label: "المعرّف الخاص بك", icon: "hash" as const },
   ];
 
   function getStepStatus(stepKey: string) {
@@ -285,13 +285,13 @@ export default function OnboardingScreen() {
               <Text style={[styles.stepTitle, { fontFamily: fontAr("Black") }]}>
                 {step === "download" && "تحميل ملف التعريف"}
                 {step === "install" && "تثبيت ملف التعريف"}
-                {step === "udid" && "الـ UDID الخاص بك"}
+                {step === "udid" && "المعرّف الخاص بك"}
               </Text>
 
               <Text style={[styles.stepDesc, { fontFamily: fontAr("Regular") }]}>
                 {step === "download" && "حمّل ملف التعريف للحصول على معرّف جهازك. يساعدنا هذا على تسجيل جهازك."}
                 {step === "install" && "اذهب إلى الإعدادات ← عام ← إدارة VPN والأجهزة وقم بتثبيت الملف الذي حمّلته."}
-                {step === "udid" && "تم الكشف عن معرّف جهازك الفريد. اضغط إرسال للتحقق."}
+                {step === "udid" && "تم الكشف عن معرّف جهازك الفريد. اضغط إرسال للتحقق من اشتراكك."}
               </Text>
             </View>
 
@@ -343,7 +343,7 @@ export default function OnboardingScreen() {
               {step === "udid" && !udid && (
                 <View>
                   <Text style={[styles.noUdidText, { fontFamily: fontAr("Medium") }]}>
-                    لم يتم الكشف عن UDID بعد. تأكد من تثبيت ملف التعريف.
+                    لم يتم الكشف عن المعرّف بعد. تأكد من تثبيت ملف التعريف.
                   </Text>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: PURPLE, marginTop: 12 }]}

@@ -62,7 +62,7 @@ router.get("/profile/enroll", (req, res): void => {
   <key>PayloadDisplayName</key>
   <string>${displayName}</string>
   <key>PayloadDescription</key>
-  <string>${subtitle}\n${description}</string>
+  <string>${subtitle} — ${description}</string>
   <key>PayloadVersion</key>
   <integer>1</integer>
   <key>PayloadUUID</key>
@@ -100,7 +100,19 @@ router.post(
 
       const source = (req.query.source as string) || "web";
       if (source === "app") {
-        res.redirect(302, `mismari://onboarding?udid=${encodeURIComponent(udid)}`);
+        const deepLink = `mismari://onboarding?udid=${encodeURIComponent(udid)}`;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.send(`<!DOCTYPE html><html><head>
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Mismari</title>
+          <style>body{background:#000;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}a{color:#9fbcff;font-size:18px;text-decoration:none;padding:14px 32px;border:1px solid #9fbcff;border-radius:12px;display:inline-block;margin-top:20px}</style>
+        </head><body>
+          <div>
+            <p style="font-size:16px;opacity:0.7">جاري فتح التطبيق...</p>
+            <a href="${deepLink}">افتح تطبيق مسماري</a>
+          </div>
+          <script>setTimeout(function(){window.location.href="${deepLink}"},500)</script>
+        </body></html>`);
       } else {
         const base = getBaseUrl(req);
         res.redirect(302, `${base}/enroll?udid=${encodeURIComponent(udid)}`);
