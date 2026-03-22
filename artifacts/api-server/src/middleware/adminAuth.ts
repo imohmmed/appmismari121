@@ -1,8 +1,28 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-export const JWT_SECRET =
-  process.env.ADMIN_JWT_SECRET || "mismari-admin-jwt-secret-2025-change-in-prod";
+const DEFAULT_SECRET = "mismari-admin-jwt-secret-2025-change-in-prod";
+
+export const JWT_SECRET = process.env.ADMIN_JWT_SECRET || DEFAULT_SECRET;
+
+// ─── Startup enforcement ───────────────────────────────────────────────────────
+// In production, reject the hardcoded default secret. Prevents accidental
+// deployment without setting ADMIN_JWT_SECRET in the environment.
+if (process.env.NODE_ENV === "production" && JWT_SECRET === DEFAULT_SECRET) {
+  console.error(
+    "[SECURITY FATAL] ADMIN_JWT_SECRET environment variable is not set! " +
+    "The server refuses to start in production with the default secret. " +
+    "Set ADMIN_JWT_SECRET to a strong random value (≥64 chars)."
+  );
+  process.exit(1);
+}
+
+if (JWT_SECRET === DEFAULT_SECRET) {
+  console.warn(
+    "[SECURITY WARNING] Using default ADMIN_JWT_SECRET. " +
+    "Set ADMIN_JWT_SECRET env var before going to production!"
+  );
+}
 
 export interface AdminJwtPayload {
   adminId: number;

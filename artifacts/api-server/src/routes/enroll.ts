@@ -1,8 +1,11 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 import { db, subscriptionsTable, enrollmentRequestsTable, plansTable } from "@workspace/db";
 import { signMobileconfig } from "../sign-profile.js";
 import { registerDeviceWithApple } from "../apple-connect.js";
+import { JWT_SECRET } from "../middleware/adminAuth.js";
 
 const router: IRouter = Router();
 
@@ -18,16 +21,48 @@ function cleanExpiredTokens() {
 }
 setInterval(cleanExpiredTokens, 60_000);
 
+// ─── Safe base URL resolution ─────────────────────────────────────────────────
 function getBaseUrl(req: import("express").Request): string {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   const proto = (req.headers["x-forwarded-proto"] as string) || "https";
   const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
   return `${proto}://${host}`;
 }
 
+// ─── Rate limiters for public enroll endpoints ───────────────────────────────
+const enrollRequestLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة جداً، حاول بعد قليل" },
+});
+
+const enrollCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة جداً، حاول بعد قليل" },
+});
+
+// ─── Real JWT-verified admin guard ───────────────────────────────────────────
 function requireAdmin(req: import("express").Request, res: import("express").Response): boolean {
-  const token = req.headers["x-admin-token"] as string;
-  if (!token) { res.status(401).json({ error: "Unauthorized" }); return false; }
-  return true;
+  const token =
+    (req.headers["x-admin-token"] as string) ||
+    (req.headers["authorization"] as string)?.replace("Bearer ", "");
+  if (!token) {
+    res.status(401).json({ error: "غير مصرّح — يرجى تسجيل الدخول" });
+    return false;
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    (req as any).admin = payload;
+    return true;
+  } catch {
+    res.status(401).json({ error: "انتهت صلاحية الجلسة أو التوكن غير صالح" });
+    return false;
+  }
 }
 
 function randomCode(len = 10): string {
@@ -236,7 +271,7 @@ router.get("/profile/udid-check", (req, res): void => {
 });
 
 // ─── Check if UDID already subscribed ────────────────────────────────────────
-router.get("/enroll/check", async (req, res): Promise<void> => {
+router.get("/enroll/check", enrollCheckLimiter, async (req, res): Promise<void> => {
   const { udid } = req.query as { udid?: string };
   if (!udid) { res.status(400).json({ error: "udid required" }); return; }
 
@@ -265,7 +300,7 @@ router.get("/enroll/check", async (req, res): Promise<void> => {
 });
 
 // ─── POST /enroll/request — submit enrollment request ────────────────────────
-router.post("/enroll/request", async (req, res): Promise<void> => {
+router.post("/enroll/request", enrollRequestLimiter, async (req, res): Promise<void> => {
   const { name, phone, email, udid, deviceType, planId, notes } = req.body as {
     name?: string;
     phone?: string;

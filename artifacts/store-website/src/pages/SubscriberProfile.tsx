@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle2, XCircle, Smartphone, Tablet, User, Phone, Key, Shield, Calendar, Package } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Smartphone, Tablet, User, Key, Calendar, Package } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
 
 interface Subscriber {
-  id: number;
   code: string;
   subscriberName: string | null;
-  phone: string | null;
-  udid: string | null;
   deviceType: string | null;
-  groupName: string | null;
   isActive: string;
   activatedAt: string | null;
   expiresAt: string | null;
@@ -106,11 +102,8 @@ export default function SubscriberProfile({ params }: { params: { code: string }
               </div>
 
               <div>
-                <InfoRow icon={<Phone className="w-4 h-4" />} label="رقم الهاتف" value={sub.phone} mono />
                 <InfoRow icon={<Key className="w-4 h-4" />} label="كود الاشتراك" value={<span style={{ color: "#9fbcff" }}>{sub.code}</span>} mono />
                 <InfoRow icon={<Package className="w-4 h-4" />} label="الباقة" value={sub.planNameAr || sub.planName} />
-                <InfoRow icon={<Shield className="w-4 h-4" />} label="المجموعة" value={sub.groupName} />
-                <InfoRow icon={<Smartphone className="w-4 h-4" />} label="UDID الجهاز" value={sub.udid} mono />
               </div>
             </div>
 
@@ -144,7 +137,7 @@ export default function SubscriberProfile({ params }: { params: { code: string }
             </div>
 
             <p className="text-center text-white/20 text-xs pb-4">
-              Mismari+ | مسماري — رقم المشترك #{sub.id}
+              Mismari+ | مسماري
             </p>
           </div>
         ) : null}

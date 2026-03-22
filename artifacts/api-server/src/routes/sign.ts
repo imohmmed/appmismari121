@@ -8,10 +8,20 @@ import { promisify } from "util";
 import plist from "plist";
 import AdmZip from "adm-zip";
 import pLimit from "p-limit";
+import rateLimit from "express-rate-limit";
 import { db, subscriptionsTable, groupsTable, appsTable } from "@workspace/db";
 
 const execFileAsync = promisify(execFile);
 const router: IRouter = Router();
+
+// ─── Rate limiter for signing (heavy CPU operation) ───────────────────────────
+const signLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات توقيع كثيرة جداً، حاول بعد قليل" },
+});
 
 // ─── Concurrency limiter: max 2 zsign operations at once ───────────────────
 const signLimit = pLimit(2);
@@ -28,6 +38,7 @@ function randomHex(n = 16) {
 }
 
 function getBaseUrl(req: import("express").Request): string {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   const proto = (req.headers["x-forwarded-proto"] as string) || "https";
   const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
   return `${proto}://${host}`;
@@ -308,7 +319,7 @@ router.get("/sign/ipa/:token.ipa", (req, res): void => {
 
 // ─── POST /api/sign/store/:code ──────────────────────────────────────────────
 // Signs the group's store IPA for this subscriber → returns itms-services URL
-router.post("/sign/store/:code", async (req, res): Promise<void> => {
+router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> => {
   try {
     const { code } = req.params;
     const { sub, group } = await getSubAndGroup(code);
@@ -366,7 +377,7 @@ router.post("/sign/store/:code", async (req, res): Promise<void> => {
 
 // ─── POST /api/sign/app/:code/:appId ─────────────────────────────────────────
 // Signs a specific app for this subscriber
-router.post("/sign/app/:code/:appId", async (req, res): Promise<void> => {
+router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<void> => {
   try {
     const { code, appId } = req.params;
     const appIdNum = parseInt(appId, 10);
@@ -426,7 +437,7 @@ router.post("/sign/app/:code/:appId", async (req, res): Promise<void> => {
 
 // ─── POST /api/sign/clone/:code/:appId ───────────────────────────────────────
 // Clones an app (new Bundle ID) and signs for this subscriber
-router.post("/sign/clone/:code/:appId", async (req, res): Promise<void> => {
+router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<void> => {
   try {
     const { code, appId } = req.params;
     const { newName } = req.body as { newName?: string };

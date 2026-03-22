@@ -3,12 +3,34 @@ import { eq } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import { db, subscriptionsTable, groupsTable, plansTable } from "@workspace/db";
 import { registerDeviceWithApple } from "../apple-connect";
 
 const router: IRouter = Router();
 
+// ─── Rate limiters ────────────────────────────────────────────────────────────
+const validateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة جداً، حاول بعد قليل" },
+});
+
+const completeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات كثيرة جداً، حاول بعد قليل" },
+});
+
+// ─── Safe base URL resolution ─────────────────────────────────────────────────
+// Prefer APP_BASE_URL env var (set this in production to avoid host-header injection).
+// Falls back to reconstructing from request headers in dev.
 function getBaseUrl(req: import("express").Request): string {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   const proto = (req.headers["x-forwarded-proto"] as string) || "https";
   const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
   return `${proto}://${host}`;
@@ -30,7 +52,7 @@ const storeIpaUpload = multer({ storage: storeIpaStorage, limits: { fileSize: 50
 
 // ─── GET /activate/validate — check subscription code ─────────────────────────
 // Returns group info + itms-services download link if code is valid
-router.post("/activate/validate", async (req, res): Promise<void> => {
+router.post("/activate/validate", validateLimiter, async (req, res): Promise<void> => {
   const { code } = req.body as { code?: string };
   if (!code?.trim()) {
     res.status(400).json({ error: "الكود مطلوب" });
@@ -185,7 +207,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
 });
 
 // ─── POST /activate/complete — save user info to subscription ─────────────────
-router.post("/activate/complete", async (req, res): Promise<void> => {
+router.post("/activate/complete", completeLimiter, async (req, res): Promise<void> => {
   const { subscriptionId, name, phone, email, udid, deviceType } = req.body as {
     subscriptionId?: number;
     name?: string;
@@ -220,7 +242,8 @@ router.post("/activate/complete", async (req, res): Promise<void> => {
   }
 
   const now = new Date();
-  const finalUdid = udid?.trim() || sub.udid || null;
+  // Never overwrite an existing UDID — only bind on first activation
+  const finalUdid = sub.udid ? sub.udid : (udid?.trim() || null);
   const finalDeviceType = deviceType?.trim() || sub.deviceType || null;
 
   // ─── Save user info first ───────────────────────────────────────────────────
