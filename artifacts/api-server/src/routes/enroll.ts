@@ -139,46 +139,25 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      // Return a Web Clip profile pointing to the enrollment form with UDID pre-filled.
-      // This creates an app icon on the home screen that opens the enrollment form.
-      // WiFi profiles cause "Profile Installation Failed" on iOS 17+ when unsigned.
+      // Return a minimal empty configuration profile.
+      // Empty profiles install silently on iOS without "Profile Installation Failed".
+      // The UDID is already saved above — the website polls via token to retrieve it.
       const profileUuid = crypto.randomUUID();
-      const webClipUuid = crypto.randomUUID();
-      const enrollUrl = `${base}/enroll?udid=${encodeURIComponent(udid)}`;
 
       const responseProfile = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>PayloadContent</key>
-  <array>
-    <dict>
-      <key>PayloadType</key>
-      <string>com.apple.webClip.managed</string>
-      <key>PayloadVersion</key>
-      <integer>1</integer>
-      <key>PayloadIdentifier</key>
-      <string>com.mismari.webclip.${webClipUuid}</string>
-      <key>PayloadUUID</key>
-      <string>${webClipUuid}</string>
-      <key>PayloadDisplayName</key>
-      <string>Mismari Enrollment</string>
-      <key>Label</key>
-      <string>مسماري+</string>
-      <key>URL</key>
-      <string>${enrollUrl}</string>
-      <key>FullScreen</key>
-      <true/>
-      <key>IsRemovable</key>
-      <true/>
-    </dict>
-  </array>
+  <array/>
   <key>PayloadDescription</key>
-  <string>اكمل تسجيل اشتراكك في مسماري</string>
+  <string>تم تسجيل جهازك في مسماري — أكمل طلبك على الموقع</string>
   <key>PayloadDisplayName</key>
-  <string>مسماري - تسجيل الاشتراك</string>
+  <string>مسماري — تم استلام الطلب</string>
   <key>PayloadIdentifier</key>
   <string>com.mismari.enrolled.${profileUuid}</string>
+  <key>PayloadOrganization</key>
+  <string>Mismari</string>
   <key>PayloadRemovalDisallowed</key>
   <false/>
   <key>PayloadType</key>

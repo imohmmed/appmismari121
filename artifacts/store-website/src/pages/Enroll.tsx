@@ -1,8 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { Loader2, CheckCircle2, Smartphone, Send, AlertCircle, ArrowLeft, Package } from "lucide-react";
+import {
+  Loader2, CheckCircle2, Smartphone, Send, AlertCircle,
+  ArrowLeft, Package, Download, Shield, CheckCircle,
+} from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
+const BASE = import.meta.env.BASE_URL || "/";
 const A = "#9fbcff";
 
 interface CheckResult {
@@ -21,18 +25,34 @@ interface Plan {
   name: string;
   nameAr: string | null;
   price: number | null;
-  durationDays: number | null;
+  currency?: string;
+  duration?: string;
 }
 
-type Step = "checking" | "already-subscribed" | "form" | "submitting" | "success" | "error";
+type Step =
+  | "waiting-udid"
+  | "udid-found"
+  | "checking"
+  | "already-subscribed"
+  | "form"
+  | "submitting"
+  | "success"
+  | "error";
+
+function generateToken(): string {
+  return crypto.randomUUID().replace(/-/g, "").substring(0, 20);
+}
 
 export default function Enroll() {
   const [, navigate] = useLocation();
-  const udid = new URLSearchParams(window.location.search).get("udid") || "";
+  const urlUdid = new URLSearchParams(window.location.search).get("udid") || "";
 
-  const [step, setStep] = useState<Step>(udid ? "checking" : "form");
+  const [step, setStep] = useState<Step>(urlUdid ? "checking" : "waiting-udid");
+  const [udid, setUdid] = useState(urlUdid);
+  const [token] = useState(() => generateToken());
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [pollCount, setPollCount] = useState(0);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,8 +62,9 @@ export default function Enroll() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    // Fetch plans
     fetch(`${API}/api/subscriptions/plans`)
       .then(r => r.json())
       .then(d => setPlans(d?.plans || []))
@@ -51,15 +72,44 @@ export default function Enroll() {
   }, []);
 
   useEffect(() => {
-    if (!udid) return;
-    fetch(`${API}/api/enroll/check?udid=${encodeURIComponent(udid)}`)
-      .then(r => r.json())
-      .then((data: CheckResult) => {
-        setCheckResult(data);
-        setStep(data.found ? "already-subscribed" : "form");
-      })
-      .catch(() => { setStep("form"); });
-  }, [udid]);
+    if (urlUdid) {
+      checkUdid(urlUdid);
+    }
+  }, [urlUdid]);
+
+  useEffect(() => {
+    if (step !== "waiting-udid") return;
+    pollingRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(`${API}/api/profile/udid-check?token=${token}`, {
+          cache: "no-store",
+        });
+        const d = await r.json();
+        if (d.found && d.udid) {
+          clearInterval(pollingRef.current!);
+          setUdid(d.udid);
+          setStep("checking");
+          await checkUdid(d.udid);
+        } else {
+          setPollCount(c => c + 1);
+        }
+      } catch {}
+    }, 3000);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [step, token]);
+
+  async function checkUdid(id: string) {
+    try {
+      const r = await fetch(`${API}/api/enroll/check?udid=${encodeURIComponent(id)}`);
+      const data: CheckResult = await r.json();
+      setCheckResult(data);
+      setStep(data.found ? "already-subscribed" : "form");
+    } catch {
+      setStep("form");
+    }
+  }
+
+  const profileUrl = `${API}/api/profile/enroll?source=web&token=${encodeURIComponent(token)}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,18 +145,69 @@ export default function Enroll() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: `${A}20`, border: `1px solid ${A}30` }}>
-            <Smartphone className="w-8 h-8" style={{ color: A }} />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif" }}>
-            مسماري+
-          </h1>
+          <img
+            src={`${BASE}mismari-logo-final.png`}
+            alt="مسماري"
+            className="h-12 w-auto object-contain mx-auto mb-3"
+          />
           <p className="text-white/40 text-sm">تسجيل طلب الاشتراك</p>
         </div>
 
-        {/* Checking */}
+        {/* ── STEP 1: waiting for UDID ── */}
+        {step === "waiting-udid" && (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/5">
+              <h2 className="text-white font-bold text-base">الخطوة الأولى: تثبيت الملف</h2>
+              <p className="text-white/40 text-xs mt-0.5">
+                نحتاج التعرف على جهازك — حمّل الملف وثبّته ثم عُد هنا
+              </p>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="space-y-3">
+                {[
+                  { num: "١", text: "اضغط «تحميل الملف» أدناه" },
+                  { num: "٢", text: "افتح الإعدادات ← الملف الذي تم تحميله ← ثبّت" },
+                  { num: "٣", text: "عُد لهذه الصفحة — ستظهر بياناتك تلقائياً" },
+                ].map(s => (
+                  <div key={s.num} className="flex items-start gap-3">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                      style={{ background: `${A}20`, color: A }}
+                    >
+                      {s.num}
+                    </div>
+                    <p className="text-white/70 text-sm pt-1">{s.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              <a
+                href={profileUrl}
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-bold transition-all"
+                style={{ background: A, color: "#000" }}
+              >
+                <Download className="w-4 h-4" />
+                تحميل الملف
+              </a>
+
+              <div className="flex items-center justify-center gap-2 text-white/25 text-xs">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>في انتظار التثبيت{pollCount > 0 ? ` (${pollCount})` : ""}...</span>
+              </div>
+
+              <div className="flex items-start gap-2 p-3 bg-white/[0.03] rounded-xl border border-white/5">
+                <Shield className="w-4 h-4 shrink-0 mt-0.5" style={{ color: `${A}80` }} />
+                <p className="text-white/30 text-xs leading-relaxed">
+                  الملف آمن ومعتمد من <span style={{ color: A }}>app.mismari.com</span> — يُستخدم فقط للتعرف على جهازك ولا يُثبَّت أي محتوى
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Checking ── */}
         {step === "checking" && (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-white/40" />
@@ -114,10 +215,13 @@ export default function Enroll() {
           </div>
         )}
 
-        {/* Already subscribed */}
+        {/* ── Already subscribed ── */}
         {step === "already-subscribed" && checkResult?.subscriber && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto" style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center mx-auto"
+              style={{ background: "#34C75920", border: "1px solid #34C75940" }}
+            >
               <CheckCircle2 className="w-7 h-7 text-green-400" />
             </div>
             <div>
@@ -154,32 +258,25 @@ export default function Enroll() {
           </div>
         )}
 
-        {/* Form */}
+        {/* ── Form ── */}
         {(step === "form" || step === "submitting") && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/5">
-              <h2 className="text-white font-bold text-base">طلب اشتراك جديد</h2>
+              <div className="flex items-center gap-2 mb-0.5">
+                <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                <h2 className="text-white font-bold text-base">تم التعرف على جهازك</h2>
+              </div>
               <p className="text-white/40 text-xs mt-0.5">أكمل بياناتك وسيتواصل معك فريقنا</p>
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              {/* UDID display */}
               {udid && (
                 <div className="bg-black/30 rounded-xl p-3">
                   <p className="text-white/30 text-xs mb-1">معرّف الجهاز (UDID)</p>
                   <p className="font-mono text-xs text-white/50 break-all">{udid}</p>
                 </div>
               )}
-              {!udid && (
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
-                  <p className="text-yellow-400/80 text-xs">
-                    لم يتم اكتشاف UDID تلقائياً. افتح الرابط من التطبيق أو اتصل بالدعم.
-                  </p>
-                </div>
-              )}
 
-              {/* Name */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">الاسم الكامل *</label>
                 <input
@@ -192,7 +289,6 @@ export default function Enroll() {
                 />
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">رقم الهاتف *</label>
                 <input
@@ -205,7 +301,6 @@ export default function Enroll() {
                 />
               </div>
 
-              {/* Email */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">البريد الإلكتروني</label>
                 <input
@@ -218,7 +313,6 @@ export default function Enroll() {
                 />
               </div>
 
-              {/* Device type */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">نوع الجهاز</label>
                 <div className="flex gap-2">
@@ -239,7 +333,6 @@ export default function Enroll() {
                 </div>
               </div>
 
-              {/* Plan selection */}
               {plans.length > 0 && (
                 <div>
                   <label className="block text-xs font-medium text-white/50 mb-1.5 flex items-center gap-1.5">
@@ -258,17 +351,12 @@ export default function Enroll() {
                           : { background: "rgba(0,0,0,0.3)", borderColor: "rgba(255,255,255,0.08)" }
                         }
                       >
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.8)" }}>
-                            {p.nameAr || p.name}
-                          </p>
-                          {p.durationDays && (
-                            <p className="text-xs text-white/30">{p.durationDays} يوم</p>
-                          )}
-                        </div>
+                        <p className="text-sm font-medium" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.8)" }}>
+                          {p.nameAr || p.name}
+                        </p>
                         {p.price != null && (
                           <span className="text-sm font-bold" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.4)" }}>
-                            {p.price === 0 ? "مجاني" : `${p.price} ر.س`}
+                            {p.price === 0 ? "مجاني" : `${p.price} ${p.currency || ""}`}
                           </span>
                         )}
                       </button>
@@ -277,7 +365,6 @@ export default function Enroll() {
                 </div>
               )}
 
-              {/* Notes */}
               <div>
                 <label className="block text-xs font-medium text-white/50 mb-1.5">ملاحظات (اختياري)</label>
                 <textarea
@@ -312,10 +399,13 @@ export default function Enroll() {
           </div>
         )}
 
-        {/* Success */}
+        {/* ── Success ── */}
         {step === "success" && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+              style={{ background: "#34C75920", border: "1px solid #34C75940" }}
+            >
               <CheckCircle2 className="w-8 h-8 text-green-400" />
             </div>
             <div>
@@ -324,14 +414,16 @@ export default function Enroll() {
                 سيتواصل معك فريقنا في أقرب وقت ممكن لتفعيل اشتراكك.
               </p>
             </div>
-            <div className="bg-black/30 rounded-xl p-3 text-right text-sm space-y-1">
-              <p className="text-white/30 text-xs">معرّف جهازك المسجل</p>
-              <p className="font-mono text-xs text-white/40 break-all">{udid}</p>
-            </div>
+            {udid && (
+              <div className="bg-black/30 rounded-xl p-3 text-right text-sm space-y-1">
+                <p className="text-white/30 text-xs">معرّف جهازك المسجل</p>
+                <p className="font-mono text-xs text-white/40 break-all">{udid}</p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Error */}
+        {/* ── Error ── */}
         {step === "error" && (
           <div className="bg-[#0a0a0a] border border-red-500/20 rounded-2xl p-8 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
