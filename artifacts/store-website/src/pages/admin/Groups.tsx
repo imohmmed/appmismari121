@@ -730,10 +730,15 @@ export default function AdminGroups() {
 
   useEffect(() => { fetchGroups(); }, []);
 
-  const totalIPhone = groups.reduce((s, g) => s + g.iphoneOfficialCount + g.iphoneMacCount, 0);
-  const totalIPad = groups.reduce((s, g) => s + g.ipadCount, 0);
-  const totalPending = groups.reduce((s, g) => s + g.pendingCount, 0);
-  const totalCap = groups.length * (IPHONE_TOTAL + IPAD_LIMIT);
+  const totalIPhone = groups.reduce((s, g) => s + (g.iphoneOfficialCount || 0) + (g.iphoneMacCount || 0), 0);
+  const totalIPad = groups.reduce((s, g) => s + (g.ipadCount || 0), 0);
+  const totalPending = groups.reduce((s, g) => s + (g.pendingCount || 0), 0);
+  // شهادات فعالة = فيها مشتركين
+  const activeCerts = groups.filter(g => g.totalDevices > 0).length;
+  // شهادات مغلقة = وصلت حد الآيفون (IOS + MAC) أو الآيباد
+  const fullCerts = groups.filter(g =>
+    (g.iphoneOfficialCount + g.iphoneMacCount) >= IPHONE_TOTAL || g.ipadCount >= IPAD_LIMIT
+  ).length;
 
   return (
     <AdminLayout>
@@ -765,17 +770,60 @@ export default function AdminGroups() {
 
         {/* Stats */}
         {groups.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {[
-              { l: "الشهادات", v: groups.length, c: A },
-              { l: "آيفون كلي", v: `${totalIPhone}/${groups.length * IPHONE_TOTAL}`, c: "#22c55e" },
-              { l: "آيباد كلي", v: `${totalIPad}/${groups.length * IPAD_LIMIT}`, c: "#8b5cf6" },
-              { l: "انتظار تفعيل", v: totalPending, c: "#f59e0b" },
-              { l: "الطاقة الكلية", v: totalCap, c: "#475569" },
+              {
+                l: "الشهادات",
+                v: groups.length,
+                sub: "المجموع",
+                c: A,
+                icon: <Shield className="w-3.5 h-3.5" />,
+              },
+              {
+                l: "شهادات فعالة",
+                v: activeCerts,
+                sub: "فيها مشتركين",
+                c: "#22c55e",
+                icon: <CheckCircle className="w-3.5 h-3.5" />,
+              },
+              {
+                l: "شهادات مغلقة",
+                v: fullCerts,
+                sub: "وصلت الحد",
+                c: fullCerts > 0 ? "#ef4444" : "#475569",
+                icon: <AlertTriangle className="w-3.5 h-3.5" />,
+              },
+              {
+                l: "مشتركين آيفون",
+                v: totalIPhone,
+                sub: `من ${groups.length * IPHONE_TOTAL} مقعد`,
+                c: "#22c55e",
+                icon: <Smartphone className="w-3.5 h-3.5" />,
+              },
+              {
+                l: "مشتركين آيباد",
+                v: totalIPad,
+                sub: `من ${groups.length * IPAD_LIMIT} مقعد`,
+                c: A,
+                icon: <Tablet className="w-3.5 h-3.5" />,
+              },
+              {
+                l: "انتظار تفعيل",
+                v: totalPending,
+                sub: "في كل الشهادات",
+                c: totalPending > 0 ? "#f59e0b" : "#475569",
+                icon: <Clock className="w-3.5 h-3.5" />,
+              },
             ].map(s => (
-              <div key={s.l} className="bg-[#111111] border border-white/8 rounded-xl p-4">
-                <p className="text-xl font-black leading-tight" style={{ fontFamily: "Outfit, sans-serif", color: s.c }}>{s.v}</p>
-                <p className="text-white/35 text-xs mt-1">{s.l}</p>
+              <div key={s.l} className="bg-[#111111] border border-white/8 rounded-xl p-4 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 mb-0.5" style={{ color: s.c }}>
+                  {s.icon}
+                  <span className="text-xs font-medium opacity-80">{s.l}</span>
+                </div>
+                <p className="text-2xl font-black leading-tight" style={{ fontFamily: "Outfit, sans-serif", color: s.c }}>
+                  {s.v}
+                </p>
+                <p className="text-white/25 text-xs">{s.sub}</p>
               </div>
             ))}
           </div>
