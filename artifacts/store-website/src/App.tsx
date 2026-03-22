@@ -23,6 +23,7 @@ import AdminAddByUrl from "./pages/admin/AddByUrl";
 import AdminAddByFile from "./pages/admin/AddByFile";
 import SubscriberProfile from "./pages/SubscriberProfile";
 import Enroll from "./pages/Enroll";
+import Activate from "./pages/Activate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,7 @@ function Router() {
 
       <Route path="/subscriber/:id" component={SubscriberProfile} />
       <Route path="/enroll" component={Enroll} />
+      <Route path="/activate" component={Activate} />
 
       <Route component={NotFound} />
     </Switch>

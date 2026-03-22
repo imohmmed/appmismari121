@@ -7,6 +7,7 @@ import adminRouter from "./admin";
 import ipaRouter from "./ipa";
 import enrollRouter from "./enroll";
 import testGroupsRouter from "./test-groups";
+import activateRouter from "./activate";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(adminRouter);
 router.use(ipaRouter);
 router.use(enrollRouter);
 router.use(testGroupsRouter);
+router.use(activateRouter);
 
 export default router;

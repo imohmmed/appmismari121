@@ -13,6 +13,11 @@ app.use("/admin/FilesIPA", express.static(path.join(uploadsDir, "FilesIPA"), {
     res.setHeader("Access-Control-Allow-Origin", "*");
   },
 }));
+app.use("/admin/FilesIPA/StoreIPA", express.static(path.join(uploadsDir, "StoreIPA"), {
+  setHeaders(res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  },
+}));
 
 app.use(
   pinoHttp({

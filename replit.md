@@ -108,6 +108,30 @@ Arabic RTL React site with dark purple theme:
 - Admin dashboard at /admin with dark theme matching screenshots
 - 14 admin pages with full sidebar navigation
 - Admin credentials: env vars ADMIN_USERNAME/ADMIN_PASSWORD (default: admin/admin123)
+- `/activate` — subscription code activation flow (multi-step: code → download → registration → success)
+- `/subscriber/:id` — subscriber profile page
+- `/enroll` — UDID enrollment via mobileconfig
+
+## Subscription Code Activation Flow
+
+Multi-step page at `/activate`:
+1. User enters subscription code → API validates → returns group info
+2. If group has Store IPA uploaded → shows `itms-services://` download link
+3. User fills registration form (name, phone, email, UDID, device type)
+4. Data saved to subscription record → success page with subscriber profile link
+
+Admin Groups page includes:
+- Store IPA upload per group (stores to `uploads/StoreIPA/`)
+- Copy itms-services download link button
+- Copy activation page URL button
+
+Key API endpoints:
+- `POST /api/activate/validate` — validate code, return group info + download link
+- `POST /api/activate/complete` — save user info to subscription
+- `GET /api/groups/:certName/manifest.plist` — dynamic OTA plist for itms-services
+- `POST /api/admin/groups/:id/store-ipa` — upload signed store IPA
+- `DELETE /api/admin/groups/:id/store-ipa` — remove store IPA
+- `GET /api/admin/groups/:certName/download-link` — get itms-services URL
 
 ## TypeScript & Composite Projects
 

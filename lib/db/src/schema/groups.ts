@@ -32,6 +32,10 @@ export const groupsTable = pgTable("groups", {
   iphoneOfficialCount: integer("iphone_official_count").notNull().default(0),
   iphoneMacCount: integer("iphone_mac_count").notNull().default(0),
   ipadCount: integer("ipad_count").notNull().default(0),
+  // ─── Store IPA (signed store app for this group) ────────────────────────
+  // Path uploaded by admin; used to generate the itms-services download link
+  storeIpaPath: text("store_ipa_path"),
+
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
   lastSyncNote: text("last_sync_note").default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
