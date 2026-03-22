@@ -127,7 +127,22 @@ export default function OnboardingScreen() {
   const [udid, setUdid] = useState(deviceUdid || "");
   const [checkResult, setCheckResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [socialLinks, setSocialLinks] = useState({ whatsapp: "", telegram: "", instagram: "" });
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Fetch contact links from admin settings
+  useEffect(() => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (!domain) return;
+    fetch(`https://${domain}/api/settings`)
+      .then(r => r.json())
+      .then(data => setSocialLinks({
+        whatsapp: data.whatsapp || "",
+        telegram: data.telegram || "",
+        instagram: data.instagram || "",
+      }))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (params.udid) {
@@ -556,13 +571,51 @@ export default function OnboardingScreen() {
                   <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>الدخول للمتجر</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: DARK }]}
-                  activeOpacity={0.85}
-                  onPress={handleFinish}
-                >
-                  <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تخطي</Text>
-                </TouchableOpacity>
+                <View style={{ gap: 12, width: "100%" }}>
+                  <Text style={[styles.supportLabel, { fontFamily: fontAr("SemiBold") }]}>
+                    تواصل مع الدعم للاشتراك
+                  </Text>
+                  <View style={styles.supportRow}>
+                    {socialLinks.whatsapp ? (
+                      <TouchableOpacity
+                        style={[styles.supportBtn, { backgroundColor: "#25D366" }]}
+                        activeOpacity={0.85}
+                        onPress={() => Linking.openURL(socialLinks.whatsapp)}
+                      >
+                        <Feather name="phone" size={20} color={WHITE} />
+                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>واتساب</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {socialLinks.telegram ? (
+                      <TouchableOpacity
+                        style={[styles.supportBtn, { backgroundColor: "#0088CC" }]}
+                        activeOpacity={0.85}
+                        onPress={() => Linking.openURL(socialLinks.telegram)}
+                      >
+                        <Feather name="send" size={20} color={WHITE} />
+                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>تيليكرام</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {socialLinks.instagram ? (
+                      <TouchableOpacity
+                        style={[styles.supportBtn, { backgroundColor: "#E1306C" }]}
+                        activeOpacity={0.85}
+                        onPress={() => Linking.openURL(socialLinks.instagram)}
+                      >
+                        <Feather name="instagram" size={20} color={WHITE} />
+                        <Text style={[styles.supportBtnText, { fontFamily: fontAr("Bold") }]}>انستكرام</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: "#FF3B30" + "22", borderWidth: 1, borderColor: "#FF3B3060" }]}
+                    activeOpacity={0.85}
+                    onPress={() => transition("download")}
+                  >
+                    <Feather name="rotate-ccw" size={18} color="#FF3B30" style={{ marginLeft: 8 }} />
+                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold"), color: "#FF3B30" }]}>إعادة المحاولة</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
@@ -798,6 +851,35 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
+  supportLabel: {
+    fontSize: 15,
+    color: DARK + "90",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  supportRow: {
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    gap: 10,
+  },
+  supportBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  supportBtnText: {
+    fontSize: 13,
+    color: WHITE,
+  },
+
   resultDesc: {
     fontSize: 14,
     color: DARK + "80",
