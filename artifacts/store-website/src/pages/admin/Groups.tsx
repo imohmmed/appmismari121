@@ -1415,6 +1415,7 @@ function GroupCard({ group, onDelete, onEdit, onViewDevices, onRefresh }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminGroups() {
+  const { toast } = useToast();
   const [groups, setGroups] = useState<GroupRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1422,6 +1423,33 @@ export default function AdminGroups() {
   const [editGroup, setEditGroup] = useState<GroupRecord | null>(null);
   const [devicesGroup, setDevicesGroup] = useState<GroupRecord | null>(null);
   const [showCode, setShowCode] = useState(false);
+  const [uploadingAll, setUploadingAll] = useState(false);
+  const allIpaRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadAll = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAll(true);
+    const fd = new FormData();
+    fd.append("ipa", file);
+    try {
+      const res = await adminUpload("/admin/groups/store-ipa-all", fd);
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: `✅ تم رفع Mismari+ IPA لـ ${data.updatedCount} مجموعة`,
+          description: "جميع المجموعات جاهزة للتوزيع الآن",
+        });
+        fetchGroups();
+      } else {
+        toast({ title: "خطأ في الرفع", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "فشل الرفع", variant: "destructive" });
+    }
+    setUploadingAll(false);
+    if (allIpaRef.current) allIpaRef.current.value = "";
+  };
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -1548,6 +1576,74 @@ export default function AdminGroups() {
             اتصال بأبل عند الحاجة فقط
           </div>
         </div>
+
+        {/* ── Mismari+ IPA Bulk Upload ── */}
+        {groups.length > 0 && (() => {
+          const groupsWithIpa = groups.filter(g => !!g.storeIpaPath).length;
+          const groupsWithoutIpa = groups.length - groupsWithIpa;
+          return (
+            <div className="rounded-2xl border overflow-hidden"
+              style={{ borderColor: groupsWithoutIpa > 0 ? "#9fbcff25" : "#22c55e25", background: groupsWithoutIpa > 0 ? "#9fbcff06" : "#22c55e06" }}>
+              <div className="px-5 py-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: groupsWithoutIpa > 0 ? `${A}15` : "#22c55e15" }}>
+                    <Download className="w-5 h-5" style={{ color: groupsWithoutIpa > 0 ? A : "#22c55e" }} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-white font-bold text-sm">تطبيق Mismari+ — IPA التوزيع</h3>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                        style={{ background: groupsWithoutIpa > 0 ? `${A}15` : "#22c55e15", color: groupsWithoutIpa > 0 ? A : "#22c55e" }}>
+                        {groupsWithIpa}/{groups.length} مجموعة جاهزة
+                      </span>
+                    </div>
+                    <p className="text-white/35 text-xs mt-0.5">
+                      {groupsWithoutIpa > 0
+                        ? `ارفع IPA مرة واحدة ← يُطبَّق على كل المجموعات (${groupsWithoutIpa} مجموعة لا تزال بدون IPA)`
+                        : "جميع المجموعات تحتوي على IPA — يمكنك تحديثه في أي وقت"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => allIpaRef.current?.click()}
+                    disabled={uploadingAll}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-colors"
+                    style={{ background: groupsWithoutIpa > 0 ? A : "#22c55e20", color: groupsWithoutIpa > 0 ? "#000" : "#22c55e" }}>
+                    {uploadingAll
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Upload className="w-4 h-4" />}
+                    {uploadingAll ? "جاري الرفع..." : groupsWithoutIpa > 0 ? "رفع IPA للكل" : "تحديث IPA"}
+                  </button>
+                  <input ref={allIpaRef} type="file" accept=".ipa" className="hidden" onChange={handleUploadAll} />
+                </div>
+              </div>
+
+              {groupsWithoutIpa > 0 && (
+                <div className="px-5 pb-4 border-t border-white/5 pt-3">
+                  <p className="text-white/25 text-xs mb-2 font-medium">كيفية بناء IPA تطبيق Mismari+:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {[
+                      { n: "1", title: "تثبيت EAS CLI", cmd: "npm install -g eas-cli", color: A },
+                      { n: "2", title: "بناء IPA", cmd: "cd artifacts/plus-app && eas build --platform ios --profile internal", color: "#f59e0b" },
+                      { n: "3", title: "ارفع الناتج هنا", cmd: "حمّل ملف .ipa من Expo dashboard ثم ارفعه بالزر أعلاه", color: "#22c55e" },
+                    ].map(s => (
+                      <div key={s.n} className="bg-[#0a0a0a] rounded-xl p-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="w-5 h-5 rounded-full text-xs font-black flex items-center justify-center"
+                            style={{ background: `${s.color}20`, color: s.color }}>{s.n}</span>
+                          <span className="text-white/50 text-xs font-medium">{s.title}</span>
+                        </div>
+                        <code className="text-white/30 text-xs block font-mono leading-relaxed break-all">{s.cmd}</code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>

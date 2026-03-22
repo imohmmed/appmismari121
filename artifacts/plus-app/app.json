@@ -5,18 +5,29 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "plus-app",
-    "userInterfaceStyle": "light",
+    "scheme": "mismari",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#000000"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mismari.plus",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "للتصوير ورفع الصور",
+        "NSPhotoLibraryUsageDescription": "للوصول لمكتبة الصور",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
-    "android": {},
+    "android": {
+      "package": "com.mismari.plus"
+    },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
@@ -33,6 +44,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }

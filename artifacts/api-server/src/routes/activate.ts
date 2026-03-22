@@ -332,4 +332,34 @@ router.get("/admin/groups/:certName/download-link", async (req, res): Promise<vo
   res.json({ hasIpa: true, downloadLink, storeIpaPath: group.storeIpaPath });
 });
 
+// ─── Admin: Upload Mismari+ IPA to ALL groups ────────────────────────────────
+// One upload → assign same storeIpaPath to every group
+router.post(
+  "/admin/groups/store-ipa-all",
+  storeIpaUpload.single("ipa"),
+  async (req, res): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "ipa file required" });
+      return;
+    }
+
+    const base = getBaseUrl(req);
+    const ipaUrl = `${base}/api/admin/FilesIPA/StoreIPA/${req.file.filename}`;
+
+    // Update ALL groups
+    const groups = await db
+      .update(groupsTable)
+      .set({ storeIpaPath: ipaUrl })
+      .returning({ id: groupsTable.id, certName: groupsTable.certName });
+
+    res.json({
+      success: true,
+      updatedCount: groups.length,
+      ipaUrl,
+      groups: groups.map(g => g.certName),
+    });
+  }
+);
+
 export default router;
+
