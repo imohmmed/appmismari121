@@ -88,26 +88,40 @@ export default function SectionDetailScreen() {
             {apps.map((app, index) => {
               const tc = getTagColor(app.tag);
               const desc = (isArabic ? app.descAr : null) || app.description || "";
+              const textAlign = isArabic ? ("right" as const) : ("left" as const);
               return (
                 <View key={app.id}>
                   <Pressable
-                    style={styles.appRow}
+                    style={[styles.appRow, !isArabic && { flexDirection: "row" }]}
                     onPress={() => setSelectedApp(app)}
                   >
-                    <View style={[styles.getButton, { backgroundColor: colors.background }]}>
-                      <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>
-                        {t("download")}
-                      </Text>
-                    </View>
-                    <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
-                      <Text style={[styles.appName, { color: colors.text, textAlign: "right" }]}>{app.name}</Text>
-                      <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "right" }]}>
-                        {desc}
-                      </Text>
-                    </View>
-                    <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
-                      <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
-                    </View>
+                    {isArabic ? (
+                      <>
+                        <View style={[styles.getButton, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                        </View>
+                        <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
+                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
+                        </View>
+                        <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
+                          <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
+                          <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
+                        </View>
+                        <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
+                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
+                        </View>
+                        <View style={[styles.getButton, { backgroundColor: colors.background }]}>
+                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                        </View>
+                      </>
+                    )}
                   </Pressable>
                   {index < apps.length - 1 && <View style={[styles.divider, { backgroundColor: colors.separator }]} />}
                 </View>

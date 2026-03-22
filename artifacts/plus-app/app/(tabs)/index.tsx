@@ -31,19 +31,37 @@ function AppListRow({ app, showDivider, onPress }: { app: ApiApp; showDivider: b
   const { colors, t, fontAr, isArabic } = useSettings();
   const tagColor = getTagColor(app.tag);
   const desc = (isArabic ? app.descAr : null) || app.description || "";
+  const textAlign = isArabic ? "right" : "left";
   return (
     <View>
-      <Pressable style={styles.listRow} onPress={onPress}>
-        <View style={[styles.listRowGetButton, { backgroundColor: colors.card }]}>
-          <Text style={[styles.listRowGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
-        </View>
-        <View style={styles.listRowInfo}>
-          <Text style={[styles.listRowName, { color: colors.text, textAlign: "right" }]} numberOfLines={1}>{app.name}</Text>
-          <Text style={[styles.listRowDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "right" }]} numberOfLines={1}>{desc}</Text>
-        </View>
-        <View style={[styles.listRowIcon, { backgroundColor: `${tagColor}15` }]}>
-          <Feather name={(app.icon as any) || "box"} size={24} color={tagColor} />
-        </View>
+      <Pressable style={[styles.listRow, !isArabic && { flexDirection: "row" }]} onPress={onPress}>
+        {isArabic ? (
+          <>
+            <View style={[styles.listRowGetButton, { backgroundColor: colors.card }]}>
+              <Text style={[styles.listRowGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+            </View>
+            <View style={[styles.listRowInfo, { alignItems: "flex-end" }]}>
+              <Text style={[styles.listRowName, { color: colors.text, textAlign }]} numberOfLines={1}>{app.name}</Text>
+              <Text style={[styles.listRowDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]} numberOfLines={1}>{desc}</Text>
+            </View>
+            <View style={[styles.listRowIcon, { backgroundColor: `${tagColor}15` }]}>
+              <Feather name={(app.icon as any) || "box"} size={24} color={tagColor} />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={[styles.listRowIcon, { backgroundColor: `${tagColor}15` }]}>
+              <Feather name={(app.icon as any) || "box"} size={24} color={tagColor} />
+            </View>
+            <View style={[styles.listRowInfo, { alignItems: "flex-start" }]}>
+              <Text style={[styles.listRowName, { color: colors.text, textAlign }]} numberOfLines={1}>{app.name}</Text>
+              <Text style={[styles.listRowDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]} numberOfLines={1}>{desc}</Text>
+            </View>
+            <View style={[styles.listRowGetButton, { backgroundColor: colors.card }]}>
+              <Text style={[styles.listRowGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+            </View>
+          </>
+        )}
       </Pressable>
       {showDivider && <View style={[styles.listRowDivider, { backgroundColor: colors.separator }]} />}
     </View>
@@ -100,10 +118,12 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
 }) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { colors, t, fontAr } = useSettings();
+  const { colors, t, fontAr, isArabic } = useSettings();
   const { apps, loading } = useApps({ categoryId: cat.id, limit: 50 });
   const tagColor = getCategoryColor(cat.id);
-  const desc = (app: ApiApp) => app.description || "";
+  const desc = (app: ApiApp) => (isArabic ? app.descAr : null) || app.description || "";
+  const catName = isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr);
+  const textAlign = isArabic ? ("right" as const) : ("left" as const);
 
   const appCountText = `${cat.appCount}`;
 
@@ -114,10 +134,10 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
       </View>
       <View style={[styles.catBanner, { backgroundColor: tagColor }]}>
         <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>
-          {cat.nameAr || cat.name}
+          {catName}
         </Text>
         <Text style={[styles.catBannerCount, { fontFamily: fontAr("Regular") }]}>
-          {appCountText} {t("app" as any) || "تطبيق"}
+          {appCountText} {isArabic ? "تطبيق" : (Number(appCountText) === 1 ? "app" : "apps")}
         </Text>
       </View>
       {loading ? (
@@ -135,19 +155,34 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
               const tc = getTagColor(app.tag);
               return (
                 <View key={app.id}>
-                  <Pressable style={styles.appRow} onPress={() => onAppPress(app)}>
-                    <View style={[styles.getButton, { backgroundColor: colors.card }]}>
-                      <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
-                    </View>
-                    <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
-                      <Text style={[styles.appName, { color: colors.text, textAlign: "right" }]}>{app.name}</Text>
-                      <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "right" }]}>
-                        {desc(app)}
-                      </Text>
-                    </View>
-                    <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
-                      <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
-                    </View>
+                  <Pressable style={[styles.appRow, !isArabic && { flexDirection: "row" }]} onPress={() => onAppPress(app)}>
+                    {isArabic ? (
+                      <>
+                        <View style={[styles.getButton, { backgroundColor: colors.card }]}>
+                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                        </View>
+                        <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
+                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc(app)}</Text>
+                        </View>
+                        <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
+                          <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
+                        </View>
+                      </>
+                    ) : (
+                      <>
+                        <View style={[styles.appIcon, { backgroundColor: `${tc}15` }]}>
+                          <Feather name={(app.icon as any) || "box"} size={22} color={tc} />
+                        </View>
+                        <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
+                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc(app)}</Text>
+                        </View>
+                        <View style={[styles.getButton, { backgroundColor: colors.card }]}>
+                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                        </View>
+                      </>
+                    )}
                   </Pressable>
                   {idx < apps.length - 1 && <View style={[styles.listRowDivider, { backgroundColor: colors.separator }]} />}
                 </View>
@@ -168,10 +203,11 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
 
 // ─── Category Card (grid) ─────────────────────────────────────────────────────
 function CategoryCard({ cat, onPress }: { cat: ApiCategory; onPress: () => void }) {
-  const { fontAr } = useSettings();
+  const { fontAr, isArabic } = useSettings();
   const color = getCategoryColor(cat.id);
   const icon = cat.icon && !cat.icon.match(/[\u{1F300}-\u{1FAFF}]/u) ? cat.icon : null;
   const emoji = cat.icon && cat.icon.match(/[\u{1F300}-\u{1FAFF}]/u) ? cat.icon : null;
+  const catName = isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr);
   return (
     <Pressable style={[styles.catCard, { backgroundColor: color }]} onPress={onPress}>
       {icon ? (
@@ -180,7 +216,7 @@ function CategoryCard({ cat, onPress }: { cat: ApiCategory; onPress: () => void 
         <Text style={[styles.catCardEmoji, styles.catCardIcon]}>{emoji || "📱"}</Text>
       )}
       <Text style={[styles.catCardLabel, { fontFamily: fontAr("Bold") }]}>
-        {cat.nameAr || cat.name}
+        {catName}
       </Text>
     </Pressable>
   );
@@ -290,7 +326,7 @@ export default function PlusScreen() {
               >
                 <Text style={[styles.catPillEmoji]}>{cat.icon && cat.icon.length <= 2 ? cat.icon : "📱"} </Text>
                 <Text style={[styles.categoryPillText, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>
-                  {cat.nameAr || cat.name}
+                  {isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr)}
                 </Text>
               </Pressable>
             </View>
