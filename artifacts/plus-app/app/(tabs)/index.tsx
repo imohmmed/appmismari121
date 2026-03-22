@@ -22,6 +22,7 @@ import AppDetailPanel from "@/components/AppDetailPanel";
 import GlassBackButton from "@/components/GlassBackButton";
 import AccountPanel from "@/components/AccountPanel";
 import { useCategories, useApps, useBanners, getCategoryColor, getTagColor, type ApiApp, type ApiCategory, type ApiBanner } from "@/hooks/useAppData";
+import { registerOpenCategoryHandler } from "@/utils/openCategorySignal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PAGE_WIDTH = SCREEN_WIDTH - 80;
@@ -278,6 +279,18 @@ export default function PlusScreen() {
     });
     return unsub;
   }, [navigation]);
+
+  useEffect(() => {
+    return registerOpenCategoryHandler((categoryId) => {
+      const cat = categories.find(c => c.id === categoryId);
+      if (cat) {
+        setActiveCat(null);
+        setSelectedApp(null);
+        setCatSelectedApp(null);
+        setTimeout(() => setActiveCat(cat), 100);
+      }
+    });
+  }, [categories]);
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useNavigation } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Dimensions,
@@ -18,7 +18,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useCategories, useApps, getCategoryColor, getTagColor, type ApiApp } from "@/hooks/useAppData";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import SlidePanel from "@/components/SlidePanel";
-import CategorySlideContent from "@/components/CategorySlideContent";
+import { emitOpenCategory } from "@/utils/openCategorySignal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -41,13 +41,13 @@ function apiAppToDetail(app: ApiApp) {
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const router = useRouter();
   const isWeb = Platform.OS === "web";
   const [query, setQuery] = useState("");
   const inputRef = useRef<TextInput>(null);
   const { colors, t, fontAr, isArabic } = useSettings();
 
   const [selectedApp, setSelectedApp] = useState<ApiApp | null>(null);
-  const [activeCat, setActiveCat] = useState<{ id: number; name?: string; nameAr?: string; color?: string } | null>(null);
 
   useEffect(() => {
     const unsub = navigation.addListener("tabPress" as any, () => {
@@ -71,17 +71,23 @@ export default function SearchScreen() {
     skip: query.length < 2,
   });
 
-  const { apps: relatedApps } = useApps({
+  const { apps: relatedCategoryApps } = useApps({
     categoryId: selectedApp?.categoryId,
     limit: 31,
     skip: !selectedApp?.categoryId,
   });
   const relatedAppsMapped = selectedApp
-    ? relatedApps.filter(a => a.id !== selectedApp.id).slice(0, 30).map(apiAppToDetail)
+    ? relatedCategoryApps.filter(a => a.id !== selectedApp.id).slice(0, 30).map(apiAppToDetail)
     : [];
 
   const isSearching = query.length >= 2;
   const clearQuery = useCallback(() => setQuery(""), []);
+
+  function openCategory(catId: number) {
+    setSelectedApp(null);
+    emitOpenCategory(catId);
+    router.navigate("/(tabs)/");
+  }
 
   const renderAppRow = (app: ApiApp, index: number, list: ApiApp[]) => {
     const tc = getTagColor(app.tag);
@@ -134,7 +140,6 @@ export default function SearchScreen() {
         </Text>
       </View>
 
-      {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: colors.card }, isArabic && { flexDirection: "row-reverse" }]}>
         <Feather name="search" size={18} color={colors.textSecondary} />
         <TextInput
@@ -195,7 +200,7 @@ export default function SearchScreen() {
                     <Pressable
                       key={cat.id}
                       style={[styles.catCard, { backgroundColor: color }]}
-                      onPress={() => setActiveCat({ id: cat.id, name: cat.name, nameAr: cat.nameAr, color })}
+                      onPress={() => openCategory(cat.id)}
                     >
                       <View style={[styles.catCardIconWrap, isArabic ? { left: 16, right: undefined } : { right: 16 }]}>
                         {isEmoji ? (
@@ -226,14 +231,8 @@ export default function SearchScreen() {
             app={apiAppToDetail(selectedApp)}
             onClose={() => setSelectedApp(null)}
             onCategoryPress={() => {
-              setSelectedApp(null);
               if (selectedApp?.categoryId) {
-                setActiveCat({
-                  id: selectedApp.categoryId,
-                  name: selectedApp.categoryName,
-                  nameAr: selectedApp.categoryNameAr ?? undefined,
-                  color: "#9fbcff",
-                });
+                openCategory(selectedApp.categoryId);
               }
             }}
             relatedApps={relatedAppsMapped}
@@ -245,20 +244,6 @@ export default function SearchScreen() {
           />
         )}
       </SlidePanel>
-
-      {/* Category slide panel */}
-      <SlidePanel visible={activeCat !== null} onClose={() => setActiveCat(null)}>
-        {activeCat && (
-          <CategorySlideContent
-            categoryId={activeCat.id}
-            categoryName={activeCat.name}
-            categoryNameAr={activeCat.nameAr}
-            color={activeCat.color || "#9fbcff"}
-            onClose={() => setActiveCat(null)}
-          />
-        )}
-      </SlidePanel>
-
     </View>
   );
 }
