@@ -150,16 +150,35 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress?: (app: Ap
             return (
               <View key={a.id}>
                 <Pressable style={st.relatedRow} onPress={() => onPress?.(a)}>
-                  <View style={[st.relatedIcon, { backgroundColor: `${tc}15` }]}>
-                    <Feather name={a.icon as any} size={24} color={tc} />
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[st.relatedName, { color: colors.text }]} numberOfLines={1}>{a.name}</Text>
-                    <Text style={[st.relatedDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]} numberOfLines={1}>{desc}</Text>
-                  </View>
-                  <Pressable style={[st.relatedGetBtn, { backgroundColor: colors.card }]}>
-                    <Text style={[st.relatedGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
-                  </Pressable>
+                  {isArabic ? (
+                    <>
+                      {/* Arabic RTL: Icon (right) → Download btn (middle) → Name+Desc (left) */}
+                      <View style={[st.relatedIcon, { backgroundColor: `${tc}15` }]}>
+                        <Feather name={a.icon as any} size={24} color={tc} />
+                      </View>
+                      <Pressable style={[st.relatedGetBtn, { backgroundColor: colors.card }]}>
+                        <Text style={[st.relatedGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                      </Pressable>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[st.relatedName, { color: colors.text, textAlign: "right" }]} numberOfLines={1}>{a.name}</Text>
+                        <Text style={[st.relatedDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "right" }]} numberOfLines={1}>{desc}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      {/* LTR: Icon → Name+Desc → Download btn */}
+                      <View style={[st.relatedIcon, { backgroundColor: `${tc}15` }]}>
+                        <Feather name={a.icon as any} size={24} color={tc} />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[st.relatedName, { color: colors.text }]} numberOfLines={1}>{a.name}</Text>
+                        <Text style={[st.relatedDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]} numberOfLines={1}>{desc}</Text>
+                      </View>
+                      <Pressable style={[st.relatedGetBtn, { backgroundColor: colors.card }]}>
+                        <Text style={[st.relatedGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                      </Pressable>
+                    </>
+                  )}
                 </Pressable>
                 {idx < chunk.length - 1 && <View style={[st.relatedDivider, { backgroundColor: colors.separator }]} />}
               </View>
