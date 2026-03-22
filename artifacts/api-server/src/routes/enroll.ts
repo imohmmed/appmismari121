@@ -4,6 +4,18 @@ import { db, subscriptionsTable, enrollmentRequestsTable, plansTable } from "@wo
 
 const router: IRouter = Router();
 
+// ─── In-memory token → UDID store (TTL: 5 min) ───────────────────────────────
+const udidTokenStore = new Map<string, { udid: string; createdAt: number }>();
+const TOKEN_TTL_MS = 5 * 60 * 1000;
+
+function cleanExpiredTokens() {
+  const now = Date.now();
+  for (const [token, val] of udidTokenStore) {
+    if (now - val.createdAt > TOKEN_TTL_MS) udidTokenStore.delete(token);
+  }
+}
+setInterval(cleanExpiredTokens, 60_000);
+
 function getBaseUrl(req: import("express").Request): string {
   const proto = (req.headers["x-forwarded-proto"] as string) || "https";
   const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
@@ -26,7 +38,8 @@ router.get("/profile/enroll", (req, res): void => {
   const base = getBaseUrl(req);
   const source = (req.query.source as string) || "web";
   const plan = (req.query.plan as string) || "";
-  const callbackUrl = `${base}/api/profile/callback?source=${encodeURIComponent(source)}`;
+  const token = (req.query.token as string) || "";
+  const callbackUrl = `${base}/api/profile/callback?source=${encodeURIComponent(source)}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
 
   // Two modes:
   // 1. "app" source = activation (تفعيل اشتراك) — from Mismari+ app onboarding
@@ -101,30 +114,69 @@ router.post(
       }
 
       const source = (req.query.source as string) || "web";
-      if (source === "app") {
-        const deepLink = `mismari://onboarding?udid=${encodeURIComponent(udid)}`;
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.send(`<!DOCTYPE html><html><head>
-          <meta name="viewport" content="width=device-width,initial-scale=1">
-          <title>Mismari</title>
-          <style>body{background:#000;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}a{color:#9fbcff;font-size:18px;text-decoration:none;padding:14px 32px;border:1px solid #9fbcff;border-radius:12px;display:inline-block;margin-top:20px}</style>
-        </head><body>
-          <div>
-            <p style="font-size:16px;opacity:0.7">جاري فتح التطبيق...</p>
-            <a href="${deepLink}">افتح تطبيق مسماري</a>
-          </div>
-          <script>setTimeout(function(){window.location.href="${deepLink}"},500)</script>
-        </body></html>`);
-      } else {
-        const base = getBaseUrl(req);
-        res.redirect(302, `${base}/enroll?udid=${encodeURIComponent(udid)}`);
+      const token = (req.query.token as string) || "";
+
+      // Save UDID to token store (for app polling) and DB
+      if (token) {
+        udidTokenStore.set(token, { udid, createdAt: Date.now() });
       }
+
+      // For web source, also save UDID as a pending enrollment request
+      if (source === "web") {
+        await db.insert(enrollmentRequestsTable).values({
+          udid,
+          status: "pending",
+        }).onConflictDoNothing();
+      }
+
+      // iOS REQUIRES a valid mobileconfig response — HTML/redirect causes "Invalid Profile"
+      // Return a minimal empty profile (no payloads). iOS installs it silently.
+      const profileUuid = crypto.randomUUID();
+      const emptyProfile = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array/>
+  <key>PayloadDescription</key>
+  <string>Mismari device registration complete</string>
+  <key>PayloadDisplayName</key>
+  <string>Mismari</string>
+  <key>PayloadIdentifier</key>
+  <string>com.mismari.enrolled.${profileUuid}</string>
+  <key>PayloadRemovalDisallowed</key>
+  <false/>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadUUID</key>
+  <string>${profileUuid}</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+</dict>
+</plist>`;
+
+      res.setHeader("Content-Type", "application/x-apple-aspen-config; charset=utf-8");
+      res.send(emptyProfile);
     } catch (err) {
       console.error("Profile callback error:", err);
       res.status(500).send("Server error");
     }
   }
 );
+
+// ─── Poll for UDID by token (app polls this after profile install) ────────────
+router.get("/profile/udid-check", (req, res): void => {
+  const token = (req.query.token as string) || "";
+  if (!token) { res.status(400).json({ error: "token required" }); return; }
+
+  const entry = udidTokenStore.get(token);
+  if (entry && Date.now() - entry.createdAt <= TOKEN_TTL_MS) {
+    udidTokenStore.delete(token); // consume it
+    res.json({ found: true, udid: entry.udid });
+  } else {
+    res.json({ found: false });
+  }
+});
 
 // ─── Check if UDID already subscribed ────────────────────────────────────────
 router.get("/enroll/check", async (req, res): Promise<void> => {

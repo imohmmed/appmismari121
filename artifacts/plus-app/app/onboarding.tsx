@@ -136,6 +136,7 @@ export default function OnboardingScreen() {
     }
   }, [params.udid]);
 
+  // Keep deeplink listener as fallback
   useEffect(() => {
     const sub = Linking.addEventListener("url", (event) => {
       const parsed = Linking.parse(event.url);
@@ -165,12 +166,37 @@ export default function OnboardingScreen() {
   }
 
   async function handleDownloadProfile() {
-    const url = `${API_BASE}/api/profile/enroll?source=app`;
+    // Generate a session token — server stores UDID under this token when callback fires
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const url = `${API_BASE}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
+
+    // Start polling BEFORE opening browser so we catch the UDID as soon as it arrives
+    let pollCount = 0;
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      if (pollCount > 90) { clearInterval(pollInterval); return; } // 90s timeout
+      try {
+        const r = await fetch(`${API_BASE}/api/profile/udid-check?token=${encodeURIComponent(token)}`);
+        const data = await r.json();
+        if (data.found && data.udid) {
+          clearInterval(pollInterval);
+          setUdid(data.udid);
+          setDeviceUdid(data.udid);
+          // Dismiss browser then go directly to udid step
+          WebBrowser.dismissBrowser();
+          setTimeout(() => transition("udid"), 300);
+        }
+      } catch {}
+    }, 1000);
+
     await WebBrowser.openBrowserAsync(url, {
       dismissButtonStyle: "done",
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
-    transition("install");
+
+    // Browser closed manually — stop polling and go to install step if UDID not found yet
+    clearInterval(pollInterval);
+    if (!udid) transition("install");
   }
 
   async function handleCheckDevice() {
