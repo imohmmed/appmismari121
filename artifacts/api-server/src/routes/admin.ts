@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, ilike, or } from "drizzle-orm";
+import { eq, desc, sql, ilike, or, and } from "drizzle-orm";
 import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable } from "@workspace/db";
 import {
   AdminListAppsQueryParams,
@@ -60,15 +60,22 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
   const page = query.success ? query.data.page ?? 1 : 1;
   const limit = query.success ? query.data.limit ?? 50 : 50;
   const offset = (page - 1) * limit;
-  const search = (req.query as any).search as string | undefined;
+  const search   = (req.query as any).search   as string | undefined;
+  const sortBy   = (req.query as any).sortBy   as string | undefined; // "downloads" | "createdAt"
+  const categoryId = (req.query as any).categoryId ? Number((req.query as any).categoryId) : undefined;
 
-  const conditions: any[] = [];
-  if (search) {
-    conditions.push(or(
-      ilike(appsTable.name, `%${search}%`),
-      ilike(appsTable.bundleId, `%${search}%`)
-    ));
-  }
+  const searchCond = search
+    ? or(ilike(appsTable.name, `%${search}%`), ilike(appsTable.bundleId, `%${search}%`))
+    : undefined;
+  const catCond = categoryId ? eq(appsTable.categoryId, categoryId) : undefined;
+
+  const whereClause = searchCond && catCond
+    ? and(searchCond, catCond)
+    : searchCond ?? catCond;
+
+  const orderClause = sortBy === "downloads"
+    ? desc(appsTable.downloads)
+    : desc(appsTable.createdAt);
 
   const apps = await db
     .select({
@@ -93,12 +100,15 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
     })
     .from(appsTable)
     .leftJoin(categoriesTable, eq(appsTable.categoryId, categoriesTable.id))
-    .where(conditions.length > 0 ? conditions[0] : undefined)
-    .orderBy(desc(appsTable.createdAt))
+    .where(whereClause)
+    .orderBy(orderClause)
     .limit(limit)
     .offset(offset);
 
-  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(appsTable);
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(appsTable)
+    .where(whereClause);
 
   res.json(
     AdminListAppsResponse.parse({
