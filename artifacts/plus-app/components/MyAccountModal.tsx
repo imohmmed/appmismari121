@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   panel: {
     position: "absolute",
-    top: 80,
+    top: 220,
     left: 0,
     right: 0,
     bottom: 0,
