@@ -459,8 +459,8 @@ export default function SignScreen() {
                 <View style={[styles.actionIconWrap, { backgroundColor: `${TINT}18` }]}>
                   <Feather name="link" size={22} color={TINT} />
                 </View>
-                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "center", width: "100%" }]}>{t("signViaUrl")}</Text>
-                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "center", width: "100%" }]}>{t("signViaUrlSub")}</Text>
+                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signViaUrl")}</Text>
+                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signViaUrlSub")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -471,8 +471,8 @@ export default function SignScreen() {
                 <View style={[styles.actionIconWrap, { backgroundColor: "#34c75918" }]}>
                   <Feather name="upload" size={22} color="#34c759" />
                 </View>
-                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "center", width: "100%" }]}>{t("signUploadFile")}</Text>
-                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "center", width: "100%" }]}>{t("signUploadFileSub")}</Text>
+                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signUploadFile")}</Text>
+                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signUploadFileSub")}</Text>
               </TouchableOpacity>
             </View>
 
