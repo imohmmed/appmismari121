@@ -154,7 +154,7 @@ export default function Enroll() {
 
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src={`${BASE}mismari-logo-final.png`} alt="مسماري"
+          <img src={`${BASE}mismari-logo.png`} alt="مسماري"
             className="h-10 w-auto object-contain mx-auto mb-1" />
           <p className="text-white/30 text-xs">طلب اشتراك</p>
         </div>

@@ -51,7 +51,7 @@ export default function SubscriberProfile({ params }: { params: { code: string }
       <div className="max-w-lg mx-auto px-4 py-10">
         <div className="flex items-center gap-3 mb-8">
           <img
-            src={`${import.meta.env.BASE_URL}mismari-logo-final.png`}
+            src={`${import.meta.env.BASE_URL}mismari-logo.png`}
             alt="Mismari"
             className="h-12 w-auto object-contain"
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
