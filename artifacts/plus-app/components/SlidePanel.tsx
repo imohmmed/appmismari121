@@ -22,17 +22,24 @@ type SlidePanelProps = {
 
 export default function SlidePanel({ visible, onClose, children }: SlidePanelProps) {
   const { colors, isArabic } = useSettings();
-  const translateX = useRef(new Animated.Value(isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH)).current;
+
+  // Arabic:  slides IN from LEFT  (-SCREEN_WIDTH), dismiss to LEFT  (-SCREEN_WIDTH)
+  //          swipe starts from RIGHT edge, going LEFT
+  // English: slides IN from RIGHT (+SCREEN_WIDTH), dismiss to LEFT  (-SCREEN_WIDTH)
+  //          swipe starts from RIGHT edge, going LEFT  ← flipped from old behavior
+  const offScreenIn = isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH;
+  const offScreenOut = -SCREEN_WIDTH; // both dismiss to the left
+
+  const translateX = useRef(new Animated.Value(offScreenIn)).current;
   const [mounted, setMounted] = useState(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   const touchStartX = useRef(0);
-  const offScreen = isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH;
 
   useEffect(() => {
     if (visible) {
-      translateX.setValue(offScreen);
+      translateX.setValue(offScreenIn);
       setMounted(true);
       Animated.spring(translateX, {
         toValue: 0,
@@ -42,7 +49,7 @@ export default function SlidePanel({ visible, onClose, children }: SlidePanelPro
       }).start();
     } else if (mounted) {
       Animated.timing(translateX, {
-        toValue: offScreen,
+        toValue: offScreenOut,
         duration: 250,
         useNativeDriver: true,
       }).start(() => {
@@ -58,35 +65,22 @@ export default function SlidePanel({ visible, onClose, children }: SlidePanelPro
         return false;
       },
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (isArabic) {
-          // RTL: swipe starts from right edge, going left to dismiss
-          const startedAtEdge = touchStartX.current >= SCREEN_WIDTH - EDGE_WIDTH;
-          const swipingLeft = gestureState.dx < -10;
-          const moreHorizontal = Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
-          return startedAtEdge && swipingLeft && moreHorizontal;
-        } else {
-          // LTR: swipe starts from left edge, going right to dismiss
-          const startedAtEdge = touchStartX.current <= EDGE_WIDTH;
-          const swipingRight = gestureState.dx > 10;
-          const moreHorizontal = Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
-          return startedAtEdge && swipingRight && moreHorizontal;
-        }
+        // Both Arabic and English: swipe starts from the RIGHT edge, going LEFT
+        const startedAtEdge = touchStartX.current >= SCREEN_WIDTH - EDGE_WIDTH;
+        const swipingLeft = gestureState.dx < -10;
+        const moreHorizontal = Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
+        return startedAtEdge && swipingLeft && moreHorizontal;
       },
       onPanResponderMove: (_, gestureState) => {
-        if (isArabic) {
-          if (gestureState.dx < 0) translateX.setValue(gestureState.dx);
-        } else {
-          if (gestureState.dx > 0) translateX.setValue(gestureState.dx);
-        }
+        if (gestureState.dx < 0) translateX.setValue(gestureState.dx);
       },
       onPanResponderRelease: (_, gestureState) => {
-        const shouldClose = isArabic
-          ? gestureState.dx < -SWIPE_THRESHOLD || gestureState.vx < -0.5
-          : gestureState.dx > SWIPE_THRESHOLD || gestureState.vx > 0.5;
+        const shouldClose =
+          gestureState.dx < -SWIPE_THRESHOLD || gestureState.vx < -0.5;
 
         if (shouldClose) {
           Animated.timing(translateX, {
-            toValue: offScreen,
+            toValue: offScreenOut,
             duration: 200,
             useNativeDriver: true,
           }).start(() => {
@@ -105,9 +99,10 @@ export default function SlidePanel({ visible, onClose, children }: SlidePanelPro
     })
   ).current;
 
+  // Backdrop fades as panel slides left (dx goes negative)
   const backdropOpacity = translateX.interpolate({
-    inputRange: isArabic ? [-SCREEN_WIDTH, 0] : [0, SCREEN_WIDTH],
-    outputRange: isArabic ? [0, 0.4] : [0.4, 0],
+    inputRange: [-SCREEN_WIDTH, 0],
+    outputRange: [0, 0.4],
     extrapolate: "clamp",
   });
 
