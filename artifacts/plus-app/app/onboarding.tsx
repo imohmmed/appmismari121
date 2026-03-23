@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
@@ -364,6 +365,10 @@ export default function OnboardingScreen() {
         {step === "language" && (
           <View style={[styles.setupStep, { paddingBottom: insets.bottom + 24 }]}>
             <View style={styles.setupHeader}>
+              <Image
+                source={require("../assets/images/mismari-logo.png")}
+                style={{ width: 140, height: 70, resizeMode: "contain", alignSelf: "center", marginBottom: 12 }}
+              />
               <Text style={[styles.setupTitle, { fontFamily: fontAr("Black") }]}>اختر لغتك</Text>
               <Text style={[styles.setupSubtitle, { fontFamily: fontAr("Regular") }]}>
                 Choose your language

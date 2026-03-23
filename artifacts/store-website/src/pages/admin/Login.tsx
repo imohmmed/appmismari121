@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Lock, User, ArrowRight, RefreshCw } from "lucide-react";
+import { User, ArrowRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -86,9 +86,7 @@ export default function AdminLogin() {
         className="w-full max-w-md p-8 bg-[#111] border border-white/10 rounded-3xl shadow-2xl relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[#9fbcff] mx-auto mb-5 flex items-center justify-center shadow-xl shadow-[#9fbcff]/20">
-            <Lock className="w-8 h-8 text-black" />
-          </div>
+          <img src="/mismari-logo.png" alt="Mismari" className="h-16 w-auto object-contain mx-auto mb-5" />
           <h1 className="text-2xl font-black mb-1 text-white">تسجيل الدخول</h1>
           <p className="text-white/40 text-sm">لوحة إدارة مسماري</p>
         </div>

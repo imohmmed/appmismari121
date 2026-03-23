@@ -266,7 +266,7 @@ export default function Activate() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src={`${BASE}mismari-logo-final.png`} alt="Mismari"
+          <img src={`${BASE}mismari-logo.png`} alt="Mismari"
             className="h-10 w-auto object-contain mx-auto mb-1" />
           <p className="text-white/30 text-sm">تفعيل الاشتراك</p>
         </div>
