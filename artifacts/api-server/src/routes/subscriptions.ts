@@ -161,8 +161,8 @@ router.get("/subscriber/balance", async (req, res): Promise<void> => {
 // what the subscriber themselves would see on their profile card.
 router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Promise<void> => {
   const rawCode = req.params.code;
-  // Validate code format: alphanumeric only, 6-20 chars
-  if (!rawCode || !/^[A-Za-z0-9]{6,20}$/.test(rawCode)) {
+  // Validate code format: alphanumeric + hyphens/underscores, 4-30 chars
+  if (!rawCode || !/^[A-Za-z0-9_-]{4,30}$/.test(rawCode)) {
     res.status(400).json({ error: "كود غير صالح" });
     return;
   }

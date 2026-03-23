@@ -57,7 +57,10 @@ export default function Activate() {
   const [errorMsg, setErrorMsg] = useState("");
   const [token] = useState(() => getOrCreateToken());
 
-  const [codeInput, setCodeInput] = useState("");
+  // Read ?ref= from URL
+  const refCode = new URLSearchParams(window.location.search).get("ref")?.trim().toUpperCase() || "";
+
+  const [codeInput, setCodeInput] = useState(refCode);
   const [codeLoading, setCodeLoading] = useState(false);
   const [validated, setValidated] = useState<ValidateResult | null>(null);
 
@@ -136,16 +139,15 @@ export default function Activate() {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
-  const handleValidateCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!codeInput.trim()) return;
+  const doValidateCode = async (code: string) => {
+    if (!code.trim()) return;
     setCodeLoading(true);
     setErrorMsg("");
     try {
       const res = await fetch(`${API}/api/activate/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: codeInput.trim().toUpperCase() }),
+        body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
       const data = await res.json();
       if (!res.ok || !data.valid) {
@@ -155,17 +157,40 @@ export default function Activate() {
       }
       setValidated(data);
       if (data.alreadyRegistered) {
-        setSuccessData({
-          subscriber: {
-            id: data.subscriberId || 0, code: data.code, subscriberName: null, phone: null,
-            email: null, udid: null, deviceType: null, groupName: data.groupName,
-            isActive: "true", activatedAt: null, expiresAt: null, planName: data.planName,
-          },
-          storeDownloadLink: data.downloadLink,
-        });
+        // Already registered — fetch full subscriber details to display
+        try {
+          const subRes = await fetch(`${API}/api/subscriber/${encodeURIComponent(data.code)}`);
+          const subData = subRes.ok ? await subRes.json() : null;
+          const s = subData?.subscriber;
+          setSuccessData({
+            subscriber: {
+              id: s?.id || data.subscriberId || 0,
+              code: data.code,
+              subscriberName: s?.subscriberName || null,
+              phone: s?.phone || null,
+              email: s?.email || null,
+              udid: s?.udid || null,
+              deviceType: s?.deviceType || null,
+              groupName: s?.groupName || data.groupName,
+              isActive: s?.isActive ?? "true",
+              activatedAt: s?.activatedAt || null,
+              expiresAt: s?.expiresAt || null,
+              planName: s?.planName || data.planName,
+            },
+            storeDownloadLink: data.downloadLink,
+          });
+        } catch {
+          setSuccessData({
+            subscriber: {
+              id: data.subscriberId || 0, code: data.code, subscriberName: null, phone: null,
+              email: null, udid: null, deviceType: null, groupName: data.groupName,
+              isActive: "true", activatedAt: null, expiresAt: null, planName: data.planName,
+            },
+            storeDownloadLink: data.downloadLink,
+          });
+        }
         setStep("success");
       } else {
-        // Check if we already have a saved UDID from session
         const savedUdid = sessionStorage.getItem("activate_udid");
         if (savedUdid) {
           setUdid(savedUdid);
@@ -180,6 +205,16 @@ export default function Activate() {
       setErrorMsg("حدث خطأ، يرجى المحاولة مرة أخرى");
     }
     setCodeLoading(false);
+  };
+
+  // Auto-validate when ?ref= is present in URL
+  useEffect(() => {
+    if (refCode) doValidateCode(refCode);
+  }, []);
+
+  const handleValidateCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    doValidateCode(codeInput);
   };
 
   const handleCompleteRegistration = async (e: React.FormEvent) => {
