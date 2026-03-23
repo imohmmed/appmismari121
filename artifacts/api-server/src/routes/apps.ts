@@ -114,7 +114,12 @@ router.get("/apps", async (req, res): Promise<void> => {
 
   res.json(
     ListAppsResponse.parse({
-      apps: apps.map((a) => ({ ...a, categoryName: a.categoryName ?? "Unknown", categoryNameAr: a.categoryNameAr ?? undefined })),
+      apps: apps.map((a) => ({
+        ...a,
+        description: a.description ?? undefined,
+        categoryName: a.categoryName ?? "Unknown",
+        categoryNameAr: a.categoryNameAr ?? undefined,
+      })),
       total: count,
       page,
       limit,
@@ -148,7 +153,12 @@ router.get("/apps/featured", async (_req, res): Promise<void> => {
 
   res.json(
     ListFeaturedAppsResponse.parse({
-      apps: apps.map((a) => ({ ...a, categoryName: a.categoryName ?? "Unknown", categoryNameAr: a.categoryNameAr ?? undefined })),
+      apps: apps.map((a) => ({
+        ...a,
+        description: a.description ?? undefined,
+        categoryName: a.categoryName ?? "Unknown",
+        categoryNameAr: a.categoryNameAr ?? undefined,
+      })),
       total: apps.length,
     })
   );
@@ -180,7 +190,12 @@ router.get("/apps/hot", async (_req, res): Promise<void> => {
 
   res.json(
     ListHotAppsResponse.parse({
-      apps: apps.map((a) => ({ ...a, categoryName: a.categoryName ?? "Unknown", categoryNameAr: a.categoryNameAr ?? undefined })),
+      apps: apps.map((a) => ({
+        ...a,
+        description: a.description ?? undefined,
+        categoryName: a.categoryName ?? "Unknown",
+        categoryNameAr: a.categoryNameAr ?? undefined,
+      })),
       total: apps.length,
     })
   );
@@ -219,7 +234,12 @@ router.get("/apps/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(GetAppResponse.parse({ ...app, categoryName: app.categoryName ?? "Unknown", categoryNameAr: app.categoryNameAr ?? undefined }));
+  res.json(GetAppResponse.parse({
+    ...app,
+    description: app.description ?? undefined,
+    categoryName: app.categoryName ?? "Unknown",
+    categoryNameAr: app.categoryNameAr ?? undefined,
+  }));
 });
 
 // ─── PUBLIC SETTINGS ──────────────────────────────────────────────────────
