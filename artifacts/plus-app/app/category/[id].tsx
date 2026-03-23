@@ -142,10 +142,6 @@ export default function CategoryDetailScreen() {
             onClose={() => setSelectedApp(null)}
             onCategoryPress={() => setSelectedApp(null)}
             relatedApps={relatedApps}
-            onRelatedAppPress={(a) => {
-              const found = apps.find(x => x.id === a.id);
-              if (found) setSelectedApp(found);
-            }}
           />
         )}
       </SlidePanel>

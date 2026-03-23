@@ -420,7 +420,6 @@ export default function PlusScreen() {
             onClose={() => setCatSelectedApp(null)}
             onCategoryPress={() => setCatSelectedApp(null)}
             relatedApps={relatedApps as any}
-            onRelatedAppPress={(a) => setCatSelectedApp(a as any)}
           />
         )}
       </SlidePanel>
@@ -440,7 +439,6 @@ export default function PlusScreen() {
               }
             }}
             relatedApps={relatedApps as any}
-            onRelatedAppPress={(a) => setSelectedApp(a as any)}
           />
         )}
       </SlidePanel>

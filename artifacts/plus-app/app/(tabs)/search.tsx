@@ -233,11 +233,6 @@ export default function SearchScreen() {
               }
             }}
             relatedApps={relatedAppsMapped}
-            onRelatedAppPress={(a) => {
-              const found = searchResults.find(x => x.id === a.id);
-              if (found) setSelectedApp(found);
-              else setSelectedApp({ ...a, description: a.desc, categoryName: a.category } as any);
-            }}
           />
         )}
       </SlidePanel>
