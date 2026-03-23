@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Linking,
   PanResponder,
   ScrollView,
   StyleSheet,
@@ -188,11 +189,10 @@ export default function MyAccountModal({
               </View>
               {subscriptionCode ? (
                 <TouchableOpacity
-                  onPress={async () => {
+                  onPress={() => {
                     const domain = process.env.EXPO_PUBLIC_DOMAIN;
                     const link = `https://${domain}/activate?ref=${subscriptionCode}`;
-                    await Clipboard.setStringAsync(link);
-                    Alert.alert("", isArabic ? "تم نسخ رابط الإحالة" : "Referral link copied");
+                    Linking.openURL(link);
                   }}
                   style={[styles.referralBadge, { backgroundColor: `${colors.tint}15`, borderColor: `${colors.tint}30` }]}
                   activeOpacity={0.7}
@@ -201,7 +201,7 @@ export default function MyAccountModal({
                   <Text style={[styles.referralText, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>
                     {isArabic ? "رابط الإحالة" : "Referral Link"}
                   </Text>
-                  <Feather name="copy" size={10} color={`${colors.tint}80`} />
+                  <Feather name="external-link" size={10} color={`${colors.tint}80`} />
                 </TouchableOpacity>
               ) : null}
             </View>
