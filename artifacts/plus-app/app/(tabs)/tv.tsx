@@ -417,13 +417,23 @@ export default function SignScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop }]}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <View style={[styles.header, isArabic && styles.headerRtl]}>
+      <View style={[
+        styles.header,
+        screen === "home"
+          ? (isArabic ? styles.headerRtl : {})
+          : (!isArabic ? { flexDirection: "row-reverse" } : {}),
+      ]}>
         {(screen !== "home") && (
           <TouchableOpacity onPress={resetToHome} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
-            <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
+            <Feather name="arrow-left" size={16} color={colors.text} />
           </TouchableOpacity>
         )}
-        <View style={{ flex: 1, alignItems: screen !== "home" ? "center" : (isArabic ? "flex-end" : "flex-start") }}>
+        <View style={{
+          flex: 1,
+          alignItems: screen !== "home"
+            ? (isArabic ? "flex-start" : "flex-end")
+            : (isArabic ? "flex-end" : "flex-start"),
+        }}>
           <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
             {isArabic
               ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
