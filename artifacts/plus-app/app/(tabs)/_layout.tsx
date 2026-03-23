@@ -15,7 +15,7 @@ function NativeTabLayout() {
       <Icon sf={{ default: "plus.app", selected: "plus.app.fill" }} />
       <Label>{t("tabPlus")}</Label>
     </NativeTabs.Trigger>,
-    <NativeTabs.Trigger key="tv" name="tv">
+    <NativeTabs.Trigger key="sign" name="sign">
       <Icon sf={{ default: "signature", selected: "signature" }} />
       <Label>{t("tabTV")}</Label>
     </NativeTabs.Trigger>,
@@ -53,7 +53,7 @@ function ClassicTabLayout() {
       }}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="tv" />
+      <Tabs.Screen name="sign" />
       <Tabs.Screen name="smm" />
       <Tabs.Screen name="numbers" />
       <Tabs.Screen name="search" />
