@@ -360,6 +360,11 @@ export default function PlusScreen() {
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={[styles.header, isArabic && { flexDirection: "row-reverse" }]}>
+        {/* Title */}
+        <View style={[styles.headerTitleBlock, isArabic && { alignItems: "flex-end" }]}>
+          <Text style={[styles.headerTitleAr, { color: colors.text, fontFamily: fontAr("Bold") }]}>مسماري+</Text>
+          <Text style={[styles.headerTitleEn, { color: colors.textSecondary }]}>Mismari+</Text>
+        </View>
         <View style={[styles.headerActions, isArabic && { flexDirection: "row-reverse" }]}>
           {/* Bell icon */}
           <TouchableOpacity
@@ -518,7 +523,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 28 },
+  headerTitleBlock: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  headerTitleAr: {
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  headerTitleEn: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.45,
+    marginTop: 1,
+  },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
