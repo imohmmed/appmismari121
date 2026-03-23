@@ -191,7 +191,7 @@ export default function MyAccountModal({
                 <TouchableOpacity
                   onPress={() => {
                     const domain = process.env.EXPO_PUBLIC_DOMAIN;
-                    const link = `https://${domain}/activate?ref=${subscriptionCode}`;
+                    const link = `https://${domain}/activate`;
                     Linking.openURL(link);
                   }}
                   style={[styles.referralBadge, { backgroundColor: `${colors.tint}15`, borderColor: `${colors.tint}30` }]}
