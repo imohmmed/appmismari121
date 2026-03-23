@@ -1,6 +1,8 @@
 import { Feather } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import React from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -51,6 +53,11 @@ function formatDate(dateStr?: string | null): string {
   } catch {
     return dateStr;
   }
+}
+
+/** Returns true if string contains Arabic characters */
+function hasArabic(s?: string | null): boolean {
+  return /[\u0600-\u06FF]/.test(s ?? "");
 }
 
 function daysUntil(dateStr?: string | null): number | null {
@@ -264,7 +271,14 @@ export default function MyAccountModal({
                     <Text
                       style={[
                         styles.fieldValue,
-                        { color: colors.text, fontFamily: field.mono ? "Inter_400Regular" : fontAr("SemiBold") },
+                        {
+                          color: colors.text,
+                          fontFamily: field.mono
+                            ? "Inter_400Regular"
+                            : hasArabic(field.value?.toString())
+                              ? fontAr("SemiBold")
+                              : "Inter_400Regular",
+                        },
                         isArabic && { textAlign: "left" },
                       ]}
                       numberOfLines={1}
@@ -276,13 +290,35 @@ export default function MyAccountModal({
                 ))}
               </View>
 
-              {/* ── UDID (separate collapsible-style card) ─── */}
+              {/* ── UDID ─────────────────────────────────── */}
               {subscriber.udid ? (
                 <View style={[styles.udidCard, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.udidLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-                    UDID
-                  </Text>
-                  <Text style={[styles.udidValue, { color: colors.text, fontFamily: "Inter_400Regular" }]} selectable numberOfLines={2}>
+                  <View style={[styles.udidHeader, isArabic && { flexDirection: "row-reverse" }]}>
+                    <View style={[styles.fieldIconWrap, { backgroundColor: `${colors.tint}12` }]}>
+                      <Feather name="cpu" size={13} color={colors.tint} />
+                    </View>
+                    <Text style={[styles.udidLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular"), flex: 1 }]}>
+                      UDID
+                    </Text>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(subscriber.udid!);
+                        Alert.alert("", isArabic ? "تم نسخ UDID" : "UDID copied");
+                      }}
+                      style={[styles.copyBtn, { backgroundColor: `${colors.tint}18` }]}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="copy" size={12} color={colors.tint} />
+                      <Text style={{ fontSize: 11, color: colors.tint, fontFamily: "Inter_500Medium" }}>
+                        {isArabic ? "نسخ" : "Copy"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text
+                    style={[styles.udidValue, { color: colors.text, fontFamily: "Inter_400Regular" }]}
+                    selectable
+                    numberOfLines={2}
+                  >
                     {subscriber.udid}
                   </Text>
                 </View>
@@ -431,11 +467,24 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 20,
-    gap: 6,
+    marginBottom: 32,
+    gap: 8,
   },
-  udidLabel: { fontSize: 11 },
-  udidValue: { fontSize: 12, lineHeight: 20, direction: "ltr" },
+  udidHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  udidLabel: { fontSize: 12 },
+  udidValue: { fontSize: 12, lineHeight: 20, direction: "ltr", letterSpacing: 0.3 },
+  copyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
   loadingWrap: { alignItems: "center", paddingVertical: 40 },
   loadingText: { fontSize: 14 },
   emptyCard: {
