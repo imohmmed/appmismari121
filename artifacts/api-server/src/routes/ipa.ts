@@ -138,11 +138,8 @@ async function extractEntryFromUrl(url: string, entry: ZipEntry): Promise<Buffer
   throw new Error(`ضغط غير مدعوم: ${entry.compression}`);
 }
 
-function saveIconBuffer(iconBuf: Buffer): { iconFilename: string; iconPath: string } {
-  const iconFilename = `${randomHex(12)}.png`;
-  const iconPath = path.join(ICONS_DIR, iconFilename);
-  fs.writeFileSync(iconPath, iconBuf);
-  return { iconFilename, iconPath };
+function iconToBase64(iconBuf: Buffer): string {
+  return `data:image/png;base64,${iconBuf.toString("base64")}`;
 }
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
@@ -298,22 +295,15 @@ router.post("/admin/ipa/upload-file", adminAuth, memUpload.single("file"), async
     const ipaUrl = buildIpaUrl(req, ipaFilename);
     const ipaRelPath = `/admin/FilesIPA/IpaApp/${ipaFilename}`;
 
-    let iconUrl: string | null = null;
-    let iconRelPath: string | null = null;
     const iconBuf = extractIconFromZip(zip, appFolder, plistIconNames);
-    if (iconBuf) {
-      const { iconFilename, iconPath } = saveIconBuffer(iconBuf);
-      iconUrl = buildIconUrl(req, iconFilename);
-      iconRelPath = `/admin/FilesIPA/Icons/${iconFilename}`;
-      fs.writeFileSync(iconPath, iconBuf);
-    }
+    const iconBase64 = iconBuf ? iconToBase64(iconBuf) : null;
 
     res.json({
       name, bundleId, version, minOsVersion, size, sizeBytes,
       downloadUrl: ipaUrl,
       ipaPath: ipaRelPath,
-      icon: iconUrl,
-      iconPath: iconRelPath,
+      icon: iconBase64,
+      iconPath: null,
     });
   } catch (err: any) {
     res.status(422).json({ error: err.message || "فشل تحليل الملف" });
@@ -353,9 +343,6 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
     const ipaUrl = buildIpaUrl(req, ipaFilename);
     const ipaRelPath = `/admin/FilesIPA/IpaApp/${ipaFilename}`;
 
-    let iconUrl: string | null = null;
-    let iconRelPath: string | null = null;
-
     // Try fast range-based extraction first
     let { iconBuf } = await extractIconFromUrl(url, entries, appFolder, plistIconNames);
 
@@ -368,18 +355,14 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
       } catch { /* ignore */ }
     }
 
-    if (iconBuf) {
-      const { iconFilename, iconPath } = saveIconBuffer(iconBuf);
-      iconUrl = buildIconUrl(req, iconFilename);
-      iconRelPath = `/admin/FilesIPA/Icons/${iconFilename}`;
-    }
+    const iconBase64 = iconBuf ? iconToBase64(iconBuf) : null;
 
     res.json({
       name, bundleId, version, minOsVersion, size, sizeBytes: totalSize,
       downloadUrl: ipaUrl,
       ipaPath: ipaRelPath,
-      icon: iconUrl,
-      iconPath: iconRelPath,
+      icon: iconBase64,
+      iconPath: null,
     });
   } catch (err: any) {
     res.status(500).json({ error: `فشل: ${err.message || "خطأ غير معروف"}` });
