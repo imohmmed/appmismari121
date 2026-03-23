@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Search, Plus, X, Trash2, Edit2, CheckSquare, Square,
   Loader2, AlertCircle, Copy, RefreshCw, Bell, Link2,
-  PauseCircle, PlayCircle
+  PauseCircle, PlayCircle, Wallet, ArrowUpCircle, ArrowDownCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,9 +36,168 @@ interface Sub {
   planNameAr: string | null;
   sourceType: string | null;
   isActive: string;
+  balance: number;
   activatedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+}
+
+interface BalanceTx {
+  id: number;
+  type: "credit" | "debit" | "purchase";
+  amount: number;
+  balanceAfter: number;
+  note: string | null;
+  createdAt: string;
+}
+
+function BalanceModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => void; onChanged: () => void }) {
+  const { toast } = useToast();
+  const [type, setType] = useState<"credit" | "debit">("credit");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [txLoading, setTxLoading] = useState(true);
+  const [balance, setBalance] = useState(sub.balance);
+  const [txs, setTxs] = useState<BalanceTx[]>([]);
+
+  const loadTxs = async () => {
+    setTxLoading(true);
+    try {
+      const data = await adminFetch(`/admin/subscriptions/${sub.id}/balance`);
+      setBalance(data.balance);
+      setTxs(data.transactions || []);
+    } catch {}
+    setTxLoading(false);
+  };
+
+  useEffect(() => { loadTxs(); }, []);
+
+  const handleSubmit = async () => {
+    const amt = parseInt(amount);
+    if (!amt || amt <= 0) { toast({ title: "أدخل مبلغاً صحيحاً", variant: "destructive" }); return; }
+    setLoading(true);
+    try {
+      await adminFetch(`/admin/subscriptions/${sub.id}/balance`, {
+        method: "POST",
+        body: JSON.stringify({ type, amount: amt, note: note.trim() || undefined }),
+      });
+      toast({ title: type === "credit" ? `تمت إضافة ${amt.toLocaleString("ar-IQ")} د.ع` : `تم خصم ${amt.toLocaleString("ar-IQ")} د.ع` });
+      setAmount("");
+      setNote("");
+      loadTxs();
+      onChanged();
+    } catch (e: any) {
+      toast({ title: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" dir="rtl">
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-white">إدارة الرصيد</h3>
+            <p className="text-white/40 text-xs mt-0.5">{sub.subscriberName || sub.code}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          {/* Current balance */}
+          <div className="bg-[#111] border border-white/5 rounded-xl p-4 flex items-center justify-between">
+            <span className="text-sm text-white/50">الرصيد الحالي</span>
+            <span className="text-xl font-bold" style={{ color: "#9fbcff" }}>
+              {balance.toLocaleString("ar-IQ")} <span className="text-sm font-normal text-white/40">د.ع</span>
+            </span>
+          </div>
+
+          {/* Type selector */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setType("credit")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border transition-all ${type === "credit" ? "border-green-500/40 bg-green-500/15 text-green-400" : "border-white/10 text-white/30 hover:text-white"}`}
+            >
+              <ArrowUpCircle className="w-4 h-4" /> إضافة رصيد
+            </button>
+            <button
+              onClick={() => setType("debit")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border transition-all ${type === "debit" ? "border-red-500/40 bg-red-500/15 text-red-400" : "border-white/10 text-white/30 hover:text-white"}`}
+            >
+              <ArrowDownCircle className="w-4 h-4" /> خصم رصيد
+            </button>
+          </div>
+
+          {/* Amount */}
+          <div className="space-y-1">
+            <label className="text-xs text-white/40">المبلغ (د.ع)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder="0"
+              dir="ltr"
+              className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none placeholder-white/20"
+            />
+          </div>
+
+          {/* Note */}
+          <div className="space-y-1">
+            <label className="text-xs text-white/40">ملاحظة (اختياري)</label>
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="سبب العملية..."
+              className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none placeholder-white/20"
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className={`w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 ${type === "credit" ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : type === "credit" ? <ArrowUpCircle className="w-4 h-4" /> : <ArrowDownCircle className="w-4 h-4" />}
+            {type === "credit" ? "إضافة الرصيد" : "خصم الرصيد"}
+          </button>
+
+          {/* Transaction history */}
+          <div>
+            <p className="text-xs text-white/30 mb-2">آخر العمليات</p>
+            {txLoading ? (
+              <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-white/20" /></div>
+            ) : txs.length === 0 ? (
+              <p className="text-xs text-white/20 text-center py-4">لا توجد عمليات سابقة</p>
+            ) : (
+              <div className="space-y-1">
+                {txs.map(tx => (
+                  <div key={tx.id} className="flex items-center gap-3 py-2 border-b border-white/5">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${tx.type === "credit" ? "bg-green-500/15" : "bg-red-500/15"}`}>
+                      {tx.type === "credit"
+                        ? <ArrowUpCircle className="w-3 h-3 text-green-400" />
+                        : <ArrowDownCircle className="w-3 h-3 text-red-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white/60 truncate">{tx.note || (tx.type === "credit" ? "إضافة رصيد" : "خصم رصيد")}</p>
+                      <p className="text-[10px] text-white/25">{new Date(tx.createdAt).toLocaleDateString("ar-IQ")}</p>
+                    </div>
+                    <span className={`text-xs font-bold shrink-0 ${tx.type === "credit" ? "text-green-400" : "text-red-400"}`}>
+                      {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString("ar-IQ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface Plan { id: number; name: string; nameAr: string | null; }
@@ -258,6 +417,7 @@ export default function AdminSubscribers() {
   const [editSub, setEditSub] = useState<Sub | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [notifySub, setNotifySub] = useState<Sub | null>(null);
+  const [balanceSub, setBalanceSub] = useState<Sub | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -385,15 +545,16 @@ export default function AdminSubscribers() {
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">نوع التسجيل</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">المجموعة</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الحالة</th>
+                  <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">الرصيد</th>
                   <th className="px-3 py-3 font-medium text-white/40 text-xs whitespace-nowrap">تاريخ التسجيل</th>
                   <th className="px-3 py-3 w-16" />
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-white/40"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-white/40"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={12} className="p-8 text-center text-white/40">لا يوجد مشتركين</td></tr>
+                  <tr><td colSpan={13} className="p-8 text-center text-white/40">لا يوجد مشتركين</td></tr>
                 ) : filtered.map(sub => (
                   <tr key={sub.id} className="border-b border-white/5 hover:bg-white/2 transition-colors group">
                     <td className="px-3 py-3">
@@ -444,6 +605,18 @@ export default function AdminSubscribers() {
                         {sub.isActive === "true" ? "نشط" : "غير نشط"}
                       </span>
                     </td>
+                    {/* Balance */}
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <button
+                        onClick={() => setBalanceSub(sub)}
+                        className="flex items-center gap-1 text-xs font-bold hover:opacity-80 transition-opacity"
+                        style={{ color: sub.balance > 0 ? "#9fbcff" : "#ffffff40" }}
+                        title="إدارة الرصيد"
+                      >
+                        <Wallet className="w-3 h-3" />
+                        {(sub.balance || 0).toLocaleString("ar-IQ")}
+                      </button>
+                    </td>
                     {/* Date */}
                     <td className="px-3 py-3 text-white/40 text-xs whitespace-nowrap">
                       {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("ar-IQ") : "—"}
@@ -483,6 +656,13 @@ export default function AdminSubscribers() {
                           <Bell className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          title="إدارة الرصيد"
+                          onClick={() => setBalanceSub(sub)}
+                          className="p-1.5 rounded-lg text-white/40 hover:text-[#9fbcff] hover:bg-[#9fbcff]/10"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => { setEditSub(sub); setModal("edit"); }}
                           className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5"
                         >
@@ -513,6 +693,13 @@ export default function AdminSubscribers() {
         />
       )}
       {notifySub && <NotifyModal sub={notifySub} onClose={() => setNotifySub(null)} />}
+      {balanceSub && (
+        <BalanceModal
+          sub={balanceSub}
+          onClose={() => setBalanceSub(null)}
+          onChanged={fetchData}
+        />
+      )}
     </AdminLayout>
   );
 }

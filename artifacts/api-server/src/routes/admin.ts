@@ -5,7 +5,7 @@ import path from "path";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable } from "@workspace/db";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -189,6 +189,7 @@ router.get("/subscriber/me", async (req, res): Promise<void> => {
         activatedAt: subscriptionsTable.activatedAt,
         expiresAt: subscriptionsTable.expiresAt,
         isActive: subscriptionsTable.isActive,
+        balance: subscriptionsTable.balance,
         createdAt: subscriptionsTable.createdAt,
       })
       .from(subscriptionsTable)
@@ -1212,6 +1213,158 @@ router.delete("/admin/admins/:id", async (req, res): Promise<void> => {
   }
   await db.delete(adminsTable).where(eq(adminsTable.id, id));
   res.json({ success: true });
+});
+
+// ─── GET /admin/balances — stats + all transactions ──────────────────────────
+router.get("/admin/balances", async (req, res): Promise<void> => {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const typeFilter = (req.query.type as string) || "";
+    const search = ((req.query.search as string) || "").trim();
+
+    // Stats
+    const [stats] = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_transactions,
+        COALESCE(SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END), 0)::int AS total_credited,
+        COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END), 0)::int AS total_debited,
+        COALESCE(SUM(CASE WHEN type = 'purchase' THEN amount ELSE 0 END), 0)::int AS total_purchased,
+        COUNT(DISTINCT subscription_id)::int AS subscribers_with_tx
+      FROM balance_transactions
+    `);
+
+    const [balanceStats] = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(balance), 0)::int AS total_balance_in_system,
+        COUNT(*)::int AS subscribers_count
+      FROM subscriptions
+    `);
+
+    // Transactions list
+    const conditions: string[] = [];
+    if (typeFilter && ["credit", "debit", "purchase"].includes(typeFilter)) {
+      conditions.push(`bt.type = '${typeFilter}'`);
+    }
+    if (search) {
+      conditions.push(`(s.subscriber_name ILIKE '%${search.replace(/'/g, "''")}%' OR s.phone ILIKE '%${search.replace(/'/g, "''")}%' OR s.code ILIKE '%${search.replace(/'/g, "''")}%')`);
+    }
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const rows = await db.execute(sql.raw(`
+      SELECT
+        bt.id,
+        bt.type,
+        bt.amount,
+        bt.balance_after,
+        bt.note,
+        bt.created_at,
+        s.id AS subscription_id,
+        s.code,
+        s.subscriber_name,
+        s.phone,
+        a.username AS admin_username
+      FROM balance_transactions bt
+      JOIN subscriptions s ON s.id = bt.subscription_id
+      LEFT JOIN admins a ON a.id = bt.admin_id
+      ${where}
+      ORDER BY bt.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `));
+
+    const [countRow] = await db.execute(sql.raw(`
+      SELECT COUNT(*)::int AS total
+      FROM balance_transactions bt
+      JOIN subscriptions s ON s.id = bt.subscription_id
+      ${where}
+    `));
+
+    res.json({
+      stats: {
+        totalTransactions: (stats as any).total_transactions || 0,
+        totalCredited: (stats as any).total_credited || 0,
+        totalDebited: (stats as any).total_debited || 0,
+        totalPurchased: (stats as any).total_purchased || 0,
+        subscribersWithTx: (stats as any).subscribers_with_tx || 0,
+        totalBalanceInSystem: (balanceStats as any).total_balance_in_system || 0,
+        subscribersCount: (balanceStats as any).subscribers_count || 0,
+      },
+      transactions: rows,
+      total: (countRow as any).total || 0,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error("[admin/balances] error:", err);
+    res.status(500).json({ error: "خطأ في جلب بيانات الأرصدة" });
+  }
+});
+
+// ─── POST /admin/subscriptions/:id/balance — credit or debit balance ─────────
+router.post("/admin/subscriptions/:id/balance", async (req, res): Promise<void> => {
+  const self = (req as any).admin;
+  const id = Number(req.params.id);
+  const { type, amount, note } = req.body as { type: string; amount: number; note?: string };
+
+  if (!["credit", "debit"].includes(type)) {
+    res.status(400).json({ error: "نوع العملية غير صحيح — credit أو debit" }); return;
+  }
+  if (!amount || isNaN(amount) || amount <= 0) {
+    res.status(400).json({ error: "المبلغ يجب أن يكون أكبر من صفر" }); return;
+  }
+
+  try {
+    const [sub] = await db.select({ id: subscriptionsTable.id, balance: subscriptionsTable.balance, code: subscriptionsTable.code, name: subscriptionsTable.subscriberName })
+      .from(subscriptionsTable).where(eq(subscriptionsTable.id, id)).limit(1);
+    if (!sub) { res.status(404).json({ error: "المشترك غير موجود" }); return; }
+
+    const newBalance = type === "credit"
+      ? sub.balance + amount
+      : Math.max(0, sub.balance - amount);
+
+    await db.update(subscriptionsTable).set({ balance: newBalance }).where(eq(subscriptionsTable.id, id));
+
+    await db.insert(balanceTransactionsTable).values({
+      subscriptionId: id,
+      type,
+      amount,
+      balanceAfter: newBalance,
+      note: note?.trim() || null,
+      adminId: self.adminId ?? null,
+    });
+
+    res.json({ success: true, balance: newBalance, type, amount });
+  } catch (err) {
+    console.error("[admin/balance] error:", err);
+    res.status(500).json({ error: "خطأ في تعديل الرصيد" });
+  }
+});
+
+// ─── GET /admin/subscriptions/:id/balance — get balance + recent txs ─────────
+router.get("/admin/subscriptions/:id/balance", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  try {
+    const [sub] = await db.select({ balance: subscriptionsTable.balance, code: subscriptionsTable.code, subscriberName: subscriptionsTable.subscriberName })
+      .from(subscriptionsTable).where(eq(subscriptionsTable.id, id)).limit(1);
+    if (!sub) { res.status(404).json({ error: "غير موجود" }); return; }
+
+    const txs = await db.select({
+      id: balanceTransactionsTable.id,
+      type: balanceTransactionsTable.type,
+      amount: balanceTransactionsTable.amount,
+      balanceAfter: balanceTransactionsTable.balanceAfter,
+      note: balanceTransactionsTable.note,
+      createdAt: balanceTransactionsTable.createdAt,
+    }).from(balanceTransactionsTable)
+      .where(eq(balanceTransactionsTable.subscriptionId, id))
+      .orderBy(desc(balanceTransactionsTable.createdAt))
+      .limit(20);
+
+    res.json({ balance: sub.balance, transactions: txs });
+  } catch (err) {
+    res.status(500).json({ error: "خطأ" });
+  }
 });
 
 export default router;

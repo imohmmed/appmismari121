@@ -23,6 +23,7 @@ import AdminAddByUrl from "./pages/admin/AddByUrl";
 import AdminAddByFile from "./pages/admin/AddByFile";
 import AdminAdmins from "./pages/admin/AdminsList";
 import AdminReviews from "./pages/admin/Reviews";
+import AdminBalances from "./pages/admin/Balances";
 import SubscriberProfile from "./pages/SubscriberProfile";
 import Enroll from "./pages/Enroll";
 import Activate from "./pages/Activate";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/admin/apps/add-file" component={AdminAddByFile} />
       <Route path="/admin/admins" component={AdminAdmins} />
       <Route path="/admin/reviews" component={AdminReviews} />
+      <Route path="/admin/balances" component={AdminBalances} />
 
       <Route path="/subscriber/:code" component={SubscriberProfile} />
       <Route path="/enroll" component={Enroll} />

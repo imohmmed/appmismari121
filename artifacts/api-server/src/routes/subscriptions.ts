@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import rateLimit from "express-rate-limit";
-import { db, plansTable, subscriptionsTable, groupsTable } from "@workspace/db";
+import { db, plansTable, subscriptionsTable, groupsTable, balanceTransactionsTable } from "@workspace/db";
 import {
   ListPlansResponse,
   ActivateSubscriptionBody,
@@ -87,6 +87,31 @@ router.post("/subscriptions/activate", activateLimiter, async (req, res): Promis
       expiresAt: sub.expiresAt,
     })
   );
+});
+
+// ─── GET /api/subscriber/balance?code=XXX (public) ───────────────────────────
+router.get("/subscriber/balance", async (req, res): Promise<void> => {
+  const code = ((req.query.code as string) || "").trim();
+  if (!code) { res.status(400).json({ error: "code required" }); return; }
+  try {
+    const [sub] = await db.select({ id: subscriptionsTable.id, balance: subscriptionsTable.balance })
+      .from(subscriptionsTable).where(eq(subscriptionsTable.code, code)).limit(1);
+    if (!sub) { res.status(404).json({ error: "not found" }); return; }
+    const txs = await db.select({
+      id: balanceTransactionsTable.id,
+      type: balanceTransactionsTable.type,
+      amount: balanceTransactionsTable.amount,
+      balanceAfter: balanceTransactionsTable.balanceAfter,
+      note: balanceTransactionsTable.note,
+      createdAt: balanceTransactionsTable.createdAt,
+    }).from(balanceTransactionsTable)
+      .where(eq(balanceTransactionsTable.subscriptionId, sub.id))
+      .orderBy(desc(balanceTransactionsTable.createdAt))
+      .limit(10);
+    res.json({ balance: sub.balance, transactions: txs });
+  } catch {
+    res.status(500).json({ error: "server error" });
+  }
 });
 
 // ─── PUBLIC SUBSCRIBER PROFILE — safe public fields only ─────────────────────

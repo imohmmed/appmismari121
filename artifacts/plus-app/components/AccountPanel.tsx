@@ -8,7 +8,6 @@ import {
   Image,
   Linking,
   PanResponder,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,7 +20,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettings } from "@/contexts/SettingsContext";
 import MyAccountModal from "@/components/MyAccountModal";
 import SettingsPanel from "@/components/SettingsPanel";
-import { useSign } from "@/hooks/useSign";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -54,7 +52,6 @@ interface AccountPanelProps {
 export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const insets = useSafeAreaInsets();
   const { colors, t, fontAr, isArabic, subscriptionCode, profilePhoto, setProfilePhoto } = useSettings();
-  const { signStore, state: signState, error: signError, reset: resetSign } = useSign();
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = React.useRef(new Animated.Value(0)).current;
   const panY = React.useRef(new Animated.Value(0)).current;
@@ -64,14 +61,9 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const [socialLinks, setSocialLinks] = React.useState<SocialLink[]>(DEFAULT_SOCIAL);
   const [subscriber, setSubscriber] = React.useState<SubscriberInfo | null>(null);
   const [subLoading, setSubLoading] = React.useState(false);
+  const [balance, setBalance] = React.useState<number | null>(null);
+  const [balanceTxs, setBalanceTxs] = React.useState<Array<{ id: number; type: string; amount: number; balanceAfter: number; note: string | null; createdAt: string }>>([]);
   const isClosing = React.useRef(false);
-
-  const isSigningStore = signState === "signing" || signState === "opening";
-
-  const handleDownloadStore = React.useCallback(async () => {
-    resetSign();
-    await signStore(subscriptionCode);
-  }, [subscriptionCode, signStore, resetSign]);
 
   // Fetch social links
   React.useEffect(() => {
@@ -89,7 +81,18 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
       .catch(() => {});
   }, []);
 
-  // Fetch subscriber info when panel opens with a subscription code
+  // Fetch subscriber info and balance when panel opens
+  React.useEffect(() => {
+    if (!visible || !subscriptionCode) { setSubscriber(null); setBalance(null); setBalanceTxs([]); return; }
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (!domain) return;
+    // Fetch balance
+    fetch(`https://${domain}/api/subscriber/balance?code=${encodeURIComponent(subscriptionCode)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { setBalance(data.balance ?? 0); setBalanceTxs(data.transactions || []); } })
+      .catch(() => {});
+  }, [visible, subscriptionCode]);
+
   React.useEffect(() => {
     if (!visible || !subscriptionCode) { setSubscriber(null); return; }
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -237,38 +240,43 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
             <Feather name={isArabic ? "chevron-left" : "chevron-right"} size={16} color={colors.separator} />
           </Pressable>
 
-          {/* ─── Download Store Button ─── */}
+          {/* ─── Balance Card ─── */}
           {subscriptionCode ? (
-            <View style={{ paddingHorizontal: 0, paddingBottom: 12 }}>
-              <TouchableOpacity
-                style={[
-                  styles.downloadStoreBtn,
-                  { backgroundColor: colors.tint, opacity: isSigningStore ? 0.7 : 1 },
-                ]}
-                activeOpacity={0.8}
-                onPress={handleDownloadStore}
-                disabled={isSigningStore}
-              >
-                {isSigningStore ? (
-                  <ActivityIndicator size="small" color="#000" />
+            <View style={[styles.balanceCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+              <View style={[styles.balanceHeader, isArabic && { flexDirection: "row-reverse" }]}>
+                <Feather name="credit-card" size={16} color={colors.tint} />
+                <Text style={[styles.balanceLabel, { color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>
+                  الرصيد
+                </Text>
+              </View>
+              <View style={[styles.balanceAmountRow, isArabic && { flexDirection: "row-reverse" }]}>
+                {balance === null ? (
+                  <ActivityIndicator size="small" color={colors.tint} />
                 ) : (
-                  <Feather name="download" size={18} color="#000" />
+                  <>
+                    <Text style={[styles.balanceAmount, { color: colors.tint, fontFamily: "Inter_700Bold" }]}>
+                      {balance.toLocaleString("ar-IQ")}
+                    </Text>
+                    <Text style={[styles.balanceCurrency, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                      {" "}د.ع
+                    </Text>
+                  </>
                 )}
-                <Text style={[styles.downloadStoreBtnText, { fontFamily: fontAr("Bold") }]}>
-                  {isSigningStore
-                    ? (signState === "signing" ? "جارٍ التوقيع..." : "جارٍ التثبيت...")
-                    : "تحميل المتجر بشهادتك"}
-                </Text>
-              </TouchableOpacity>
-              {signError && signState === "error" && (
-                <Text style={[styles.downloadStoreError, { fontFamily: fontAr("Regular") }]}>
-                  {signError}
-                </Text>
-              )}
-              {signState === "done" && (
-                <Text style={[styles.downloadStoreDone, { fontFamily: fontAr("Regular") }]}>
-                  ✓ تم فتح رابط التثبيت
-                </Text>
+              </View>
+              {balanceTxs.length > 0 && (
+                <View style={[styles.balanceTxList, { borderTopColor: colors.cardBorder }]}>
+                  {balanceTxs.slice(0, 3).map(tx => (
+                    <View key={tx.id} style={[styles.balanceTxRow, isArabic && { flexDirection: "row-reverse" }]}>
+                      <View style={[styles.balanceTxDot, { backgroundColor: tx.type === "credit" ? "#34C759" : "#FF3B30" }]} />
+                      <Text style={[styles.balanceTxNote, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]} numberOfLines={1}>
+                        {tx.note || (tx.type === "credit" ? "إضافة رصيد" : tx.type === "purchase" ? "شراء" : "خصم رصيد")}
+                      </Text>
+                      <Text style={[styles.balanceTxAmt, { color: tx.type === "credit" ? "#34C759" : "#FF3B30", fontFamily: "Inter_600SemiBold" }]}>
+                        {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString("ar-IQ")}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
           ) : null}
@@ -449,28 +457,55 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: "#FFF",
   },
-  downloadStoreBtn: {
+  balanceCard: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
+    marginBottom: 12,
+    gap: 8,
+  },
+  balanceHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 15,
-    borderRadius: 16,
+    gap: 6,
   },
-  downloadStoreBtnText: {
-    fontSize: 15,
-    color: "#000",
-  },
-  downloadStoreError: {
+  balanceLabel: {
     fontSize: 12,
-    color: "#FF3B30",
-    textAlign: "center",
-    marginTop: 8,
   },
-  downloadStoreDone: {
-    fontSize: 12,
-    color: "#34C759",
-    textAlign: "center",
+  balanceAmountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  balanceAmount: {
+    fontSize: 28,
+  },
+  balanceCurrency: {
+    fontSize: 14,
+  },
+  balanceTxList: {
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  balanceTxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  balanceTxDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    flexShrink: 0,
+  },
+  balanceTxNote: {
+    flex: 1,
+    fontSize: 12,
+  },
+  balanceTxAmt: {
+    fontSize: 12,
   },
 });

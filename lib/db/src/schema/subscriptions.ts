@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, sql } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { plansTable } from "./plans";
@@ -22,6 +22,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
   // "subscription_code" | "enrollment_request"
   sourceType: text("source_type").notNull().default("subscription_code"),
   isActive: text("is_active").notNull().default("true"),
+  balance: integer("balance").notNull().default(0),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
