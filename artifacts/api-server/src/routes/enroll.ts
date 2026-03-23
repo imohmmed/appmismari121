@@ -319,12 +319,26 @@ router.post("/enroll/request", enrollRequestLimiter, async (req, res): Promise<v
 
   try {
     const [existing] = await db
-      .select({ id: enrollmentRequestsTable.id })
+      .select({ id: enrollmentRequestsTable.id, status: enrollmentRequestsTable.status })
       .from(enrollmentRequestsTable)
       .where(eq(enrollmentRequestsTable.udid, udid))
+      .orderBy(enrollmentRequestsTable.createdAt)
       .limit(1);
 
     if (existing) {
+      // Update name/phone/email if missing (UDID captured before form was filled)
+      await db
+        .update(enrollmentRequestsTable)
+        .set({
+          name: name?.trim() || undefined,
+          phone: phone?.trim() || undefined,
+          email: email?.trim() || undefined,
+          deviceType: deviceType?.trim() || undefined,
+          planId: planId ? Number(planId) : undefined,
+          notes: notes?.trim() || undefined,
+        })
+        .where(eq(enrollmentRequestsTable.id, existing.id));
+
       res.json({ success: true, message: "request_exists" });
       return;
     }
