@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { router } from "expo-router";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -33,9 +34,16 @@ async function registerToken(code: string): Promise<void> {
 
     if (finalStatus !== "granted") return;
 
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: "com.mismari.app",
-    });
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+
+    if (!projectId || projectId === "YOUR_EAS_PROJECT_ID") {
+      console.warn("[push] No valid Expo projectId configured in app.json extra.eas.projectId — push notifications disabled.");
+      return;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
 
     await fetch(`${BASE_URL}/api/subscriber/push-token`, {
