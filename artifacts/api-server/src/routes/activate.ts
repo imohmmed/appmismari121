@@ -82,18 +82,21 @@ router.post("/activate/validate", validateLimiter, async (req, res): Promise<voi
     return;
   }
 
-  if (sub.isActive === "false") {
-    res.status(400).json({ valid: false, error: "هذا الاشتراك منتهي الصلاحية" });
+  // If the code has a subscriber already registered but isActive is false → admin deactivated it
+  const hasSubscriber = !!(sub.subscriberName && sub.udid);
+  if (sub.isActive === "false" && hasSubscriber) {
+    res.status(400).json({ valid: false, error: "هذا الاشتراك موقوف — تواصل مع الدعم" });
     return;
   }
 
+  // A fresh pre-generated code (isActive: "false", no subscriber yet) is allowed through for activation
   if (sub.expiresAt && new Date(sub.expiresAt) < new Date()) {
     res.status(400).json({ valid: false, error: "انتهت صلاحية هذا الاشتراك" });
     return;
   }
 
   // If already has info registered
-  if (sub.subscriberName && sub.udid) {
+  if (hasSubscriber) {
     res.json({
       valid: true,
       alreadyRegistered: true,
