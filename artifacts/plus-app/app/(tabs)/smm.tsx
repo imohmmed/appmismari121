@@ -70,7 +70,7 @@ export default function SmmScreen() {
               <Feather name={item.icon as any} size={22} color={colors.tagTweaked} />
             </View>
             <View style={styles.appInfo}>
-              <Text style={[styles.appName, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[styles.appName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(item.name) ? fontAr("SemiBold") : "Inter_600SemiBold" }]}>{item.name}</Text>
               <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
                 {isArabic ? item.descAr : item.descEn}
               </Text>

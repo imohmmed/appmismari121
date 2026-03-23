@@ -180,7 +180,7 @@ function HistoryItem({ job, onReinstall, colors, fontAr, isArabic }: any) {
         <Feather name={job.status === "done" ? "check-circle" : job.status === "error" ? "x-circle" : "clock"} size={18} color={statusColor} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[styles.historyName, { color: colors.text, fontFamily: fontAr("SemiBold") }]} numberOfLines={1}>{appName}</Text>
+        <Text style={[styles.historyName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(appName) ? fontAr("SemiBold") : "Inter_600SemiBold" }]} numberOfLines={1}>{appName}</Text>
         <Text style={[styles.historyBundle, { color: colors.textSecondary, fontFamily: "Inter_400Regular" }]} numberOfLines={1}>{bundleId}</Text>
         <View style={[{ flexDirection: "row", gap: 8, alignItems: "center" }, isArabic && { flexDirection: "row-reverse" }]}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />

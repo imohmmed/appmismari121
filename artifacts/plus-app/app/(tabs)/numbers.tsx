@@ -87,7 +87,7 @@ export default function NumbersScreen() {
             <View key={app.rank} style={[styles.rankRow, { borderBottomColor: colors.separator }]}>
               <Text style={[styles.rankNumber, { color: colors.tint }]}>#{app.rank}</Text>
               <View style={styles.rankInfo}>
-                <Text style={[styles.rankName, { color: colors.text }]}>{app.name}</Text>
+                <Text style={[styles.rankName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(app.name) ? fontAr("SemiBold") : "Inter_600SemiBold" }]}>{app.name}</Text>
                 <Text style={[styles.rankDownloads, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
                   {app.downloads} {t("downloadCount")}
                 </Text>

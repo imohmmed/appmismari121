@@ -482,7 +482,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             <AppIconImg icon={app.icon} size={110} borderRadius={26} />
           </View>
           <View style={st.heroInfo}>
-            <Text style={[st.appName, { color: colors.text }]} numberOfLines={2}>{app.name}</Text>
+            <Text style={[st.appName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(app.name) ? fontAr("Bold") : "Inter_700Bold" }]} numberOfLines={2}>{app.name}</Text>
             <Text style={[st.appSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{appDesc}</Text>
             <View style={st.heroButtons}>
               <Pressable

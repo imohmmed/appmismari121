@@ -37,6 +37,7 @@ function AppListRow({ app, showDivider, onPress }: { app: ApiApp; showDivider: b
     ? (app.categoryNameAr || app.categoryName || "")
     : (app.categoryName || app.categoryNameAr || "");
   const textAlign = isArabic ? "right" : "left";
+  const appFont = (name: string) => /[\u0600-\u06FF]/.test(name) ? fontAr("SemiBold") : "Inter_600SemiBold";
   return (
     <View>
       <Pressable style={[styles.listRow, !isArabic && { flexDirection: "row" }]} onPress={onPress}>
@@ -46,7 +47,7 @@ function AppListRow({ app, showDivider, onPress }: { app: ApiApp; showDivider: b
               <Text style={[styles.listRowGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
             </View>
             <View style={[styles.listRowInfo, { alignItems: "flex-end" }]}>
-              <Text style={[styles.listRowName, { color: colors.text, textAlign }]} numberOfLines={1}>{app.name}</Text>
+              <Text style={[styles.listRowName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]} numberOfLines={1}>{app.name}</Text>
               <Text style={[styles.listRowDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]} numberOfLines={1}>{catLabel}</Text>
             </View>
             <AppIconImg icon={app.icon} size={56} borderRadius={14} />
@@ -55,7 +56,7 @@ function AppListRow({ app, showDivider, onPress }: { app: ApiApp; showDivider: b
           <>
             <AppIconImg icon={app.icon} size={56} borderRadius={14} />
             <View style={[styles.listRowInfo, { alignItems: "flex-start" }]}>
-              <Text style={[styles.listRowName, { color: colors.text, textAlign }]} numberOfLines={1}>{app.name}</Text>
+              <Text style={[styles.listRowName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]} numberOfLines={1}>{app.name}</Text>
               <Text style={[styles.listRowDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]} numberOfLines={1}>{catLabel}</Text>
             </View>
             <View style={[styles.listRowGetButton, { backgroundColor: colors.card }]}>
@@ -120,6 +121,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
   const desc = (app: ApiApp) => (isArabic ? app.descAr : null) || app.description || "";
   const catName = isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr);
   const textAlign = isArabic ? ("right" as const) : ("left" as const);
+  const appFont = (name: string) => /[\u0600-\u06FF]/.test(name) ? fontAr("SemiBold") : "Inter_600SemiBold";
 
   const appCountText = `${cat.appCount}`;
 
@@ -158,7 +160,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
                           <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
                         </View>
                         <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
-                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]}>{app.name}</Text>
                           <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc(app)}</Text>
                         </View>
                         <AppIconImg icon={app.icon} size={52} borderRadius={14} />
@@ -167,7 +169,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
                       <>
                         <AppIconImg icon={app.icon} size={52} borderRadius={14} />
                         <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
-                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          <Text style={[styles.appName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]}>{app.name}</Text>
                           <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc(app)}</Text>
                         </View>
                         <View style={[styles.getButton, { backgroundColor: colors.card }]}>
