@@ -107,6 +107,7 @@ export default function SearchScreen() {
               </View>
               <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryNameAr || app.categoryName}</Text>
                 <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
@@ -116,6 +117,7 @@ export default function SearchScreen() {
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
               <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryName}</Text>
                 <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <View style={[styles.getButton, { backgroundColor: colors.card }]}>
@@ -273,6 +275,7 @@ const styles = StyleSheet.create({
   appIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   appInfo: { flex: 1, gap: 3 },
   appName: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  appCategory: { fontSize: 12, marginTop: 1 },
   appDesc: { fontSize: 12 },
   getButton: { paddingHorizontal: 22, paddingVertical: 7, borderRadius: 18 },
   getButtonText: { fontSize: 14 },
