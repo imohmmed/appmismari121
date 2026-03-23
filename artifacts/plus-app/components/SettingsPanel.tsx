@@ -142,11 +142,11 @@ export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) 
                       <Text style={styles.flagEmoji}>{opt.icon}</Text>
                     </View>
                     <View style={[styles.langLabels, isArabic && { alignItems: "flex-end" }]}>
-                      <Text style={[styles.optionLabel, { color: colors.text, fontFamily: fontAr("SemiBold") }]}>
+                      <Text style={[styles.optionLabel, { color: colors.text, fontFamily: opt.key === "ar" ? fontAr("SemiBold") : "Inter_600SemiBold" }]}>
                         {opt.label}
                       </Text>
                       {opt.key !== (isArabic ? "ar" : "en") && (
-                        <Text style={[styles.optionLabelSub, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                        <Text style={[styles.optionLabelSub, { color: colors.textSecondary, fontFamily: opt.key === "ar" ? fontAr("Regular") : "Inter_400Regular" }]}>
                           {opt.labelEn}
                         </Text>
                       )}
