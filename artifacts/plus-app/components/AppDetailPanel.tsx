@@ -388,7 +388,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
 
   return (
     <View style={[st.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
-      <View style={[st.navBar, { flexDirection: "row-reverse" }]}>
+      <View style={[st.navBar, isArabic && { flexDirection: "row-reverse" }]}>
         <GlassBackButton onPress={onClose} />
         <Animated.View style={[st.stickyCenter, { opacity: stickyOpacity, transform: [{ translateY: stickyTranslate }] }]}>
           <View style={[st.stickyIcon, { backgroundColor: `${tagColor}15`, overflow: "hidden" }]}>
