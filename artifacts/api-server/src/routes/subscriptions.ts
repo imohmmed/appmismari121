@@ -170,12 +170,17 @@ router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Prom
 
   const [sub] = await db
     .select({
+      id: subscriptionsTable.id,
       code: subscriptionsTable.code,
       subscriberName: subscriptionsTable.subscriberName,
       phone: subscriptionsTable.phone,
+      email: subscriptionsTable.email,
+      udid: subscriptionsTable.udid,
       deviceType: subscriptionsTable.deviceType,
+      groupName: subscriptionsTable.groupName,
       planId: subscriptionsTable.planId,
       isActive: subscriptionsTable.isActive,
+      balance: subscriptionsTable.balance,
       activatedAt: subscriptionsTable.activatedAt,
       expiresAt: subscriptionsTable.expiresAt,
       createdAt: subscriptionsTable.createdAt,
@@ -191,18 +196,41 @@ router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Prom
         .from(plansTable).where(eq(plansTable.id, sub.planId)).limit(1)
     : [null];
 
+  // Fetch group download link if groupName is set
+  let storeDownloadLink: string | null = null;
+  if (sub.groupName) {
+    const [grp] = await db
+      .select({ storeIpaPath: groupsTable.storeIpaPath, certName: groupsTable.certName })
+      .from(groupsTable)
+      .where(eq(groupsTable.certName, sub.groupName))
+      .limit(1);
+    if (grp?.storeIpaPath) {
+      // Build itms-services download link — same logic as activate.ts
+      const proto = (req as any).headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = (req as any).headers["x-forwarded-host"] || req.get("host") || "";
+      const base = `${proto}://${host}`;
+      storeDownloadLink = `itms-services://?action=download-manifest&url=${encodeURIComponent(`${base}/api/groups/${encodeURIComponent(grp.certName)}/manifest.plist`)}`;
+    }
+  }
+
   res.json({
     subscriber: {
+      id: sub.id,
       code: sub.code,
       subscriberName: sub.subscriberName,
       phone: sub.phone,
+      email: sub.email,
+      udid: sub.udid,
       deviceType: sub.deviceType,
+      groupName: sub.groupName,
       isActive: sub.isActive,
+      balance: sub.balance ?? 0,
       activatedAt: sub.activatedAt,
       expiresAt: sub.expiresAt,
       createdAt: sub.createdAt,
       planName: plan?.name || null,
       planNameAr: plan?.nameAr || null,
+      storeDownloadLink,
     },
   });
 });

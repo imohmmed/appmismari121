@@ -112,7 +112,7 @@ function BalanceModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => vo
           <div className="bg-[#111] border border-white/5 rounded-xl p-4 flex items-center justify-between">
             <span className="text-sm text-white/50">الرصيد الحالي</span>
             <span className="text-xl font-bold" style={{ color: "#9fbcff" }}>
-              {balance.toLocaleString("ar-IQ")} <span className="text-sm font-normal text-white/40">د.ع</span>
+              {(balance ?? 0).toLocaleString("ar-IQ")} <span className="text-sm font-normal text-white/40">د.ع</span>
             </span>
           </div>
 

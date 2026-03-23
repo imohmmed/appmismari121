@@ -333,9 +333,12 @@ router.post("/activate/complete", completeLimiter, async (req, res): Promise<voi
       deviceType: updated.deviceType,
       groupName: updated.groupName,
       isActive: updated.isActive,
+      balance: updated.balance ?? 0,
       activatedAt: updated.activatedAt,
       expiresAt: updated.expiresAt,
+      createdAt: updated.createdAt,
       planName: plan?.nameAr || plan?.name || null,
+      planNameAr: plan?.nameAr || null,
     },
     storeDownloadLink,
   });

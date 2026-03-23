@@ -8,6 +8,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Trust the Replit/Nginx reverse proxy so rate-limiter sees the real client IP
+app.set("trust proxy", 1);
+
 // ─── Security headers (helmet) ────────────────────────────────────────────────
 // contentSecurityPolicy disabled because the admin panel inlines styles/scripts.
 // Everything else (HSTS, noSniff, xssFilter, referrerPolicy, etc.) is enabled.
@@ -53,6 +56,10 @@ app.use(cors({
     // Allow requests with no origin (native apps, curl, Postman, iOS MDM)
     if (!origin) return callback(null, true);
     if (corsOrigins.includes(origin)) return callback(null, true);
+    // Allow any Replit dev/preview subdomain (Expo dev builds, preview pane, etc.)
+    if (/\.replit\.dev$/.test(origin) || /\.janeway\.replit\.dev$/.test(origin)) {
+      return callback(null, true);
+    }
     callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials: true,

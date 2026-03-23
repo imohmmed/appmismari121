@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Loader2, CheckCircle2, AlertCircle, ArrowLeft,
   Download, Smartphone, Tablet, Send,
-  Key, User, Phone, Mail, Copy, ExternalLink, Package, Shield, CheckCircle,
+  Key, User, Phone, Mail, Copy, ExternalLink, Shield, CheckCircle,
+  CreditCard, Calendar, Cpu, Users, Activity,
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -34,9 +35,12 @@ interface SuccessData {
     deviceType: string | null;
     groupName: string | null;
     isActive: string;
+    balance: number;
     activatedAt: string | null;
     expiresAt: string | null;
+    createdAt: string | null;
     planName: string | null;
+    planNameAr: string | null;
   };
   storeDownloadLink: string | null;
   appleMessage?: string;
@@ -173,18 +177,22 @@ export default function Activate() {
               deviceType: s?.deviceType || null,
               groupName: s?.groupName || data.groupName,
               isActive: s?.isActive ?? "true",
+              balance: s?.balance ?? 0,
               activatedAt: s?.activatedAt || null,
               expiresAt: s?.expiresAt || null,
+              createdAt: s?.createdAt || null,
               planName: s?.planName || data.planName,
+              planNameAr: s?.planNameAr || null,
             },
-            storeDownloadLink: data.downloadLink,
+            storeDownloadLink: s?.storeDownloadLink || data.downloadLink,
           });
         } catch {
           setSuccessData({
             subscriber: {
               id: data.subscriberId || 0, code: data.code, subscriberName: null, phone: null,
               email: null, udid: null, deviceType: null, groupName: data.groupName,
-              isActive: "true", activatedAt: null, expiresAt: null, planName: data.planName,
+              isActive: "true", balance: 0, activatedAt: null, expiresAt: null,
+              createdAt: null, planName: data.planName, planNameAr: null,
             },
             storeDownloadLink: data.downloadLink,
           });
@@ -464,6 +472,8 @@ export default function Activate() {
         {/* ─── Success ─── */}
         {step === "success" && successData && (
           <div className="space-y-3">
+
+            {/* Header */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 text-center">
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
                 style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
@@ -472,7 +482,7 @@ export default function Activate() {
               <h2 className="text-white font-bold text-xl mb-1">
                 {validated?.alreadyRegistered ? "أنت مشترك بالفعل!" : "تم التسجيل بنجاح!"}
               </h2>
-              <p className="text-white/40 text-sm">مرحباً {successData.subscriber.subscriberName || "بك"}</p>
+              <p className="text-white/40 text-sm">مرحباً، {successData.subscriber.subscriberName || "بك"}</p>
               {successData.appleMessage && (
                 <p className="text-xs mt-2 px-3 py-1.5 rounded-lg inline-block"
                   style={{ background: `${A}15`, color: A }}>
@@ -481,74 +491,158 @@ export default function Activate() {
               )}
             </div>
 
+            {/* Download Button — prominent if available */}
+            {successData.storeDownloadLink && (
+              <a href={successData.storeDownloadLink}
+                className="flex items-center justify-center gap-3 py-4 rounded-2xl text-sm font-bold transition-all"
+                style={{ background: `${A}20`, color: A, border: `1px solid ${A}40` }}>
+                <Download className="w-5 h-5" />
+                تحميل تطبيق مسماري+
+              </a>
+            )}
+
+            {/* Personal Info */}
             <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-                <Shield className="w-4 h-4" style={{ color: A }} />
-                <h3 className="text-sm font-bold text-white">تفاصيل الاشتراك</h3>
+              <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                <User className="w-3.5 h-3.5" style={{ color: A }} />
+                <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">المعلومات الشخصية</h3>
               </div>
               <div className="divide-y divide-white/5">
                 {[
-                  { label: "كود الاشتراك", value: successData.subscriber.code, mono: true },
-                  { label: "الباقة", value: successData.subscriber.planName, mono: false },
-                  { label: "المجموعة", value: successData.subscriber.groupName, mono: true },
-                  { label: "نوع الجهاز", value: successData.subscriber.deviceType, mono: false },
-                  { label: "الحالة", value: successData.subscriber.isActive === "true" ? "✅ نشط" : "❌ غير نشط", mono: false },
-                  {
-                    label: "ينتهي في",
-                    value: successData.subscriber.expiresAt
-                      ? new Date(successData.subscriber.expiresAt).toLocaleDateString("ar-SA")
-                      : "غير محدد",
-                    mono: false,
-                  },
-                ].map(row => (
-                  <div key={row.label} className="px-5 py-3 flex items-center justify-between">
-                    <span className="text-white/40 text-xs">{row.label}</span>
-                    <span className={`text-white text-sm ${row.mono ? "font-mono text-xs" : ""}`}>
-                      {row.value || <span className="text-white/20">—</span>}
+                  { icon: User, label: "الاسم", value: successData.subscriber.subscriberName },
+                  { icon: Phone, label: "الهاتف", value: successData.subscriber.phone, mono: true },
+                  { icon: Mail, label: "البريد الإلكتروني", value: successData.subscriber.email, mono: true },
+                ].map(({ icon: Icon, label, value, mono }) => (
+                  <div key={label} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Icon className="w-3.5 h-3.5 text-white/20" />
+                      <span className="text-white/40 text-xs">{label}</span>
+                    </div>
+                    <span className={`text-white text-sm truncate ${mono ? "font-mono text-xs" : ""}`} dir={mono ? "ltr" : "rtl"}>
+                      {value || <span className="text-white/20">—</span>}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
+            {/* Subscription Info */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                <Shield className="w-3.5 h-3.5" style={{ color: A }} />
+                <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">تفاصيل الاشتراك</h3>
+              </div>
+              <div className="divide-y divide-white/5">
+                {[
+                  { icon: Key, label: "كود الاشتراك", value: successData.subscriber.code, mono: true, copyable: true },
+                  { icon: Shield, label: "الباقة", value: successData.subscriber.planNameAr || successData.subscriber.planName },
+                  { icon: Users, label: "المجموعة", value: successData.subscriber.groupName, mono: true },
+                  { icon: Activity, label: "الحالة", value: successData.subscriber.isActive === "true" ? "نشط ✓" : "غير نشط", color: successData.subscriber.isActive === "true" ? "#22c55e" : "#ef4444" },
+                  { icon: CreditCard, label: "الرصيد", value: successData.subscriber.balance !== undefined ? `${successData.subscriber.balance.toLocaleString("en-US")} د.ع` : "—" },
+                ].map(({ icon: Icon, label, value, mono, copyable, color }) => (
+                  <div key={label} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Icon className="w-3.5 h-3.5 text-white/20" />
+                      <span className="text-white/40 text-xs">{label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-sm truncate ${mono ? "font-mono text-xs" : ""}`}
+                        style={{ color: color || "white" }} dir={mono ? "ltr" : "rtl"}>
+                        {value || <span className="text-white/20">—</span>}
+                      </span>
+                      {copyable && value && (
+                        <button onClick={() => navigator.clipboard.writeText(value as string)}
+                          className="p-1 rounded text-white/20 hover:text-white/60 transition-colors">
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Device & Dates */}
+            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
+                <Cpu className="w-3.5 h-3.5" style={{ color: A }} />
+                <h3 className="text-xs font-bold text-white/60 uppercase tracking-wider">الجهاز والتواريخ</h3>
+              </div>
+              <div className="divide-y divide-white/5">
+                {[
+                  {
+                    icon: successData.subscriber.deviceType === "iPad" ? Tablet : Smartphone,
+                    label: "نوع الجهاز",
+                    value: successData.subscriber.deviceType,
+                  },
+                  {
+                    icon: Cpu,
+                    label: "UDID الجهاز",
+                    value: successData.subscriber.udid,
+                    mono: true,
+                  },
+                  {
+                    icon: Calendar,
+                    label: "تاريخ التسجيل",
+                    value: successData.subscriber.createdAt
+                      ? new Date(successData.subscriber.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                      : null,
+                  },
+                  {
+                    icon: Calendar,
+                    label: "تاريخ التفعيل",
+                    value: successData.subscriber.activatedAt
+                      ? new Date(successData.subscriber.activatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                      : null,
+                  },
+                  {
+                    icon: Calendar,
+                    label: "ينتهي في",
+                    value: successData.subscriber.expiresAt
+                      ? new Date(successData.subscriber.expiresAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                      : "غير محدد",
+                    color: successData.subscriber.expiresAt
+                      ? (new Date(successData.subscriber.expiresAt) < new Date() ? "#ef4444" : "#22c55e")
+                      : undefined,
+                  },
+                ].map(({ icon: Icon, label, value, mono, color }) => (
+                  <div key={label} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Icon className="w-3.5 h-3.5 text-white/20" />
+                      <span className="text-white/40 text-xs">{label}</span>
+                    </div>
+                    <span className={`text-sm ${mono ? "font-mono text-[10px]" : ""}`}
+                      style={{ color: color || "white" }} dir="ltr">
+                      {value || <span className="text-white/20">—</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Profile Link */}
             {successData.subscriber.id > 0 && (
               <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
-                <p className="text-white/40 text-xs mb-3">رابط ملف اشتراكك</p>
+                <p className="text-white/30 text-xs mb-2.5 flex items-center gap-1.5">
+                  <ExternalLink className="w-3 h-3" />
+                  رابط ملف اشتراكك
+                </p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 font-mono text-xs truncate" style={{ color: A }}>
+                  <div className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 font-mono text-xs truncate" style={{ color: A }} dir="ltr">
                     {window.location.origin}{BASE}subscriber/{successData.subscriber.code || successData.subscriber.id}
                   </div>
-                  <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${BASE}subscriber/${successData.subscriber.code || successData.subscriber.id}`); setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); }}
+                  <button onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}${BASE}subscriber/${successData.subscriber.code || successData.subscriber.id}`);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  }}
                     className="p-2.5 rounded-xl border border-white/10 text-white/40 hover:text-white hover:bg-white/5 transition-all shrink-0">
-                    {copiedLink ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    {copiedLink ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                   </button>
-                  <a href={`${BASE}subscriber/${successData.subscriber.code || successData.subscriber.id}`}
-                    className="p-2.5 rounded-xl border border-white/10 text-white/40 hover:text-white hover:bg-white/5 transition-all shrink-0">
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
                 </div>
               </div>
             )}
 
-            {successData.storeDownloadLink && (
-              <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
-                <a href={successData.storeDownloadLink}
-                  className="w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-blue-500/15 text-blue-400 border border-blue-500/20 hover:bg-blue-500/25 transition-all">
-                  <Download className="w-4 h-4" />
-                  تحميل تطبيق مسماري+
-                </a>
-              </div>
-            )}
-
-            {successData.subscriber.planName && (
-              <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: `${A}10`, border: `1px solid ${A}20` }}>
-                <Package className="w-5 h-5 shrink-0" style={{ color: A }} />
-                <div>
-                  <p className="text-xs text-white/40 mb-0.5">باقتك الحالية</p>
-                  <p className="text-white font-bold text-sm">{successData.subscriber.planName}</p>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
