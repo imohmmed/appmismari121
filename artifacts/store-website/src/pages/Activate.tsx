@@ -61,10 +61,7 @@ export default function Activate() {
   const [errorMsg, setErrorMsg] = useState("");
   const [token] = useState(() => getOrCreateToken());
 
-  // Read ?ref= from URL
-  const refCode = new URLSearchParams(window.location.search).get("ref")?.trim().toUpperCase() || "";
-
-  const [codeInput, setCodeInput] = useState(refCode);
+  const [codeInput, setCodeInput] = useState("");
   const [codeLoading, setCodeLoading] = useState(false);
   const [validated, setValidated] = useState<ValidateResult | null>(null);
 
@@ -215,10 +212,6 @@ export default function Activate() {
     setCodeLoading(false);
   };
 
-  // Auto-validate when ?ref= is present in URL
-  useEffect(() => {
-    if (refCode) doValidateCode(refCode);
-  }, []);
 
   const handleValidateCode = async (e: React.FormEvent) => {
     e.preventDefault();

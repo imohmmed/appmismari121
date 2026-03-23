@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { User, ArrowRight, RefreshCw } from "lucide-react";
+import { User, Lock, ArrowRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";

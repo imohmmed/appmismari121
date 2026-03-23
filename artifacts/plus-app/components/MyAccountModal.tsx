@@ -179,7 +179,7 @@ export default function MyAccountModal({
                 {subscriber.phone}
               </Text>
             ) : null}
-            {/* Status badge + referral */}
+            {/* Status badge */}
             <View style={styles.badgeRow}>
               <View style={[styles.statusBadge, { backgroundColor: isActive ? "#22c55e20" : "#ef444420" }]}>
                 <View style={[styles.statusDot, { backgroundColor: isActive ? "#22c55e" : "#ef4444" }]} />
@@ -187,23 +187,6 @@ export default function MyAccountModal({
                   {t(isActive ? "subActive" : "subInactive")}
                 </Text>
               </View>
-              {subscriptionCode ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    const domain = process.env.EXPO_PUBLIC_DOMAIN;
-                    const link = `https://${domain}/activate`;
-                    Linking.openURL(link);
-                  }}
-                  style={[styles.referralBadge, { backgroundColor: `${colors.tint}15`, borderColor: `${colors.tint}30` }]}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="link-2" size={10} color={colors.tint} />
-                  <Text style={[styles.referralText, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>
-                    {isArabic ? "رابط الإحالة" : "Referral Link"}
-                  </Text>
-                  <Feather name="external-link" size={10} color={`${colors.tint}80`} />
-                </TouchableOpacity>
-              ) : null}
             </View>
           </View>
 
@@ -411,16 +394,6 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 12 },
-  referralBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  referralText: { fontSize: 11 },
   statsRow: {
     flexDirection: "row",
     gap: 10,

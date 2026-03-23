@@ -638,17 +638,6 @@ export default function AdminSubscribers() {
                             : <PlayCircle className="w-3.5 h-3.5" />}
                         </button>
                         <button
-                          title="نسخ رابط الإحالة"
-                          onClick={() => {
-                            const base = window.location.origin + import.meta.env.BASE_URL;
-                            navigator.clipboard.writeText(`${base}subscriber/${sub.code}`);
-                            toast({ title: "تم نسخ الرابط" });
-                          }}
-                          className="p-1.5 rounded-lg text-white/40 hover:text-[#9fbcff] hover:bg-[#9fbcff]/10"
-                        >
-                          <Link2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
                           title="إرسال رسالة"
                           onClick={() => setNotifySub(sub)}
                           className="p-1.5 rounded-lg text-white/40 hover:text-[#9fbcff] hover:bg-[#9fbcff]/10"
