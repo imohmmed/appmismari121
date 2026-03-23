@@ -56,6 +56,7 @@ export function useApps(opts?: {
   search?: string;
   limit?: number;
   skip?: boolean;
+  code?: string;
 }) {
   const [apps, setApps] = useState<ApiApp[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,7 @@ export function useApps(opts?: {
     if (opts?.section)    params.set("section", opts.section);
     if (opts?.search)     params.set("search", opts.search);
     if (opts?.limit)      params.set("limit", String(opts.limit));
+    if (opts?.code)       params.set("code", opts.code);
 
     const url = `${base}/apps${params.toString() ? `?${params}` : ""}`;
 
@@ -82,7 +84,7 @@ export function useApps(opts?: {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [opts?.categoryId, opts?.section, opts?.search, opts?.limit, opts?.skip]);
+  }, [opts?.categoryId, opts?.section, opts?.search, opts?.limit, opts?.skip, opts?.code]);
 
   return { apps, loading };
 }

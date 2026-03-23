@@ -121,8 +121,8 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
 }) {
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { colors, t, fontAr, isArabic } = useSettings();
-  const { apps, loading } = useApps({ categoryId: cat.id, limit: 50 });
+  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
+  const { apps, loading } = useApps({ categoryId: cat.id, limit: 50, code: subscriptionCode || undefined });
   const tagColor = getCategoryColor(cat.id);
   const desc = (app: ApiApp) => (isArabic ? app.descAr : null) || app.description || "";
   const catName = isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr);
@@ -254,7 +254,7 @@ export default function PlusScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const router = useRouter();
-  const { colors, t, fontAr, isArabic } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
   const [activeCat, setActiveCat] = useState<ApiCategory | null>(null);
   const [selectedApp, setSelectedApp] = useState<ApiApp | null>(null);
   const [catSelectedApp, setCatSelectedApp] = useState<ApiApp | null>(null);
@@ -269,9 +269,10 @@ export default function PlusScreen() {
 
   // ── Fetch from API ──────────────────────────────────────────────────────────
   const { categories } = useCategories();
-  const { apps: hotApps }      = useApps({ section: "trending",       limit: 30 });
-  const { apps: mostDownloaded } = useApps({ section: "most_downloaded", limit: 30 });
-  const { apps: newAdds }      = useApps({ section: "latest",         limit: 15 });
+  const code = subscriptionCode || undefined;
+  const { apps: hotApps }      = useApps({ section: "trending",       limit: 30, code });
+  const { apps: mostDownloaded } = useApps({ section: "most_downloaded", limit: 30, code });
+  const { apps: newAdds }      = useApps({ section: "latest",         limit: 15, code });
   const { banners } = useBanners();
 
   const activeDetailApp = selectedApp || catSelectedApp;
@@ -279,6 +280,7 @@ export default function PlusScreen() {
     categoryId: activeDetailApp?.categoryId,
     limit: 31,
     skip: !activeDetailApp?.categoryId,
+    code,
   });
   const relatedApps = relatedCategoryApps.filter(a => a.id !== activeDetailApp?.id).slice(0, 30);
 

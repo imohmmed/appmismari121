@@ -5,7 +5,7 @@ import path from "path";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable } from "@workspace/db";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -298,6 +298,19 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
     .from(appsTable)
     .where(whereClause);
 
+  // Fetch planIds for all returned apps
+  const appIds = apps.map(a => a.id);
+  const planRows = appIds.length > 0
+    ? await db.select({ appId: appPlansTable.appId, planId: appPlansTable.planId })
+        .from(appPlansTable)
+        .where(sql`${appPlansTable.appId} = ANY(${sql.raw(`ARRAY[${appIds.join(",")}]::int[]`)})`)
+    : [];
+  const plansByApp: Record<number, number[]> = {};
+  for (const row of planRows) {
+    if (!plansByApp[row.appId]) plansByApp[row.appId] = [];
+    plansByApp[row.appId].push(row.planId);
+  }
+
   res.json(
     AdminListAppsResponse.parse({
       apps: apps.map((a) => ({
@@ -306,6 +319,7 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
         isHidden: a.isHidden ?? false,
         isTestMode: a.isTestMode ?? false,
         status: a.status ?? "active",
+        planIds: plansByApp[a.id] || [],
       })),
       total: count,
       page,
@@ -315,7 +329,8 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
 });
 
 router.post("/admin/apps", async (req, res): Promise<void> => {
-  const parsed = AdminCreateAppBody.safeParse(req.body);
+  const { planIds, ...bodyRest } = req.body as any;
+  const parsed = AdminCreateAppBody.safeParse(bodyRest);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -323,12 +338,17 @@ router.post("/admin/apps", async (req, res): Promise<void> => {
 
   const [app] = await db.insert(appsTable).values(parsed.data).returning();
 
+  // Save plan assignments
+  if (Array.isArray(planIds) && planIds.length > 0) {
+    await db.insert(appPlansTable).values(planIds.map((pid: number) => ({ appId: app.id, planId: pid }))).onConflictDoNothing();
+  }
+
   const [category] = await db
     .select({ name: categoriesTable.name })
     .from(categoriesTable)
     .where(eq(categoriesTable.id, app.categoryId));
 
-  res.status(201).json({ ...app, categoryName: category?.name ?? "Unknown" });
+  res.status(201).json({ ...app, categoryName: category?.name ?? "Unknown", planIds: planIds || [] });
 
   // Fire-and-forget: send push notifications after responding
   notifyAppAdded(app.id).catch(() => {});
@@ -341,7 +361,8 @@ router.put("/admin/apps/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = AdminUpdateAppBody.safeParse(req.body);
+  const { planIds, ...bodyRest } = req.body as any;
+  const parsed = AdminUpdateAppBody.safeParse(bodyRest);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -358,12 +379,20 @@ router.put("/admin/apps/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Replace plan assignments
+  if (Array.isArray(planIds)) {
+    await db.delete(appPlansTable).where(eq(appPlansTable.appId, app.id));
+    if (planIds.length > 0) {
+      await db.insert(appPlansTable).values(planIds.map((pid: number) => ({ appId: app.id, planId: pid }))).onConflictDoNothing();
+    }
+  }
+
   const [category] = await db
     .select({ name: categoriesTable.name })
     .from(categoriesTable)
     .where(eq(categoriesTable.id, app.categoryId));
 
-  res.json({ ...app, categoryName: category?.name ?? "Unknown" });
+  res.json({ ...app, categoryName: category?.name ?? "Unknown", planIds: planIds || [] });
 
   // Fire-and-forget: send push notifications after responding
   notifyAppUpdated(app.id).catch(() => {});

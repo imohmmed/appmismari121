@@ -44,6 +44,51 @@ const TAGS = [
   { value: "hot", label: "Hot", color: "text-orange-400 bg-orange-500/10" },
 ];
 
+interface PlanOption { id: number; name: string; nameAr: string | null; }
+
+function usePlans() {
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+  useEffect(() => {
+    callApi("/admin/plans").then(d => setPlans(d?.plans || [])).catch(() => {});
+  }, []);
+  return plans;
+}
+
+function PlanSelector({ planIds, onChange }: { planIds: number[]; onChange: (ids: number[]) => void }) {
+  const plans = usePlans();
+  if (!plans.length) return null;
+  const toggle = (id: number) => onChange(planIds.includes(id) ? planIds.filter(p => p !== id) : [...planIds, id]);
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium" style={{ color: `${ACCENT}99` }}>
+        الباقات المتاح فيها
+        <span className="text-white/30 font-normal mr-1">(إذا لم تختر أي باقة يظهر للجميع)</span>
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {plans.map(p => {
+          const active = planIds.includes(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => toggle(p.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all"
+              style={active
+                ? { background: `${ACCENT}15`, borderColor: `${ACCENT}40`, color: ACCENT }
+                : { borderColor: `rgba(255,255,255,0.08)`, color: `rgba(255,255,255,0.35)` }}
+            >
+              <span className={cn("w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-all", active ? "border-current bg-current" : "border-white/20")}>
+                {active && <CheckCircle2 className="w-2 h-2 text-black" />}
+              </span>
+              {p.nameAr || p.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
@@ -180,6 +225,7 @@ function IpaImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
     downloadUrl: "", ipaPath: "",
     categoryId: 1, tag: "tweaked" as any,
     isHot: false, notify: false,
+    planIds: [] as number[],
   });
 
   const applyResult = (r: UploadResult) => {
@@ -257,7 +303,8 @@ function IpaImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
           bundleId: form.bundleId || undefined,
           downloadUrl: form.downloadUrl || undefined,
           isHot: form.isHot,
-        },
+          planIds: form.planIds,
+        } as any,
       });
       toast({ title: "تمت إضافة التطبيق بنجاح" });
       onDone();
@@ -412,6 +459,10 @@ function IpaImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                   />
                 </div>
 
+                <div className="col-span-2">
+                  <PlanSelector planIds={form.planIds} onChange={ids => setForm(f => ({ ...f, planIds: ids }))} />
+                </div>
+
                 <div className="col-span-2 flex items-center gap-2 pt-1">
                   <button type="button" onClick={() => setForm(f => ({ ...f, isHot: !f.isHot }))}
                     className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all", form.isHot ? "border-current" : "border-white/5 text-white/30")}
@@ -470,6 +521,7 @@ function EditAppModal({ app, onClose }: { app: App; onClose: () => void }) {
     tag: app.tag || "tweaked",
     isFeatured: app.isFeatured || false,
     isHot: app.isHot || false,
+    planIds: ((app as any).planIds as number[]) || [],
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -493,7 +545,8 @@ function EditAppModal({ app, onClose }: { app: App; onClose: () => void }) {
           downloadUrl: form.downloadUrl || undefined,
           isFeatured: form.isFeatured,
           isHot: form.isHot,
-        },
+          planIds: form.planIds,
+        } as any,
       });
       queryClient.invalidateQueries({ queryKey: getAdminListAppsQueryKey() });
       toast({ title: "تم تحديث التطبيق بنجاح" });
@@ -567,6 +620,10 @@ function EditAppModal({ app, onClose }: { app: App; onClose: () => void }) {
                   onEnChange={v => setForm({ ...form, descriptionEn: v })}
                 />
               </div>
+              <div className="col-span-2">
+                <PlanSelector planIds={form.planIds} onChange={ids => setForm(f => ({ ...f, planIds: ids }))} />
+              </div>
+
               <div className="col-span-2 flex items-center gap-2 pt-1">
                 <button type="button" onClick={() => setForm(f => ({ ...f, isHot: !f.isHot }))}
                   className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all", form.isHot ? "border-current" : "border-white/5 text-white/30")}

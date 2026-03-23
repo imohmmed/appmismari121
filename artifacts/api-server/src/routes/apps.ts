@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, ilike } from "drizzle-orm";
-import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable } from "@workspace/db";
+import { eq, desc, sql, and, ilike, inArray } from "drizzle-orm";
+import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable, appPlansTable, subscriptionsTable } from "@workspace/db";
 import {
   ListAppsQueryParams,
   ListAppsResponse,
@@ -21,9 +21,46 @@ router.get("/apps", async (req, res): Promise<void> => {
 
   const { categoryId, filter, search, page = 1, limit = 20 } = query.data;
   const section = (req.query as any).section as string | undefined;
+  const code = (req.query as any).code as string | undefined;
   const offset = (page - 1) * limit;
 
+  // Resolve subscriber's planId if code provided
+  let subscriberPlanId: number | null = null;
+  if (code) {
+    const [sub] = await db
+      .select({ planId: subscriptionsTable.planId })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.code, code))
+      .limit(1);
+    if (sub) subscriberPlanId = sub.planId;
+  }
+
+  // If subscriber plan is known, filter: show apps that have no plan restriction OR have this plan
+  let planFilteredAppIds: number[] | null = null;
+  if (subscriberPlanId !== null) {
+    // Apps with this plan in app_plans
+    const planApps = await db
+      .select({ appId: appPlansTable.appId })
+      .from(appPlansTable)
+      .where(eq(appPlansTable.planId, subscriberPlanId));
+    const planAppIdSet = new Set(planApps.map(r => r.appId));
+
+    // Apps with any plan restriction at all
+    const allRestrictedApps = await db
+      .select({ appId: appPlansTable.appId })
+      .from(appPlansTable);
+    const allRestrictedSet = new Set(allRestrictedApps.map(r => r.appId));
+
+    // An app is visible if: it has NO restriction OR it's in subscriber's plan
+    // We'll collect all restricted app IDs not in subscriber's plan → exclude them
+    const excludedIds = [...allRestrictedSet].filter(id => !planAppIdSet.has(id));
+    planFilteredAppIds = excludedIds; // IDs to EXCLUDE
+  }
+
   const conditions = [eq(appsTable.isHidden, false)];
+  if (planFilteredAppIds !== null && planFilteredAppIds.length > 0) {
+    conditions.push(sql`${appsTable.id} NOT IN (${sql.raw(planFilteredAppIds.join(","))})`);
+  }
   if (categoryId) conditions.push(eq(appsTable.categoryId, categoryId));
   if (section === "most_downloaded") {
     // no extra filter, sort by downloads desc

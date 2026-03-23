@@ -216,6 +216,7 @@ export const AdminListAppsResponse = zod.object({
       isTestMode: zod.boolean().optional(),
       status: zod.string().nullable().optional(),
       createdAt: zod.date().optional(),
+      planIds: zod.array(zod.number()).optional(),
     }),
   ),
   total: zod.number(),
