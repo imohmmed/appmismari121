@@ -156,11 +156,11 @@ export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
       </Animated.View>
 
       <Animated.View
+        {...panResponder.panHandlers}
         style={[st.panel, { backgroundColor: colors.background, transform: [{ translateX }] }]}
       >
         {/* ── Header ── */}
         <View
-          {...panResponder.panHandlers}
           style={[
             st.header,
             { paddingTop: insets.top + 14 },
@@ -174,6 +174,7 @@ export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
           >
             <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
           </TouchableOpacity>
+          <View style={{ flex: 1 }} />
           <Text style={[st.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
             {isArabic
               ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
