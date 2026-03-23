@@ -17,7 +17,11 @@ function usePublicSettings() {
   useEffect(() => {
     fetch(`${API}/api/settings`)
       .then(r => r.json())
-      .then(d => setSocial({ instagram: d.instagram || "", telegram: d.telegram || "", whatsapp: d.whatsapp || "" }))
+      .then(d => setSocial({
+        instagram: d.support_instagram || d.instagram || "",
+        telegram:  d.support_telegram  || d.telegram  || "",
+        whatsapp:  d.support_whatsapp  || d.whatsapp  || "",
+      }))
       .catch(() => {});
   }, []);
   return social;
@@ -79,12 +83,12 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col" style={{ background: "#ffffff", color: TEXT, direction: "rtl", maxWidth: "100vw", overflowX: "clip" }}>
 
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-black/8 shadow-sm">
-        <div className="flex items-center justify-between px-5 py-3 max-w-5xl mx-auto" style={{ minHeight: "68px" }}>
+        <div className="flex items-center justify-between px-5 py-2 max-w-5xl mx-auto" style={{ minHeight: "52px" }}>
           <a href="/" className="flex items-center flex-shrink-0">
             <img
-              src={`${import.meta.env.BASE_URL}mismari-logo-final.png`}
+              src={`${import.meta.env.BASE_URL}mismari-logo.png`}
               alt="مسماري"
-              style={{ height: "62px", width: "auto", objectFit: "contain", flexShrink: 0 }}
+              style={{ height: "38px", width: "auto", objectFit: "contain", flexShrink: 0 }}
             />
           </a>
 
@@ -125,6 +129,39 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                     {item.label}
                   </a>
                 ))}
+
+                {(social.whatsapp || social.telegram || social.instagram) && (
+                  <>
+                    <div className="mx-4 my-2 border-t border-black/8" />
+                    <p className="px-4 py-1 text-xs font-semibold" style={{ color: `${TEXT}55` }}>تواصل معنا</p>
+                    <div className="flex items-center gap-3 px-4 pb-2">
+                      {social.whatsapp && (
+                        <a href={social.whatsapp.startsWith("http") ? social.whatsapp : `https://${social.whatsapp}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                          style={{ background: "#25D36620", color: "#25D366" }}>
+                          <WhatsAppIcon size={18} />
+                        </a>
+                      )}
+                      {social.telegram && (
+                        <a href={social.telegram.startsWith("http") ? social.telegram : `https://${social.telegram}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                          style={{ background: "#0088CC20", color: "#0088CC" }}>
+                          <TelegramIcon size={18} />
+                        </a>
+                      )}
+                      {social.instagram && (
+                        <a href={social.instagram.startsWith("http") ? social.instagram : `https://${social.instagram}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                          style={{ background: "#E1306C20", color: "#E1306C" }}>
+                          <InstagramIcon size={18} />
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
@@ -136,11 +173,11 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-black/8 py-10 px-5 text-center" style={{ background: `${PRIMARY}08` }}>
-        <a href="/" className="inline-flex items-center justify-center mb-5">
+        <a href="/" className="inline-flex items-center justify-center mb-4">
           <img
-            src={`${import.meta.env.BASE_URL}mismari-logo-final.png`}
+            src={`${import.meta.env.BASE_URL}mismari-logo.png`}
             alt="مسماري"
-            style={{ maxHeight: "100px", width: "auto", objectFit: "contain" }}
+            style={{ maxHeight: "56px", width: "auto", objectFit: "contain" }}
           />
         </a>
         <div className="flex flex-wrap justify-center gap-6 mb-5 text-sm" style={{ color: `${TEXT}88` }}>
