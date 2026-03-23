@@ -619,18 +619,16 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Nested stack: Modal ensures full-screen coverage + gesture isolation ── */}
-      <Modal
-        visible={nestedStack.length > 0}
-        animationType="none"
-        onRequestClose={closeNestedTop}
-        statusBarTranslucent
+      {/* ── Nested stack: absoluteFill with zIndex > navBar(10), no Modal so tab bar stays visible ── */}
+      <View
+        style={[StyleSheet.absoluteFill, { zIndex: 20 }]}
+        pointerEvents={nestedStack.length > 0 ? "box-none" : "none"}
       >
         {nestedStack.length > 0 && (
-          <View style={StyleSheet.absoluteFill}>
+          <>
             {/* Layer below: previous stack item (visible when top animates out) */}
             {nestedStack.length > 1 && (
-              <View style={StyleSheet.absoluteFill}>
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}>
                 <AppDetailPanel
                   app={nestedStack[nestedStack.length - 2]}
                   onClose={closeNestedTop}
@@ -639,9 +637,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
                 />
               </View>
             )}
-            {/* Top item: slides in/out, swipe-to-dismiss */}
+            {/* Top item: slides in from side, swipe-to-dismiss */}
             <Animated.View
-              style={[StyleSheet.absoluteFill, { transform: [{ translateX: nestedSlide }] }]}
+              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background, transform: [{ translateX: nestedSlide }] }]}
               {...nestedPan.panHandlers}
             >
               <AppDetailPanel
@@ -651,9 +649,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
                 onRelatedAppPress={openNested}
               />
             </Animated.View>
-          </View>
+          </>
         )}
-      </Modal>
+      </View>
     </View>
   );
 }
