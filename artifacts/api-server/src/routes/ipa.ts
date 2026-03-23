@@ -145,38 +145,97 @@ function saveIconBuffer(iconBuf: Buffer): { iconFilename: string; iconPath: stri
   return { iconFilename, iconPath };
 }
 
-async function extractIconFromUrl(url: string, entries: ZipEntry[], appFolder: string): Promise<{ iconBuf: Buffer | null }> {
-  const iconNames = [
-    "AppIcon60x60@3x.png", "AppIcon60x60@2x.png", "AppIcon76x76@2x~ipad.png",
-    "AppIcon76x76@2x.png", "AppIcon57x57@2x.png", "Icon-60@3x.png", "Icon-60@2x.png",
-    "AppIcon.png", "Icon.png",
-  ];
-  for (const iconName of iconNames) {
+// ─── Icon helpers ─────────────────────────────────────────────────────────────
+
+/** Read icon base-names from Info.plist (CFBundleIcons / CFBundleIconFiles). */
+function getIconNamesFromPlist(plistData: Record<string, any>): string[] {
+  const names: string[] = [];
+  const tryAdd = (arr: any) => { if (Array.isArray(arr)) arr.forEach(n => names.push(String(n))); };
+  const icons    = plistData["CFBundleIcons"] as any;
+  tryAdd(icons?.CFBundlePrimaryIcon?.CFBundleIconFiles);
+  const iconsIpad = plistData["CFBundleIcons~ipad"] as any;
+  tryAdd(iconsIpad?.CFBundlePrimaryIcon?.CFBundleIconFiles);
+  tryAdd(plistData["CFBundleIconFiles"]);
+  return [...new Set(names)];
+}
+
+/** Build a prioritised list of PNG filenames to try (plist-based first, then fallbacks). */
+function buildIconSearchList(plistIconNames: string[]): string[] {
+  const list: string[] = [];
+  const suffixes = ["@3x.png", "@2x.png", "~ipad@2x.png", ".png"];
+  for (const base of plistIconNames) {
+    const b = base.replace(/\.png$/i, "");
+    for (const s of suffixes) list.push(`${b}${s}`);
+  }
+  list.push(
+    "AppIcon60x60@3x.png", "AppIcon60x60@2x.png",
+    "AppIcon76x76@2x~ipad.png", "AppIcon76x76@2x.png",
+    "AppIcon57x57@2x.png", "AppIcon57x57.png",
+    "Icon-60@3x.png", "Icon-60@2x.png",
+    "AppIcon.png", "Icon.png", "Icon@2x.png",
+    "AppIcon29x29@3x.png", "AppIcon29x29@2x.png",
+    "AppIcon1024x1024@1x.png",
+  );
+  return [...new Set(list)];
+}
+
+async function extractIconFromUrl(
+  url: string, entries: ZipEntry[], appFolder: string,
+  plistIconNames: string[] = [],
+): Promise<{ iconBuf: Buffer | null }> {
+  const searchList = buildIconSearchList(plistIconNames);
+
+  // 1. Try plist-specified names + standard names via range requests
+  for (const iconName of searchList) {
     const iconEntry = entries.find(e => e.name === `${appFolder}/${iconName}`);
-    if (iconEntry && iconEntry.compSize < 2 * 1024 * 1024) {
+    if (iconEntry && iconEntry.compSize > 1000 && iconEntry.compSize < 2 * 1024 * 1024) {
       try { return { iconBuf: await extractEntryFromUrl(url, iconEntry) }; } catch { continue; }
     }
   }
-  const anyIcon = entries.find(e => e.name.startsWith(`${appFolder}/AppIcon`) && e.name.endsWith(".png") && e.compSize < 2 * 1024 * 1024);
-  if (anyIcon) {
-    try { return { iconBuf: await extractEntryFromUrl(url, anyIcon) }; } catch {}
+
+  // 2. Any PNG directly inside the app bundle root (no subdirs), reasonable size
+  const rootPngs = entries
+    .filter(e => {
+      const rel = e.name.replace(`${appFolder}/`, "");
+      return e.name.startsWith(`${appFolder}/`) &&
+        rel.endsWith(".png") &&
+        !rel.includes("/") &&
+        e.compSize > 1000 &&
+        e.compSize < 2 * 1024 * 1024;
+    })
+    .sort((a, b) => b.compSize - a.compSize);   // largest first
+
+  for (const entry of rootPngs) {
+    try { return { iconBuf: await extractEntryFromUrl(url, entry) }; } catch { continue; }
   }
+
   return { iconBuf: null };
 }
 
-function extractIconFromZip(zip: AdmZip, appFolder: string): Buffer | null {
-  const iconNames = [
-    "AppIcon60x60@3x.png", "AppIcon60x60@2x.png", "AppIcon76x76@2x~ipad.png",
-    "AppIcon76x76@2x.png", "AppIcon57x57@2x.png", "Icon-60@3x.png", "Icon-60@2x.png",
-    "AppIcon.png", "Icon.png",
-  ];
+function extractIconFromZip(zip: AdmZip, appFolder: string, plistIconNames: string[] = []): Buffer | null {
+  const searchList = buildIconSearchList(plistIconNames);
   const entries = zip.getEntries();
-  for (const iconName of iconNames) {
+
+  // 1. Plist-specified names + standard names
+  for (const iconName of searchList) {
     const e = entries.find(e => e.entryName === `${appFolder}/${iconName}`);
-    if (e) return e.getData();
+    if (e && e.getRealSize() > 1000) return e.getData();
   }
-  const anyIcon = entries.find(e => e.entryName.startsWith(`${appFolder}/AppIcon`) && e.entryName.endsWith(".png"));
-  return anyIcon ? anyIcon.getData() : null;
+
+  // 2. Any PNG directly inside app bundle root, no subdirectory
+  const rootPngs = entries
+    .filter(e => {
+      const rel = e.entryName.replace(`${appFolder}/`, "");
+      return e.entryName.startsWith(`${appFolder}/`) &&
+        rel.endsWith(".png") &&
+        !rel.includes("/") &&
+        e.getRealSize() > 1000 &&
+        e.getRealSize() < 2 * 1024 * 1024;
+    })
+    .sort((a, b) => b.getRealSize() - a.getRealSize());   // largest first
+
+  if (rootPngs.length > 0) return rootPngs[0].getData();
+  return null;
 }
 
 // ─── POST /admin/ipa/parse-url ───────────────────────────────────────────────
@@ -201,7 +260,8 @@ router.post("/admin/ipa/parse-url", adminAuth, async (req, res): Promise<void> =
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
     const minOsVersion: string | null = plistData["MinimumOSVersion"] || null;
     const appFolder = plistEntry.name.replace("/Info.plist", "");
-    const { iconBuf } = await extractIconFromUrl(url, entries, appFolder);
+    const plistIconNames = getIconNamesFromPlist(plistData);
+    const { iconBuf } = await extractIconFromUrl(url, entries, appFolder, plistIconNames);
     const iconBase64 = iconBuf ? `data:image/png;base64,${iconBuf.toString("base64")}` : null;
     const sizeMB = totalSize / (1024 * 1024);
     const sizeStr = sizeMB < 1 ? `${Math.round(totalSize / 1024)} KB` : sizeMB < 1024 ? `${Math.round(sizeMB)} MB` : `${(totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -227,6 +287,7 @@ router.post("/admin/ipa/upload-file", adminAuth, memUpload.single("file"), async
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
     const minOsVersion: string | null = plistData["MinimumOSVersion"] || null;
     const appFolder = plistEntry.entryName.replace("/Info.plist", "");
+    const plistIconNames = getIconNamesFromPlist(plistData);
     const sizeBytes = buf.length;
     const sizeMB = sizeBytes / (1024 * 1024);
     const size = sizeMB < 1 ? `${Math.round(sizeBytes / 1024)} KB` : `${Math.round(sizeMB)} MB`;
@@ -239,7 +300,7 @@ router.post("/admin/ipa/upload-file", adminAuth, memUpload.single("file"), async
 
     let iconUrl: string | null = null;
     let iconRelPath: string | null = null;
-    const iconBuf = extractIconFromZip(zip, appFolder);
+    const iconBuf = extractIconFromZip(zip, appFolder, plistIconNames);
     if (iconBuf) {
       const { iconFilename, iconPath } = saveIconBuffer(iconBuf);
       iconUrl = buildIconUrl(req, iconFilename);
@@ -280,6 +341,7 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
     const minOsVersion: string | null = plistData["MinimumOSVersion"] || null;
     const appFolder = plistEntry.name.replace("/Info.plist", "");
+    const plistIconNames = getIconNamesFromPlist(plistData);
     const sizeMB = totalSize / (1024 * 1024);
     const size = sizeMB < 1 ? `${Math.round(totalSize / 1024)} KB` : sizeMB < 1024 ? `${Math.round(sizeMB)} MB` : `${(totalSize / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 
@@ -293,12 +355,23 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
 
     let iconUrl: string | null = null;
     let iconRelPath: string | null = null;
-    const { iconBuf } = await extractIconFromUrl(url, entries, appFolder);
+
+    // Try fast range-based extraction first
+    let { iconBuf } = await extractIconFromUrl(url, entries, appFolder, plistIconNames);
+
+    // Fallback: use AdmZip on the full downloaded IPA (handles Assets.car-only apps
+    // where icons aren't present as standalone PNGs in the central directory)
+    if (!iconBuf) {
+      try {
+        const zip = new AdmZip(ipaBuf);
+        iconBuf = extractIconFromZip(zip, appFolder, plistIconNames);
+      } catch { /* ignore */ }
+    }
+
     if (iconBuf) {
       const { iconFilename, iconPath } = saveIconBuffer(iconBuf);
       iconUrl = buildIconUrl(req, iconFilename);
       iconRelPath = `/admin/FilesIPA/Icons/${iconFilename}`;
-      fs.writeFileSync(iconPath, iconBuf);
     }
 
     res.json({
