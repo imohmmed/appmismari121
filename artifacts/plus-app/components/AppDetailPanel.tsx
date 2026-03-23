@@ -134,6 +134,8 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress: (app: App
   const { colors, t, fontAr, isArabic } = useSettings();
   const pages = chunkArray(apps.slice(0, 30), 3);
   const pageW = SCREEN_WIDTH - 80;
+  // For Arabic: mirror the list horizontally so it scrolls RTL naturally
+  const mirrorStyle = isArabic ? { transform: [{ scaleX: -1 }] } as const : undefined;
   return (
     <FlatList
       data={pages}
@@ -144,8 +146,9 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress: (app: App
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
       keyExtractor={(_, i) => i.toString()}
+      style={mirrorStyle}
       renderItem={({ item: chunk }) => (
-        <View style={{ width: pageW }}>
+        <View style={[{ width: pageW }, mirrorStyle]}>
           {chunk.map((a, idx) => {
             const desc = isArabic ? (a.descAr || a.desc || "") : (a.descEn || a.desc || "");
             return (
@@ -161,7 +164,7 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress: (app: App
                         <Text style={[st.relatedGetText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
                       </Pressable>
                       <View style={{ flex: 1, gap: 3, alignItems: "flex-end" }}>
-                        <Text style={[st.relatedName, { color: colors.text, fontFamily: fontAr("SemiBold"), textAlign: "right" }]} numberOfLines={1}>{a.name}</Text>
+                        <Text style={[st.relatedName, { color: colors.text, textAlign: "right" }]} numberOfLines={1}>{a.name}</Text>
                         <Text style={[st.relatedDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "right" }]} numberOfLines={1}>{desc}</Text>
                       </View>
                       <AppIconImg icon={a.icon} size={56} borderRadius={14} />
@@ -225,8 +228,23 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const [codeInput, setCodeInput] = useState(subscriptionCode);
   const [cloneName, setCloneName] = useState("");
   const [pendingAction, setPendingAction] = useState<"download" | "clone" | null>(null);
-  // ─── Nested app panel (قد يعجبك أيضاً → opens inside without closing parent) ──
+  // ─── Nested app panel (قد يعجبك أيضاً → slide-from-side, stacks like navigation) ──
   const [nestedApp, setNestedApp] = useState<AppData | null>(null);
+  const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+
+  const openNested = (a: AppData) => {
+    slideAnim.setValue(isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH);
+    setNestedApp(a);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+  };
+
+  const closeNested = () => {
+    Animated.timing(slideAnim, {
+      toValue: isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH,
+      duration: 260,
+      useNativeDriver: true,
+    }).start(() => setNestedApp(null));
+  };
 
   const handleDownload = () => {
     if (!subscriptionCode) {
@@ -479,7 +497,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             </View>
             <RelatedAppsRow
               apps={relatedApps}
-              onPress={(a) => setNestedApp(a)}
+              onPress={openNested}
             />
           </>
         )}
@@ -555,21 +573,22 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Nested app panel: Modal so it covers full screen with proper safe area ── */}
+      {/* ── Nested app panel: slides in from the side like native navigation ── */}
       <Modal
         visible={!!nestedApp}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setNestedApp(null)}
+        animationType="none"
+        onRequestClose={closeNested}
       >
-        {nestedApp && (
-          <AppDetailPanel
-            app={nestedApp}
-            onClose={() => setNestedApp(null)}
-            relatedApps={relatedApps.filter((a) => a.id !== nestedApp.id)}
-            onRelatedAppPress={(a) => setNestedApp(a)}
-          />
-        )}
+        <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
+          {nestedApp && (
+            <AppDetailPanel
+              app={nestedApp}
+              onClose={closeNested}
+              relatedApps={relatedApps.filter((a) => a.id !== nestedApp.id)}
+              onRelatedAppPress={openNested}
+            />
+          )}
+        </Animated.View>
       </Modal>
     </View>
   );
