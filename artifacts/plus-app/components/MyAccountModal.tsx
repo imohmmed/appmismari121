@@ -160,7 +160,7 @@ export default function MyAccountModal({
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} bounces>
+        <ScrollView showsVerticalScrollIndicator={false} bounces contentContainerStyle={{ paddingBottom: 48 }}>
 
           {/* ── Profile Header ─────────────────────────────── */}
           <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
