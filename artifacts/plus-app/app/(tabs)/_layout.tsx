@@ -19,14 +19,6 @@ function NativeTabLayout() {
       <Icon sf={{ default: "signature", selected: "signature" }} />
       <Label>{t("tabTV")}</Label>
     </NativeTabs.Trigger>,
-    <NativeTabs.Trigger key="smm" name="smm">
-      <Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} />
-      <Label>{t("tabSMM")}</Label>
-    </NativeTabs.Trigger>,
-    <NativeTabs.Trigger key="numbers" name="numbers">
-      <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-      <Label>{t("tabNumbers")}</Label>
-    </NativeTabs.Trigger>,
     <NativeTabs.Trigger key="search" name="search">
       <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
       <Label>{t("headerSearch")}</Label>
@@ -54,8 +46,6 @@ function ClassicTabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="sign" />
-      <Tabs.Screen name="smm" />
-      <Tabs.Screen name="numbers" />
       <Tabs.Screen name="search" />
     </Tabs>
   );

@@ -622,14 +622,14 @@ export default function SignScreen() {
             { backgroundColor: colors.background, paddingTop, transform: [{ translateX: slideAnim }] },
           ]}
         >
-          {/* Panel header: back button always in device-natural "start" position */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
-              <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
-            </TouchableOpacity>
+          {/* Panel header: back button on the right in both languages */}
+          <View style={[styles.header, { flexDirection: "row" }]}>
             <View style={{ flex: 1 }}>
               {signTitle}
             </View>
+            <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
+              <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
+            </TouchableOpacity>
           </View>
 
           {/* Panel scroll content */}
