@@ -368,7 +368,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
     setReviewText(""); setReviewRating(0);
   };
 
-  const appSize = app.size || APP_SIZES[app.catKey || ""] || APP_SIZES[app.category] || "—";
+  const rawSize = APP_SIZES[app.catKey || ""] || APP_SIZES[app.category] || null;
+  const appSize = app.size || rawSize || "—";
+  const showMbLabel = !app.size && !!rawSize;
   const updateDays = app.createdAt
     ? Math.max(0, Math.floor((Date.now() - new Date(app.createdAt).getTime()) / 86400000))
     : null;
@@ -460,7 +462,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           <View style={st.infoBox}>
             <Text style={[st.infoBoxLabel, { color: colors.textSecondary, fontFamily: fontAr("SemiBold") }]}>{t("size")}</Text>
             <Text style={[st.infoBoxValue, { color: colors.text }]}>{appSize}</Text>
-            <Text style={[st.infoBoxSub, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("mb")}</Text>
+            {showMbLabel && <Text style={[st.infoBoxSub, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("mb")}</Text>}
           </View>
           <View style={[st.infoBoxDivider, { backgroundColor: colors.separator }]} />
           <Pressable
