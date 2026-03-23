@@ -237,28 +237,44 @@ export default function SignScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // ── Refs for swipe-back PanResponder (avoid stale closures) ─────────────
-  const screenRef = useRef(screen);
+  // ── Sliding panel state ───────────────────────────────────────────────────
+  const slideAnim = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const [panelVisible, setPanelVisible] = useState(false);
+  const [panelScreen, setPanelScreen] = useState<Screen>("home");
+  const panelOpenRef = useRef(false);
+
+  // Refs to avoid stale closures in PanResponder (created once)
   const isArabicRef = useRef(isArabic);
-  useEffect(() => { screenRef.current = screen; }, [screen]);
   useEffect(() => { isArabicRef.current = isArabic; }, [isArabic]);
   const resetToHomeRef = useRef<() => void>(() => {});
 
-  const swipeBackHandler = useRef(
+  const panelPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, g) => {
-        if (screenRef.current === "home") return false;
-        const isH = Math.abs(g.dx) > Math.abs(g.dy) + 5 && Math.abs(g.dx) > 25;
+        const isH = Math.abs(g.dx) > Math.abs(g.dy) + 5 && Math.abs(g.dx) > 15;
         if (!isH) return false;
-        return isArabicRef.current ? g.dx < -15 : g.dx > 15;
+        return isArabicRef.current ? g.dx < -10 : g.dx > 10;
+      },
+      onPanResponderMove: (_, g) => {
+        if (isArabicRef.current) {
+          if (g.dx < 0) slideAnim.setValue(g.dx);
+        } else {
+          if (g.dx > 0) slideAnim.setValue(g.dx);
+        }
       },
       onPanResponderRelease: (_, g) => {
-        if (screenRef.current === "home") return;
-        if (isArabicRef.current && (g.dx < -(SCREEN_WIDTH * 0.25) || g.vx < -0.5)) {
-          resetToHomeRef.current();
-        } else if (!isArabicRef.current && (g.dx > SCREEN_WIDTH * 0.25 || g.vx > 0.5)) {
-          resetToHomeRef.current();
+        const threshold = SCREEN_WIDTH * 0.28;
+        const shouldClose = isArabicRef.current
+          ? (g.dx < -threshold || g.vx < -0.5)
+          : (g.dx > threshold || g.vx > 0.5);
+        if (shouldClose) {
+          const endX = isArabicRef.current ? -SCREEN_WIDTH : SCREEN_WIDTH;
+          Animated.timing(slideAnim, { toValue: endX, duration: 200, useNativeDriver: true }).start(() => {
+            resetToHomeRef.current();
+          });
+        } else {
+          Animated.spring(slideAnim, { toValue: 0, damping: 20, stiffness: 300, useNativeDriver: true }).start();
         }
       },
     })
@@ -411,6 +427,20 @@ export default function SignScreen() {
     Alert.alert("", isArabic ? "تم نسخ الرابط ✓" : "Link copied ✓");
   }, [isArabic]);
 
+  // ── Open panel whenever screen changes to non-home ───────────────────────
+  useEffect(() => {
+    if (screen !== "home") {
+      setPanelScreen(screen);
+      if (!panelOpenRef.current) {
+        panelOpenRef.current = true;
+        const startX = isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH;
+        slideAnim.setValue(startX);
+        setPanelVisible(true);
+        Animated.spring(slideAnim, { toValue: 0, damping: 24, stiffness: 280, useNativeDriver: true }).start();
+      }
+    }
+  }, [screen, isArabic]);
+
   const resetToHome = useCallback(() => {
     stopPoll();
     setScreen("home");
@@ -421,266 +451,261 @@ export default function SignScreen() {
     setCustomBundle("");
     setCurrentJob(null);
     setCurrentJobId(null);
+    panelOpenRef.current = false;
+    setPanelVisible(false);
   }, [stopPoll]);
+
+  const closePanel = useCallback(() => {
+    const endX = isArabicRef.current ? -SCREEN_WIDTH : SCREEN_WIDTH;
+    Animated.timing(slideAnim, { toValue: endX, duration: 220, useNativeDriver: true }).start(() => {
+      resetToHome();
+    });
+  }, [resetToHome]);
 
   useEffect(() => { resetToHomeRef.current = resetToHome; }, [resetToHome]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const paddingTop = isWeb ? 67 : insets.top;
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop }]} {...swipeBackHandler.panHandlers}>
+  const signTitle = (
+    <Text style={[styles.headerTitle, { color: colors.text }]}>
+      {isArabic
+        ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
+        : <><Text style={{ fontFamily: "Inter_700Bold" }}>Mismari </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
+      }
+    </Text>
+  );
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <View style={[
-        styles.header,
-        screen === "home"
-          ? (isArabic ? styles.headerRtl : {})
-          : (!isArabic ? { flexDirection: "row-reverse" } : {}),
-      ]}>
-        {(screen !== "home") && (
-          <TouchableOpacity onPress={resetToHome} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
-            <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
-          </TouchableOpacity>
-        )}
-        <View style={{
-          flex: 1,
-          alignItems: isArabic ? "flex-end" : "flex-start",
-        }}>
-          <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-            {isArabic
-              ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
-              : <><Text style={{ fontFamily: "Inter_700Bold" }}>Mismari </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
-            }
-          </Text>
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop }]}>
+
+      {/* ══ HOME HEADER (always visible behind the panel) ══════════════════ */}
+      <View style={[styles.header, isArabic ? styles.headerRtl : {}]}>
+        <View style={{ flex: 1, alignItems: isArabic ? "flex-end" : "flex-start" }}>
+          {signTitle}
         </View>
-        {screen === "home" && (
-          <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.card, overflow: "hidden" }]} onPress={() => setShowAccount(true)} activeOpacity={0.6}>
-            <ProfileAvatar size={36} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.card, overflow: "hidden" }]} onPress={() => setShowAccount(true)} activeOpacity={0.6}>
+          <ProfileAvatar size={36} />
+        </TouchableOpacity>
       </View>
 
+      {/* ══ HOME SCROLL (always rendered behind panel) ══════════════════════ */}
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} bounces
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: isWeb ? 34 : 100 }}
         contentInsetAdjustmentBehavior="automatic"
       >
+        <HealthBar colors={colors} fontAr={fontAr} isArabic={isArabic} code={subscriptionCode} />
 
-        {/* ══ HOME ═══════════════════════════════════════════════════════════ */}
-        {screen === "home" && (
-          <>
-            {/* Health */}
-            <HealthBar colors={colors} fontAr={fontAr} isArabic={isArabic} code={subscriptionCode} />
-
-            {/* Action cards */}
-            <View style={[styles.actionRow, isArabic && { flexDirection: "row-reverse" }]}>
-              <TouchableOpacity
-                style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                onPress={() => setShowUrlModal(true)}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.actionIconWrap, { backgroundColor: `${TINT}18` }]}>
-                  <Feather name="link" size={22} color={TINT} />
-                </View>
-                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signViaUrl")}</Text>
-                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signViaUrlSub")}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
-                onPress={handleUploadIpa}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.actionIconWrap, { backgroundColor: "#34c75918" }]}>
-                  <Feather name="upload" size={22} color="#34c759" />
-                </View>
-                <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signUploadFile")}</Text>
-                <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signUploadFileSub")}</Text>
-              </TouchableOpacity>
+        <View style={[styles.actionRow, isArabic && { flexDirection: "row-reverse" }]}>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+            onPress={() => setShowUrlModal(true)}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.actionIconWrap, { backgroundColor: `${TINT}18` }]}>
+              <Feather name="link" size={22} color={TINT} />
             </View>
+            <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signViaUrl")}</Text>
+            <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signViaUrlSub")}</Text>
+          </TouchableOpacity>
 
-            {/* Recent history */}
-            <View style={[styles.sectionHeader, isArabic && { flexDirection: "row-reverse" }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("signHistory")}</Text>
-              {history.length > 0 && (
-                <TouchableOpacity onPress={() => setScreen("history")}>
-                  <Text style={{ color: TINT, fontFamily: fontAr("SemiBold"), fontSize: 13 }}>
-                    {isArabic ? "عرض الكل" : "See All"}
-                  </Text>
-                </TouchableOpacity>
-              )}
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
+            onPress={handleUploadIpa}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.actionIconWrap, { backgroundColor: "#34c75918" }]}>
+              <Feather name="upload" size={22} color="#34c759" />
             </View>
+            <Text style={[styles.actionTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center", width: "100%" }]}>{t("signUploadFile")}</Text>
+            <Text style={[styles.actionSub, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: "center", width: "100%" }]}>{t("signUploadFileSub")}</Text>
+          </TouchableOpacity>
+        </View>
 
-            {historyLoading ? (
-              <ActivityIndicator size="small" color={TINT} style={{ marginTop: 20 }} />
-            ) : history.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-                <Feather name="pen-tool" size={32} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signHistoryEmpty")}</Text>
-              </View>
-            ) : (
-              history.slice(0, 4).map(job => (
-                <HistoryItem key={job.jobId} job={job} onReinstall={handleInstall} colors={colors} fontAr={fontAr} isArabic={isArabic} />
-              ))
-            )}
-          </>
+        <View style={[styles.sectionHeader, isArabic && { flexDirection: "row-reverse" }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{t("signHistory")}</Text>
+          {history.length > 0 && (
+            <TouchableOpacity onPress={() => setScreen("history")}>
+              <Text style={{ color: TINT, fontFamily: fontAr("SemiBold"), fontSize: 13 }}>
+                {isArabic ? "عرض الكل" : "See All"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {historyLoading ? (
+          <ActivityIndicator size="small" color={TINT} style={{ marginTop: 20 }} />
+        ) : history.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+            <Feather name="pen-tool" size={32} color={colors.textSecondary} />
+            <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signHistoryEmpty")}</Text>
+          </View>
+        ) : (
+          history.slice(0, 4).map(job => (
+            <HistoryItem key={job.jobId} job={job} onReinstall={handleInstall} colors={colors} fontAr={fontAr} isArabic={isArabic} />
+          ))
         )}
+      </ScrollView>
 
-        {/* ══ CUSTOMIZE ══════════════════════════════════════════════════════ */}
-        {screen === "customize" && ipaInfo && (
-          <>
-            <SectionHeader title={t("signInfoCard")} colors={colors} fontAr={fontAr} isArabic={isArabic} />
+      {/* ══ SLIDING PANEL — absolute, slides over home ══════════════════════ */}
+      {panelVisible && (
+        <Animated.View
+          {...panelPanResponder.panHandlers}
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: colors.background, paddingTop, transform: [{ translateX: slideAnim }] },
+          ]}
+        >
+          {/* Panel header */}
+          <View style={[styles.header, isArabic ? { flexDirection: "row-reverse" } : {}]}>
+            <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
+              <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: isArabic ? "flex-end" : "flex-start" }}>
+              {signTitle}
+            </View>
+          </View>
 
-            {/* IPA info card */}
-            <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-              <View style={[styles.infoIconBig, { backgroundColor: `${TINT}15` }]}>
-                <Feather name="package" size={30} color={TINT} />
-              </View>
-              <View style={{ flex: 1, gap: 6 }}>
+          {/* Panel scroll content */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            bounces
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: isWeb ? 34 : 100 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* ── CUSTOMIZE ─────────────────────────────────────────────── */}
+            {panelScreen === "customize" && ipaInfo && (
+              <>
+                <SectionHeader title={t("signInfoCard")} colors={colors} fontAr={fontAr} isArabic={isArabic} />
+                <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                  <View style={[styles.infoIconBig, { backgroundColor: `${TINT}15` }]}>
+                    <Feather name="package" size={30} color={TINT} />
+                  </View>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    {[
+                      { label: t("signAppName"), value: ipaInfo.name, mono: false },
+                      { label: t("signBundleId"), value: ipaInfo.bundleId, mono: true },
+                      { label: t("signVersion"), value: ipaInfo.version, mono: true },
+                      { label: t("signFileSize"), value: formatBytes(ipaInfo.fileSize), mono: true },
+                    ].map(row => (
+                      <View key={row.label} style={[styles.infoRow, isArabic && { flexDirection: "row-reverse" }]}>
+                        <Text style={[styles.infoLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{row.label}</Text>
+                        <Text style={[styles.infoValue, { color: colors.text, fontFamily: row.mono ? "Inter_400Regular" : fontAr("SemiBold") }]} numberOfLines={1}>{row.value}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold"), marginTop: 24, marginBottom: 12, textAlign: isArabic ? "right" : "left" }]}>
+                  {t("signCustomize")}
+                </Text>
+
                 {[
-                  { label: t("signAppName"), value: ipaInfo.name, mono: false },
-                  { label: t("signBundleId"), value: ipaInfo.bundleId, mono: true },
-                  { label: t("signVersion"), value: ipaInfo.version, mono: true },
-                  { label: t("signFileSize"), value: formatBytes(ipaInfo.fileSize), mono: true },
-                ].map(row => (
-                  <View key={row.label} style={[styles.infoRow, isArabic && { flexDirection: "row-reverse" }]}>
-                    <Text style={[styles.infoLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{row.label}</Text>
-                    <Text style={[styles.infoValue, { color: colors.text, fontFamily: row.mono ? "Inter_400Regular" : fontAr("SemiBold") }]}
-                      numberOfLines={1}>{row.value}</Text>
+                  { key: "customName", label: t("signCustomName"), hint: t("signCustomNameHint"), value: customName, set: setCustomName, placeholder: ipaInfo.name, mono: false },
+                  { key: "customBundle", label: t("signCustomBundle"), hint: t("signCustomBundleHint"), value: customBundle, set: setCustomBundle, placeholder: ipaInfo.bundleId, mono: true },
+                ].map(f => (
+                  <View key={f.key} style={{ marginBottom: 16 }}>
+                    <Text style={[styles.fieldLabel, { color: TINT, fontFamily: fontAr("SemiBold"), textAlign: isArabic ? "right" : "left" }]}>{f.label}</Text>
+                    <Text style={[styles.fieldHint, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>{f.hint}</Text>
+                    <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.cardBorder, marginTop: 6 }]}>
+                      <TextInput
+                        style={[styles.urlInput, { color: colors.text, fontFamily: f.mono ? "Inter_400Regular" : fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
+                        placeholder={f.placeholder}
+                        placeholderTextColor={colors.textSecondary + "50"}
+                        value={f.value}
+                        onChangeText={f.set}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
                   </View>
                 ))}
-              </View>
-            </View>
 
-            {/* Customize */}
-            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold"), marginTop: 24, marginBottom: 12, textAlign: isArabic ? "right" : "left" }]}>
-              {t("signCustomize")}
-            </Text>
+                <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: TINT, marginTop: 8 }]} onPress={handleStartSign} activeOpacity={0.8}>
+                  <Feather name="pen-tool" size={16} color="#000" />
+                  <Text style={[styles.primaryBtnText, { color: "#000", fontFamily: fontAr("Bold") }]}>{t("signStartSign")}</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-            {[
-              { key: "customName", label: t("signCustomName"), hint: t("signCustomNameHint"), value: customName, set: setCustomName, placeholder: ipaInfo.name, mono: false },
-              { key: "customBundle", label: t("signCustomBundle"), hint: t("signCustomBundleHint"), value: customBundle, set: setCustomBundle, placeholder: ipaInfo.bundleId, mono: true },
-            ].map(f => (
-              <View key={f.key} style={{ marginBottom: 16 }}>
-                <Text style={[styles.fieldLabel, { color: TINT, fontFamily: fontAr("SemiBold"), textAlign: isArabic ? "right" : "left" }]}>{f.label}</Text>
-                <Text style={[styles.fieldHint, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>{f.hint}</Text>
-                <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.cardBorder, marginTop: 6 }]}>
-                  <TextInput
-                    style={[styles.urlInput, { color: colors.text, fontFamily: f.mono ? "Inter_400Regular" : fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
-                    placeholder={f.placeholder}
-                    placeholderTextColor={colors.textSecondary + "50"}
-                    value={f.value}
-                    onChangeText={f.set}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-              </View>
-            ))}
-
-            <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: TINT, marginTop: 8 }]}
-              onPress={handleStartSign}
-              activeOpacity={0.8}
-            >
-              <Feather name="pen-tool" size={16} color="#000" />
-              <Text style={[styles.primaryBtnText, { color: "#000", fontFamily: fontAr("Bold") }]}>{t("signStartSign")}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ══ SIGNING ════════════════════════════════════════════════════════ */}
-        {screen === "signing" && (
-          <View style={styles.centerBlock}>
-            <View style={[styles.signingIcon, { backgroundColor: `${TINT}15` }]}>
-              <PulsingPen color={TINT} />
-            </View>
-            <Text style={[styles.signingTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-              {currentJob?.status === "pending" ? t("signJobPending") : t("signJobProcessing")}
-            </Text>
-            <Text style={[styles.signingHint, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-              {isArabic ? "قد يستغرق هذا بضع دقائق..." : "This may take a few minutes..."}
-            </Text>
-            <ActivityIndicator size="large" color={TINT} style={{ marginTop: 24 }} />
-          </View>
-        )}
-
-        {/* ══ RESULT ═════════════════════════════════════════════════════════ */}
-        {screen === "result" && currentJob && (
-          <>
-            {currentJob.status === "done" ? (
+            {/* ── SIGNING ───────────────────────────────────────────────── */}
+            {panelScreen === "signing" && (
               <View style={styles.centerBlock}>
-                <View style={[styles.resultIcon, { backgroundColor: "#22c55e18" }]}>
-                  <Feather name="check-circle" size={52} color="#22c55e" />
+                <View style={[styles.signingIcon, { backgroundColor: `${TINT}15` }]}>
+                  <PulsingPen color={TINT} />
                 </View>
-                <Text style={[styles.signingTitle, { color: "#22c55e", fontFamily: fontAr("Bold") }]}>{t("signDone")}</Text>
-                <Text style={[styles.signingHint, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signExpiresIn")}</Text>
-
-                {currentJob.itmsUrl && (
-                  <TouchableOpacity
-                    style={[styles.primaryBtn, { backgroundColor: TINT, marginTop: 28, alignSelf: "stretch" }]}
-                    onPress={() => handleInstall(currentJob.itmsUrl!)}
-                    activeOpacity={0.8}
-                  >
-                    <Feather name="download" size={16} color="#000" />
-                    <Text style={[styles.primaryBtnText, { color: "#000", fontFamily: fontAr("Bold") }]}>{t("signInstall")}</Text>
-                  </TouchableOpacity>
-                )}
-
-                {currentJob.signedToken && (
-                  <TouchableOpacity
-                    style={[styles.secondaryBtn, { borderColor: TINT, marginTop: 12, alignSelf: "stretch" }]}
-                    onPress={() => handleCopyLink(currentJob.signedToken!)}
-                    activeOpacity={0.8}
-                  >
-                    <Feather name="copy" size={16} color={TINT} />
-                    <Text style={[styles.secondaryBtnText, { color: TINT, fontFamily: fontAr("SemiBold") }]}>{t("signCopyLink")}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : (
-              <View style={styles.centerBlock}>
-                <View style={[styles.resultIcon, { backgroundColor: "#ef444418" }]}>
-                  <Feather name="x-circle" size={52} color="#ef4444" />
-                </View>
-                <Text style={[styles.signingTitle, { color: "#ef4444", fontFamily: fontAr("Bold") }]}>{t("signFailed")}</Text>
-                <View style={[styles.errorCard, { backgroundColor: colors.card, borderColor: "#ef444430" }]}>
-                  <Text style={[styles.errorText, { color: "#ef4444", fontFamily: "Inter_400Regular" }]}>
-                    {currentJob.errorMessage || (isArabic ? "حدث خطأ غير معروف" : "An unknown error occurred")}
-                  </Text>
-                </View>
+                <Text style={[styles.signingTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+                  {currentJob?.status === "pending" ? t("signJobPending") : t("signJobProcessing")}
+                </Text>
+                <Text style={[styles.signingHint, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                  {isArabic ? "قد يستغرق هذا بضع دقائق..." : "This may take a few minutes..."}
+                </Text>
+                <ActivityIndicator size="large" color={TINT} style={{ marginTop: 24 }} />
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.ghostBtn, { borderColor: colors.cardBorder, marginTop: 20 }]}
-              onPress={resetToHome}
-              activeOpacity={0.7}
-            >
-              <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
-              <Text style={[styles.ghostBtnText, { color: colors.textSecondary, fontFamily: fontAr("SemiBold") }]}>{t("signNewJob")}</Text>
-            </TouchableOpacity>
-          </>
-        )}
+            {/* ── RESULT ────────────────────────────────────────────────── */}
+            {panelScreen === "result" && currentJob && (
+              <>
+                {currentJob.status === "done" ? (
+                  <View style={styles.centerBlock}>
+                    <View style={[styles.resultIcon, { backgroundColor: "#22c55e18" }]}>
+                      <Feather name="check-circle" size={52} color="#22c55e" />
+                    </View>
+                    <Text style={[styles.signingTitle, { color: "#22c55e", fontFamily: fontAr("Bold") }]}>{t("signDone")}</Text>
+                    <Text style={[styles.signingHint, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signExpiresIn")}</Text>
+                    {currentJob.itmsUrl && (
+                      <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: TINT, marginTop: 28, alignSelf: "stretch" }]} onPress={() => handleInstall(currentJob.itmsUrl!)} activeOpacity={0.8}>
+                        <Feather name="download" size={16} color="#000" />
+                        <Text style={[styles.primaryBtnText, { color: "#000", fontFamily: fontAr("Bold") }]}>{t("signInstall")}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {currentJob.signedToken && (
+                      <TouchableOpacity style={[styles.secondaryBtn, { borderColor: TINT, marginTop: 12, alignSelf: "stretch" }]} onPress={() => handleCopyLink(currentJob.signedToken!)} activeOpacity={0.8}>
+                        <Feather name="copy" size={16} color={TINT} />
+                        <Text style={[styles.secondaryBtnText, { color: TINT, fontFamily: fontAr("SemiBold") }]}>{t("signCopyLink")}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.centerBlock}>
+                    <View style={[styles.resultIcon, { backgroundColor: "#ef444418" }]}>
+                      <Feather name="x-circle" size={52} color="#ef4444" />
+                    </View>
+                    <Text style={[styles.signingTitle, { color: "#ef4444", fontFamily: fontAr("Bold") }]}>{t("signFailed")}</Text>
+                    <View style={[styles.errorCard, { backgroundColor: colors.card, borderColor: "#ef444430" }]}>
+                      <Text style={[styles.errorText, { color: "#ef4444", fontFamily: "Inter_400Regular" }]}>
+                        {currentJob.errorMessage || (isArabic ? "حدث خطأ غير معروف" : "An unknown error occurred")}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                <TouchableOpacity style={[styles.ghostBtn, { borderColor: colors.cardBorder, marginTop: 20 }]} onPress={closePanel} activeOpacity={0.7}>
+                  <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.ghostBtnText, { color: colors.textSecondary, fontFamily: fontAr("SemiBold") }]}>{t("signNewJob")}</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-        {/* ══ HISTORY ════════════════════════════════════════════════════════ */}
-        {screen === "history" && (
-          <>
-            <SectionHeader title={t("signHistory")} colors={colors} fontAr={fontAr} />
-            {historyLoading ? (
-              <ActivityIndicator size="large" color={TINT} style={{ marginTop: 40 }} />
-            ) : history.length === 0 ? (
-              <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-                <Feather name="pen-tool" size={32} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signHistoryEmpty")}</Text>
-              </View>
-            ) : history.map(job => (
-              <HistoryItem key={job.jobId} job={job} onReinstall={handleInstall} colors={colors} fontAr={fontAr} isArabic={isArabic} />
-            ))}
-          </>
-        )}
-
-      </ScrollView>
+            {/* ── HISTORY ───────────────────────────────────────────────── */}
+            {panelScreen === "history" && (
+              <>
+                <SectionHeader title={t("signHistory")} colors={colors} fontAr={fontAr} isArabic={isArabic} />
+                {historyLoading ? (
+                  <ActivityIndicator size="large" color={TINT} style={{ marginTop: 40 }} />
+                ) : history.length === 0 ? (
+                  <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+                    <Feather name="pen-tool" size={32} color={colors.textSecondary} />
+                    <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{t("signHistoryEmpty")}</Text>
+                  </View>
+                ) : history.map(job => (
+                  <HistoryItem key={job.jobId} job={job} onReinstall={handleInstall} colors={colors} fontAr={fontAr} isArabic={isArabic} />
+                ))}
+              </>
+            )}
+          </ScrollView>
+        </Animated.View>
+      )}
 
       <AccountPanel visible={showAccount} onClose={() => setShowAccount(false)} />
       <SignUrlModal
