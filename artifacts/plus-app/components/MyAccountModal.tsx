@@ -49,7 +49,7 @@ function formatDate(dateStr?: string | null): string {
   if (!dateStr) return "—";
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+    return d.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
   } catch {
     return dateStr;
   }
