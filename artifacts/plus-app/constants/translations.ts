@@ -126,7 +126,7 @@ const translations = {
     signCustomize: "تخصيص قبل التوقيع",
     signCustomName: "اسم مخصص (اختياري)",
     signCustomNameHint: "يظهر على الشاشة الرئيسية",
-    signCustomBundle: "Bundle ID مخصص (اختياري)",
+    signCustomBundle: "معرف الحزمة مخصص (اختياري)",
     signCustomBundleHint: "للسماح بتكرار التطبيق",
     signStartSign: "بدء التوقيع ✦",
     signHistory: "سجل التواقيع",
