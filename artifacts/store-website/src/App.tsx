@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,30 +37,36 @@ const queryClient = new QueryClient({
   },
 });
 
+function AdminRoute({ component: Component }: { component: () => JSX.Element }) {
+  const token = localStorage.getItem("adminToken");
+  if (!token) return <Redirect to="/admin/login" />;
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
 
       <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/apps" component={AdminApps} />
-      <Route path="/admin/featured" component={AdminFeatured} />
-      <Route path="/admin/subscribers" component={AdminSubscribers} />
-      <Route path="/admin/groups" component={AdminGroups} />
-      <Route path="/admin/categories" component={AdminCategories} />
-      <Route path="/admin/subcodes" component={AdminSubCodes} />
-      <Route path="/admin/requests" component={AdminRequests} />
-      <Route path="/admin/packages" component={AdminPackages} />
-      <Route path="/admin/purchases" component={AdminPurchases} />
-      <Route path="/admin/notifications" component={AdminNotifications} />
-      <Route path="/admin/downloads" component={AdminDownloads} />
-      <Route path="/admin/settings" component={AdminSettings} />
-      <Route path="/admin/apps/add-url" component={AdminAddByUrl} />
-      <Route path="/admin/apps/add-file" component={AdminAddByFile} />
-      <Route path="/admin/admins" component={AdminAdmins} />
-      <Route path="/admin/reviews" component={AdminReviews} />
-      <Route path="/admin/balances" component={AdminBalances} />
+      <Route path="/admin">{() => <AdminRoute component={AdminDashboard} />}</Route>
+      <Route path="/admin/apps/add-url">{() => <AdminRoute component={AdminAddByUrl} />}</Route>
+      <Route path="/admin/apps/add-file">{() => <AdminRoute component={AdminAddByFile} />}</Route>
+      <Route path="/admin/apps">{() => <AdminRoute component={AdminApps} />}</Route>
+      <Route path="/admin/featured">{() => <AdminRoute component={AdminFeatured} />}</Route>
+      <Route path="/admin/subscribers">{() => <AdminRoute component={AdminSubscribers} />}</Route>
+      <Route path="/admin/groups">{() => <AdminRoute component={AdminGroups} />}</Route>
+      <Route path="/admin/categories">{() => <AdminRoute component={AdminCategories} />}</Route>
+      <Route path="/admin/subcodes">{() => <AdminRoute component={AdminSubCodes} />}</Route>
+      <Route path="/admin/requests">{() => <AdminRoute component={AdminRequests} />}</Route>
+      <Route path="/admin/packages">{() => <AdminRoute component={AdminPackages} />}</Route>
+      <Route path="/admin/purchases">{() => <AdminRoute component={AdminPurchases} />}</Route>
+      <Route path="/admin/notifications">{() => <AdminRoute component={AdminNotifications} />}</Route>
+      <Route path="/admin/downloads">{() => <AdminRoute component={AdminDownloads} />}</Route>
+      <Route path="/admin/settings">{() => <AdminRoute component={AdminSettings} />}</Route>
+      <Route path="/admin/admins">{() => <AdminRoute component={AdminAdmins} />}</Route>
+      <Route path="/admin/reviews">{() => <AdminRoute component={AdminReviews} />}</Route>
+      <Route path="/admin/balances">{() => <AdminRoute component={AdminBalances} />}</Route>
 
       <Route path="/subscriber/:code" component={SubscriberProfile} />
       <Route path="/enroll" component={Enroll} />
