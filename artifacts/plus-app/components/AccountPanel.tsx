@@ -3,6 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -169,18 +170,46 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
   const handlePickPhoto = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") return;
+      // Check current permission status first
+      const { status: currentStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
+
+      let finalStatus = currentStatus;
+
+      // Only request if undetermined
+      if (currentStatus === "undetermined") {
+        const { status: asked } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        finalStatus = asked;
+      }
+
+      // If denied → guide user to Settings
+      if (finalStatus === "denied") {
+        Alert.alert(
+          "الوصول إلى الصور",
+          "يجب السماح للتطبيق بالوصول إلى مكتبة الصور. افتح الإعدادات وأعطِ الإذن.",
+          [
+            { text: "إلغاء", style: "cancel" },
+            { text: "فتح الإعدادات", onPress: () => Linking.openSettings() },
+          ]
+        );
+        return;
+      }
+
+      // granted or limited — both can launch picker
+      if (finalStatus !== "granted" && finalStatus !== "limited") return;
+
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: "images",
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
       });
+
       if (!result.canceled && result.assets[0]?.uri) {
         setProfilePhoto(result.assets[0].uri);
       }
-    } catch {}
+    } catch (e) {
+      console.warn("handlePickPhoto error:", e);
+    }
   };
 
   return (
