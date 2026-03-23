@@ -1,5 +1,5 @@
 import { Feather, FontAwesome } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -8,6 +8,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -22,7 +23,6 @@ import { useSettings } from "@/contexts/SettingsContext";
 import type { ThemeColors } from "@/constants/colors";
 import GlassBackButton from "@/components/GlassBackButton";
 import AppIconImg from "@/components/AppIconImg";
-import SlidePanel from "@/components/SlidePanel";
 import { useSign } from "@/hooks/useSign";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -229,8 +229,68 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const [codeInput, setCodeInput] = useState(subscriptionCode);
   const [cloneName, setCloneName] = useState("");
   const [pendingAction, setPendingAction] = useState<"download" | "clone" | null>(null);
-  // ─── Nested app panel (قد يعجبك أيضاً → uses SlidePanel for consistent behavior) ──
-  const [nestedApp, setNestedApp] = useState<AppData | null>(null);
+  // ─── Nested app stack (قد يعجبك أيضاً → full Modal + stack navigation) ──
+  const [nestedStack, setNestedStack] = useState<AppData[]>([]);
+  const nestedSlide = useRef(new Animated.Value(0)).current;
+  const nestedTouchX = useRef(0);
+  const nestedClosing = useRef(false);
+
+  const OFFSCREEN = isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH;
+
+  const openNested = useCallback((a: AppData) => {
+    nestedSlide.setValue(OFFSCREEN);
+    setNestedStack(prev => [...prev, a]);
+    Animated.spring(nestedSlide, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }, [OFFSCREEN, nestedSlide]);
+
+  const closeNestedTopRef = useRef<() => void>(() => {});
+
+  const closeNestedTop = useCallback(() => {
+    if (nestedClosing.current) return;
+    nestedClosing.current = true;
+    Animated.timing(nestedSlide, {
+      toValue: OFFSCREEN,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      nestedClosing.current = false;
+      setNestedStack(prev => {
+        const next = prev.slice(0, -1);
+        if (next.length > 0) nestedSlide.setValue(0);
+        return next;
+      });
+    });
+  }, [OFFSCREEN, nestedSlide]);
+
+  useEffect(() => { closeNestedTopRef.current = closeNestedTop; }, [closeNestedTop]);
+
+  const nestedPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) => {
+        nestedTouchX.current = evt.nativeEvent.pageX;
+        return false;
+      },
+      onMoveShouldSetPanResponder: (_, g) => {
+        const edge = 52;
+        if (isArabic) {
+          return nestedTouchX.current >= SCREEN_WIDTH - edge && g.dx < -10 && Math.abs(g.dy) < Math.abs(g.dx);
+        }
+        return nestedTouchX.current <= edge && g.dx > 10 && Math.abs(g.dy) < Math.abs(g.dx);
+      },
+      onPanResponderMove: (_, g) => {
+        if (isArabic) { if (g.dx < 0) nestedSlide.setValue(g.dx); }
+        else { if (g.dx > 0) nestedSlide.setValue(g.dx); }
+      },
+      onPanResponderRelease: (_, g) => {
+        const threshold = SCREEN_WIDTH * 0.3;
+        const should = isArabic
+          ? g.dx < -threshold || g.vx < -0.8
+          : g.dx > threshold || g.vx > 0.8;
+        if (should) { closeNestedTopRef.current(); }
+        else { Animated.spring(nestedSlide, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start(); }
+      },
+    })
+  ).current;
 
   const handleDownload = () => {
     if (!subscriptionCode) {
@@ -483,7 +543,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             </View>
             <RelatedAppsRow
               apps={relatedApps}
-              onPress={setNestedApp}
+              onPress={onRelatedAppPress ?? openNested}
             />
           </>
         )}
@@ -559,17 +619,41 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Nested app panel: same SlidePanel used throughout the app ── */}
-      <SlidePanel visible={!!nestedApp} onClose={() => setNestedApp(null)}>
-        {nestedApp && (
-          <AppDetailPanel
-            app={nestedApp}
-            onClose={() => setNestedApp(null)}
-            relatedApps={relatedApps.filter((a) => a.id !== nestedApp.id)}
-            onRelatedAppPress={setNestedApp}
-          />
+      {/* ── Nested stack: Modal ensures full-screen coverage + gesture isolation ── */}
+      <Modal
+        visible={nestedStack.length > 0}
+        animationType="none"
+        onRequestClose={closeNestedTop}
+        statusBarTranslucent
+      >
+        {nestedStack.length > 0 && (
+          <View style={StyleSheet.absoluteFill}>
+            {/* Layer below: previous stack item (visible when top animates out) */}
+            {nestedStack.length > 1 && (
+              <View style={StyleSheet.absoluteFill}>
+                <AppDetailPanel
+                  app={nestedStack[nestedStack.length - 2]}
+                  onClose={closeNestedTop}
+                  relatedApps={relatedApps.filter(a => a.id !== nestedStack[nestedStack.length - 2].id)}
+                  onRelatedAppPress={openNested}
+                />
+              </View>
+            )}
+            {/* Top item: slides in/out, swipe-to-dismiss */}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { transform: [{ translateX: nestedSlide }] }]}
+              {...nestedPan.panHandlers}
+            >
+              <AppDetailPanel
+                app={nestedStack[nestedStack.length - 1]}
+                onClose={closeNestedTop}
+                relatedApps={relatedApps.filter(a => a.id !== nestedStack[nestedStack.length - 1].id)}
+                onRelatedAppPress={openNested}
+              />
+            </Animated.View>
+          </View>
         )}
-      </SlidePanel>
+      </Modal>
     </View>
   );
 }
