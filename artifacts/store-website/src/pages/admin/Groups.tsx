@@ -1402,6 +1402,8 @@ export default function AdminGroups() {
   const [devicesGroup, setDevicesGroup] = useState<GroupRecord | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [uploadingAll, setUploadingAll] = useState(false);
+  const [ipaUrlAll, setIpaUrlAll] = useState("");
+  const [savingUrlAll, setSavingUrlAll] = useState(false);
   const allIpaRef = useRef<HTMLInputElement>(null);
 
   const handleUploadAll = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1427,6 +1429,31 @@ export default function AdminGroups() {
     }
     setUploadingAll(false);
     if (allIpaRef.current) allIpaRef.current.value = "";
+  };
+
+  const handleSaveIpaUrlAll = async () => {
+    if (!ipaUrlAll.trim()) return;
+    setSavingUrlAll(true);
+    try {
+      const res = await adminFetch("/admin/groups/ipa-url-all", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ipaUrl: ipaUrlAll.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: `✅ تم تعيين رابط IPA لـ ${data.updatedCount} مجموعة`,
+          description: "كل المجموعات أصبحت جاهزة للتوزيع الآن",
+        });
+        fetchGroups();
+      } else {
+        toast({ title: "خطأ", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "فشل الحفظ", variant: "destructive" });
+    }
+    setSavingUrlAll(false);
   };
 
   const fetchGroups = async () => {
@@ -1555,70 +1582,78 @@ export default function AdminGroups() {
           </div>
         </div>
 
-        {/* ── Mismari+ IPA Bulk Upload ── */}
+        {/* ── Mismari+ IPA Bulk ── */}
         {groups.length > 0 && (() => {
-          const groupsWithIpa = groups.filter(g => !!g.storeIpaPath).length;
+          const groupsWithIpa = groups.filter(g => !!(g.ipaUrl || g.storeIpaPath)).length;
           const groupsWithoutIpa = groups.length - groupsWithIpa;
+          const allReady = groupsWithoutIpa === 0;
           return (
             <div className="rounded-2xl border overflow-hidden"
-              style={{ borderColor: groupsWithoutIpa > 0 ? "#9fbcff25" : "#22c55e25", background: groupsWithoutIpa > 0 ? "#9fbcff06" : "#22c55e06" }}>
-              <div className="px-5 py-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: groupsWithoutIpa > 0 ? `${A}15` : "#22c55e15" }}>
-                    <Download className="w-5 h-5" style={{ color: groupsWithoutIpa > 0 ? A : "#22c55e" }} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-white font-bold text-sm">تطبيق Mismari+ — IPA التوزيع</h3>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-                        style={{ background: groupsWithoutIpa > 0 ? `${A}15` : "#22c55e15", color: groupsWithoutIpa > 0 ? A : "#22c55e" }}>
-                        {groupsWithIpa}/{groups.length} مجموعة جاهزة
-                      </span>
+              style={{ borderColor: allReady ? "#22c55e25" : "#9fbcff25", background: allReady ? "#22c55e06" : "#9fbcff06" }}>
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: allReady ? "#22c55e15" : `${A}15` }}>
+                      <Download className="w-5 h-5" style={{ color: allReady ? "#22c55e" : A }} />
                     </div>
-                    <p className="text-white/35 text-xs mt-0.5">
-                      {groupsWithoutIpa > 0
-                        ? `ارفع IPA مرة واحدة ← يُطبَّق على كل المجموعات (${groupsWithoutIpa} مجموعة لا تزال بدون IPA)`
-                        : "جميع المجموعات تحتوي على IPA — يمكنك تحديثه في أي وقت"}
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-white font-bold text-sm">رابط IPA التوزيع — للكل</h3>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{ background: allReady ? "#22c55e15" : `${A}15`, color: allReady ? "#22c55e" : A }}>
+                          {groupsWithIpa}/{groups.length} مجموعة جاهزة
+                        </span>
+                      </div>
+                      <p className="text-white/35 text-xs mt-0.5">
+                        {allReady
+                          ? "جميع المجموعات جاهزة — يمكنك تحديث الرابط في أي وقت"
+                          : `أدخل رابط IPA الموقّع ← يُطبَّق على كل المجموعات (${groupsWithoutIpa} مجموعة بدون IPA)`}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+
+                {/* URL input row */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="url"
+                    value={ipaUrlAll}
+                    onChange={e => setIpaUrlAll(e.target.value)}
+                    placeholder="https://example.com/mismari-plus.ipa"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80 placeholder:text-white/20 font-mono outline-none focus:border-white/20"
+                    dir="ltr"
+                    onKeyDown={e => e.key === "Enter" && handleSaveIpaUrlAll()}
+                  />
+                  <button
+                    onClick={handleSaveIpaUrlAll}
+                    disabled={savingUrlAll || !ipaUrlAll.trim()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-colors shrink-0"
+                    style={{ background: A, color: "#000" }}>
+                    {savingUrlAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    تطبيق على الكل
+                  </button>
+                </div>
+
+                {/* Divider + file upload */}
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-white/20 text-xs">أو</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <div className="flex items-center gap-2 mt-3">
                   <button
                     onClick={() => allIpaRef.current?.click()}
                     disabled={uploadingAll}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-colors"
-                    style={{ background: groupsWithoutIpa > 0 ? A : "#22c55e20", color: groupsWithoutIpa > 0 ? "#000" : "#22c55e" }}>
-                    {uploadingAll
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <Upload className="w-4 h-4" />}
-                    {uploadingAll ? "جاري الرفع..." : groupsWithoutIpa > 0 ? "رفع IPA للكل" : "تحديث IPA"}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-40 transition-colors"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                    {uploadingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {uploadingAll ? "جاري الرفع..." : "رفع ملف IPA للكل"}
                   </button>
                   <input ref={allIpaRef} type="file" accept=".ipa" className="hidden" onChange={handleUploadAll} />
+                  <p className="text-white/20 text-xs">رفع ملف .ipa مباشرة (حد 500MB)</p>
                 </div>
               </div>
-
-              {groupsWithoutIpa > 0 && (
-                <div className="px-5 pb-4 border-t border-white/5 pt-3">
-                  <p className="text-white/25 text-xs mb-2 font-medium">كيفية بناء IPA تطبيق Mismari+:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {[
-                      { n: "1", title: "تثبيت EAS CLI", cmd: "npm install -g eas-cli", color: A },
-                      { n: "2", title: "بناء IPA", cmd: "cd artifacts/plus-app && eas build --platform ios --profile internal", color: "#f59e0b" },
-                      { n: "3", title: "ارفع الناتج هنا", cmd: "حمّل ملف .ipa من Expo dashboard ثم ارفعه بالزر أعلاه", color: "#22c55e" },
-                    ].map(s => (
-                      <div key={s.n} className="bg-[#0a0a0a] rounded-xl p-3">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="w-5 h-5 rounded-full text-xs font-black flex items-center justify-center"
-                            style={{ background: `${s.color}20`, color: s.color }}>{s.n}</span>
-                          <span className="text-white/50 text-xs font-medium">{s.title}</span>
-                        </div>
-                        <code className="text-white/30 text-xs block font-mono leading-relaxed break-all">{s.cmd}</code>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}

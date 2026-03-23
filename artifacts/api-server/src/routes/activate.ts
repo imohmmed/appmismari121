@@ -455,6 +455,34 @@ router.get("/admin/groups/:certName/download-link", async (req, res): Promise<vo
   res.json({ hasIpa: true, downloadLink, storeIpaPath: group.storeIpaPath });
 });
 
+// ─── Admin: Set IPA URL for ALL groups ───────────────────────────────────────
+// One URL → assign ipaUrl to every group + generate slugs for those missing one
+router.put("/admin/groups/ipa-url-all", async (req, res): Promise<void> => {
+  const { ipaUrl } = req.body as { ipaUrl?: string };
+  if (!ipaUrl?.trim()) {
+    res.status(400).json({ error: "ipaUrl مطلوب" });
+    return;
+  }
+
+  const allGroups = await db.select({ id: groupsTable.id, downloadSlug: groupsTable.downloadSlug }).from(groupsTable);
+
+  let updatedCount = 0;
+  for (const g of allGroups) {
+    let slug = g.downloadSlug;
+    if (!slug) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = crypto.randomBytes(4).toString("hex");
+        const [taken] = await db.select({ id: groupsTable.id }).from(groupsTable).where(eq(groupsTable.downloadSlug, candidate));
+        if (!taken) { slug = candidate; break; }
+      }
+    }
+    await db.update(groupsTable).set({ ipaUrl: ipaUrl.trim(), downloadSlug: slug }).where(eq(groupsTable.id, g.id));
+    updatedCount++;
+  }
+
+  res.json({ success: true, updatedCount });
+});
+
 // ─── Admin: Upload Mismari+ IPA to ALL groups ────────────────────────────────
 // One upload → assign same storeIpaPath to every group
 router.post(
