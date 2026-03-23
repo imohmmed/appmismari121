@@ -34,8 +34,8 @@ export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) 
     Alert.alert(
       isCurrentAr ? "تغيير اللغة" : "Change Language",
       isCurrentAr
-        ? "سوف يتم ترسيت التطبيق\nThe app will reset"
-        : "The app will reset\nسوف يتم ترسيت التطبيق",
+        ? "قم بترسيت التطبيق للحصول على افضل تجربة\nReset the app for better performance"
+        : "Reset the app for better performance\nقم بترسيت التطبيق للحصول على افضل تجربة",
       [
         {
           text: isCurrentAr ? "إلغاء" : "Cancel",
