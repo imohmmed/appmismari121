@@ -89,6 +89,47 @@ router.post("/subscriptions/activate", activateLimiter, async (req, res): Promis
   );
 });
 
+// ─── GET /api/subscriber/me?code=XXX (public — full subscriber info) ─────────
+// NOTE: Must be placed before /subscriber/:code to avoid route collision.
+router.get("/subscriber/me", async (req, res): Promise<void> => {
+  const code = ((req.query.code as string) || "").trim();
+  if (!code) { res.status(400).json({ error: "code required" }); return; }
+  try {
+    const [sub] = await db
+      .select({
+        id: subscriptionsTable.id,
+        subscriberName: subscriptionsTable.subscriberName,
+        phone: subscriptionsTable.phone,
+        email: subscriptionsTable.email,
+        udid: subscriptionsTable.udid,
+        deviceType: subscriptionsTable.deviceType,
+        groupName: subscriptionsTable.groupName,
+        planId: subscriptionsTable.planId,
+        isActive: subscriptionsTable.isActive,
+        balance: subscriptionsTable.balance,
+        activatedAt: subscriptionsTable.activatedAt,
+        expiresAt: subscriptionsTable.expiresAt,
+        createdAt: subscriptionsTable.createdAt,
+      })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.code, code))
+      .limit(1);
+    if (!sub) { res.status(404).json({ error: "not found" }); return; }
+
+    // Fetch plan info
+    const [plan] = sub.planId
+      ? await db.select({ name: plansTable.name, nameAr: plansTable.nameAr, price: plansTable.price, duration: plansTable.duration })
+          .from(plansTable).where(eq(plansTable.id, sub.planId)).limit(1)
+      : [null];
+
+    const { id, ...subWithoutId } = sub;
+    res.json({ ...subWithoutId, planName: plan?.name ?? null, planNameAr: plan?.nameAr ?? null, planPrice: plan?.price ?? null, planDuration: plan?.duration ?? null });
+  } catch (err) {
+    console.error("[subscriber/me] error:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
 // ─── GET /api/subscriber/balance?code=XXX (public) ───────────────────────────
 router.get("/subscriber/balance", async (req, res): Promise<void> => {
   const code = ((req.query.code as string) || "").trim();

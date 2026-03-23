@@ -38,6 +38,11 @@ interface SubscriberInfo {
   udid?: string | null;
   deviceType?: string | null;
   groupName?: string | null;
+  planName?: string | null;
+  planNameAr?: string | null;
+  planPrice?: number | null;
+  planDurationDays?: number | null;
+  balance?: number | null;
   activatedAt?: string | null;
   expiresAt?: string | null;
   isActive?: string | null;

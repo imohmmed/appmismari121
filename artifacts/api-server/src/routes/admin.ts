@@ -170,42 +170,6 @@ router.post("/admin/login", loginLimiter, async (req, res): Promise<void> => {
   }
 });
 
-// ─── GET /api/subscriber/me?code=XXX (public — no auth) ─────────────────────
-router.get("/subscriber/me", async (req, res): Promise<void> => {
-  const code = ((req.query.code as string) || "").trim();
-  if (!code) {
-    res.status(400).json({ error: "code required" });
-    return;
-  }
-  try {
-    const [sub] = await db
-      .select({
-        subscriberName: subscriptionsTable.subscriberName,
-        phone: subscriptionsTable.phone,
-        email: subscriptionsTable.email,
-        udid: subscriptionsTable.udid,
-        deviceType: subscriptionsTable.deviceType,
-        groupName: subscriptionsTable.groupName,
-        activatedAt: subscriptionsTable.activatedAt,
-        expiresAt: subscriptionsTable.expiresAt,
-        isActive: subscriptionsTable.isActive,
-        balance: subscriptionsTable.balance,
-        createdAt: subscriptionsTable.createdAt,
-      })
-      .from(subscriptionsTable)
-      .where(eq(subscriptionsTable.code, code))
-      .limit(1);
-    if (!sub) {
-      res.status(404).json({ error: "not found" });
-      return;
-    }
-    res.json(sub);
-  } catch (err) {
-    console.error("[subscriber/me] error:", err);
-    res.status(500).json({ error: "server error" });
-  }
-});
-
 // ─── GET /api/reviews?appId=X (public — fetch reviews for app) ──────────────
 router.get("/reviews", async (req, res): Promise<void> => {
   const appId = req.query.appId ? Number(req.query.appId) : undefined;

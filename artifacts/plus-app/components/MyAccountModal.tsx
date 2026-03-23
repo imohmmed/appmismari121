@@ -4,7 +4,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  Modal,
   PanResponder,
   ScrollView,
   StyleSheet,
@@ -18,13 +17,18 @@ import { useSettings } from "@/contexts/SettingsContext";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-interface SubscriberInfo {
+export interface SubscriberInfo {
   subscriberName?: string | null;
   phone?: string | null;
   email?: string | null;
   udid?: string | null;
   deviceType?: string | null;
   groupName?: string | null;
+  planName?: string | null;
+  planNameAr?: string | null;
+  planPrice?: number | null;
+  planDurationDays?: number | null;
+  balance?: number | null;
   activatedAt?: string | null;
   expiresAt?: string | null;
   isActive?: string | null;
@@ -46,6 +50,16 @@ function formatDate(dateStr?: string | null): string {
     return d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
   } catch {
     return dateStr;
+  }
+}
+
+function daysUntil(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  try {
+    const diff = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
   }
 }
 
@@ -105,17 +119,9 @@ export default function MyAccountModal({
   if (!mounted) return null;
 
   const isActive = subscriber?.isActive === "true";
-
-  const fields: { labelKey: string; value?: string | null }[] = [
-    { labelKey: "subName", value: subscriber?.subscriberName },
-    { labelKey: "subPhone", value: subscriber?.phone },
-    { labelKey: "subEmail", value: subscriber?.email },
-    { labelKey: "subGroup", value: subscriber?.groupName },
-    { labelKey: "subDeviceType", value: subscriber?.deviceType },
-    { labelKey: "subDate", value: formatDate(subscriber?.activatedAt) },
-    { labelKey: "subExpiry", value: formatDate(subscriber?.expiresAt) },
-    { labelKey: "subUdid", value: subscriber?.udid },
-  ];
+  const planLabel = subscriber?.planNameAr || subscriber?.planName;
+  const daysLeft = daysUntil(subscriber?.expiresAt);
+  const balance = subscriber?.balance ?? 0;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -147,7 +153,8 @@ export default function MyAccountModal({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} bounces>
-          {/* Profile header */}
+
+          {/* ── Profile Header ─────────────────────────────── */}
           <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
             <View style={[styles.avatarLarge, { backgroundColor: colors.backgroundSecondary, borderColor: colors.tint }]}>
               {profilePhoto ? (
@@ -156,34 +163,42 @@ export default function MyAccountModal({
                 <Feather name="user" size={40} color={colors.tint} />
               )}
             </View>
-            <View style={{ alignItems: "center", gap: 6 }}>
-              <Text style={[styles.profileName, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-                {subscriber?.subscriberName || t("guestUser")}
+            <Text style={[styles.profileName, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+              {subscriber?.subscriberName || t("guestUser")}
+            </Text>
+            {subscriber?.phone ? (
+              <Text style={[styles.profilePhone, { color: colors.textSecondary, fontFamily: "Inter_400Regular" }]}>
+                {subscriber.phone}
               </Text>
-              {subscriber?.phone ? (
-                <Text style={[styles.profilePhone, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-                  {subscriber.phone}
-                </Text>
-              ) : null}
+            ) : null}
+            {/* Status badge */}
+            <View style={styles.badgeRow}>
               <View style={[styles.statusBadge, { backgroundColor: isActive ? "#22c55e20" : "#ef444420" }]}>
+                <View style={[styles.statusDot, { backgroundColor: isActive ? "#22c55e" : "#ef4444" }]} />
                 <Text style={[styles.statusText, { color: isActive ? "#22c55e" : "#ef4444", fontFamily: fontAr("SemiBold") }]}>
                   {t(isActive ? "subActive" : "subInactive")}
                 </Text>
               </View>
+              {planLabel ? (
+                <View style={[styles.planBadge, { backgroundColor: `${colors.tint}18` }]}>
+                  <Text style={[styles.planBadgeText, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>
+                    {planLabel}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
-          {/* Subscription code */}
+          {/* ── Subscription Code ──────────────────────────── */}
           <View style={[styles.codeCard, { backgroundColor: colors.card }]}>
             <Text style={[styles.codeLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
               {isArabic ? "كود الاشتراك" : "Subscription Code"}
             </Text>
-            <Text style={[styles.codeValue, { color: colors.tint, fontFamily: "Inter_600SemiBold" }]}>
+            <Text style={[styles.codeValue, { color: colors.tint, fontFamily: "Inter_600SemiBold" }]} selectable>
               {subscriptionCode || "—"}
             </Text>
           </View>
 
-          {/* Fields */}
           {loading ? (
             <View style={styles.loadingWrap}>
               <Text style={[styles.loadingText, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
@@ -191,34 +206,88 @@ export default function MyAccountModal({
               </Text>
             </View>
           ) : subscriber ? (
-            <View style={[styles.fieldsCard, { backgroundColor: colors.card }]}>
-              {fields.map((f, i) => (
-                <View
-                  key={f.labelKey}
-                  style={[
-                    styles.fieldRow,
-                    { borderBottomColor: colors.cardBorder },
-                    isArabic && { flexDirection: "row-reverse" },
-                    i === fields.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-                    {t(f.labelKey as any)}
+            <>
+              {/* ── Quick Stats Row ──────────────────────────── */}
+              <View style={[styles.statsRow, isArabic && { flexDirection: "row-reverse" }]}>
+                {/* Balance */}
+                <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                  <Feather name="credit-card" size={18} color={colors.tint} />
+                  <Text style={[styles.statValue, { color: colors.text, fontFamily: "Inter_700Bold" }]}>
+                    {balance.toLocaleString("ar-IQ")}
                   </Text>
-                  <Text
-                    style={[
-                      styles.fieldValue,
-                      { color: colors.text, fontFamily: f.labelKey === "subUdid" ? "Inter_400Regular" : fontAr("SemiBold") },
-                      isArabic && { textAlign: "left" },
-                    ]}
-                    numberOfLines={f.labelKey === "subUdid" ? 2 : 1}
-                    selectable
-                  >
-                    {f.value || "—"}
+                  <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                    {isArabic ? "الرصيد (د.ع)" : "Balance (IQD)"}
                   </Text>
                 </View>
-              ))}
-            </View>
+                {/* Days left */}
+                <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+                  <Feather name="clock" size={18} color={daysLeft !== null && daysLeft < 30 ? "#FF9F0A" : "#34C759"} />
+                  <Text style={[
+                    styles.statValue,
+                    { color: daysLeft !== null && daysLeft < 30 ? "#FF9F0A" : "#34C759", fontFamily: "Inter_700Bold" }
+                  ]}>
+                    {daysLeft !== null ? (daysLeft > 0 ? daysLeft : 0) : "—"}
+                  </Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                    {isArabic ? "يوم متبقي" : "Days left"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* ── Detail Fields ─────────────────────────────── */}
+              <View style={[styles.fieldsCard, { backgroundColor: colors.card }]}>
+                {[
+                  { icon: "user", label: isArabic ? "الاسم" : "Name", value: subscriber.subscriberName, mono: false },
+                  { icon: "phone", label: isArabic ? "رقم الهاتف" : "Phone", value: subscriber.phone, mono: true },
+                  { icon: "mail", label: isArabic ? "البريد" : "Email", value: subscriber.email, mono: true },
+                  { icon: "package", label: isArabic ? "الباقة" : "Plan", value: planLabel, mono: false },
+                  { icon: "smartphone", label: isArabic ? "نوع الجهاز" : "Device", value: subscriber.deviceType, mono: false },
+                  { icon: "users", label: isArabic ? "المجموعة" : "Group", value: subscriber.groupName, mono: false },
+                  { icon: "calendar", label: isArabic ? "تاريخ التفعيل" : "Activated", value: formatDate(subscriber.activatedAt), mono: false },
+                  { icon: "calendar", label: isArabic ? "تاريخ الانتهاء" : "Expires", value: formatDate(subscriber.expiresAt), mono: false },
+                ].filter(f => f.value).map((field, i, arr) => (
+                  <View
+                    key={field.label}
+                    style={[
+                      styles.fieldRow,
+                      { borderBottomColor: colors.cardBorder },
+                      isArabic && { flexDirection: "row-reverse" },
+                      i === arr.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <View style={[styles.fieldIconWrap, { backgroundColor: `${colors.tint}12` }]}>
+                      <Feather name={field.icon as any} size={13} color={colors.tint} />
+                    </View>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                      {field.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.fieldValue,
+                        { color: colors.text, fontFamily: field.mono ? "Inter_400Regular" : fontAr("SemiBold") },
+                        isArabic && { textAlign: "left" },
+                      ]}
+                      numberOfLines={1}
+                      selectable
+                    >
+                      {field.value || "—"}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* ── UDID (separate collapsible-style card) ─── */}
+              {subscriber.udid ? (
+                <View style={[styles.udidCard, { backgroundColor: colors.card }]}>
+                  <Text style={[styles.udidLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
+                    UDID
+                  </Text>
+                  <Text style={[styles.udidValue, { color: colors.text, fontFamily: "Inter_400Regular" }]} selectable numberOfLines={2}>
+                    {subscriber.udid}
+                  </Text>
+                </View>
+              ) : null}
+            </>
           ) : (
             <View style={[styles.emptyCard, { backgroundColor: colors.card }]}>
               <Feather name="user-x" size={36} color={colors.textSecondary} />
@@ -243,13 +312,13 @@ const styles = StyleSheet.create({
   },
   panel: {
     position: "absolute",
-    top: 220,
+    top: 120,
     left: 0,
     right: 0,
     bottom: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
   },
   handleBar: {
@@ -263,7 +332,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   headerTitle: { fontSize: 18, textAlign: "center" },
   closeButton: {
@@ -275,59 +344,98 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     borderRadius: 20,
-    padding: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     alignItems: "center",
-    gap: 14,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
   },
   avatarLarge: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
+    borderWidth: 2.5,
     overflow: "hidden",
+    marginBottom: 2,
   },
-  avatarPhoto: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-  },
-  profileName: { fontSize: 20 },
-  profilePhone: { fontSize: 14 },
+  avatarPhoto: { width: 80, height: 80, borderRadius: 40 },
+  profileName: { fontSize: 20, textAlign: "center" },
+  profilePhone: { fontSize: 14, textAlign: "center", direction: "ltr" },
+  badgeRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
   statusBadge: {
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
   },
-  statusText: { fontSize: 13 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 12 },
+  planBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  planBadgeText: { fontSize: 12 },
   codeCard: {
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 14,
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: "center",
     gap: 4,
   },
-  codeLabel: { fontSize: 12 },
-  codeValue: { fontSize: 22, letterSpacing: 2 },
+  codeLabel: { fontSize: 11 },
+  codeValue: { fontSize: 20, letterSpacing: 2 },
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 10,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    gap: 6,
+  },
+  statValue: { fontSize: 22 },
+  statLabel: { fontSize: 11, textAlign: "center" },
   fieldsCard: {
     borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 20,
+    marginBottom: 10,
   },
   fieldRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
+    gap: 10,
+  },
+  fieldIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   fieldLabel: { fontSize: 13, flex: 1 },
-  fieldValue: { fontSize: 13, flex: 2, textAlign: "right" },
+  fieldValue: { fontSize: 13, flex: 1.5, textAlign: "right" },
+  udidCard: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+    gap: 6,
+  },
+  udidLabel: { fontSize: 11 },
+  udidValue: { fontSize: 12, lineHeight: 20, direction: "ltr" },
   loadingWrap: { alignItems: "center", paddingVertical: 40 },
   loadingText: { fontSize: 14 },
   emptyCard: {
