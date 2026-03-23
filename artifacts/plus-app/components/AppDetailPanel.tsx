@@ -240,6 +240,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
+  const [reviewerInfo, setReviewerInfo] = useState<{ name: string; phone: string } | null>(null);
 
   useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -263,6 +264,23 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
       .catch(() => setReviews([]))
       .finally(() => setReviewsLoading(false));
   }, [app.id]);
+
+  // Fetch subscriber info to use in reviews
+  useEffect(() => {
+    if (!subscriptionCode) return;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (!domain) return;
+    fetch(`https://${domain}/api/subscriber/${encodeURIComponent(subscriptionCode)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const s = data?.subscriber;
+        if (s?.subscriberName || s?.phone) {
+          setReviewerInfo({ name: s.subscriberName || "", phone: s.phone || "" });
+        }
+      })
+      .catch(() => {});
+  }, [subscriptionCode]);
+
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [codeInput, setCodeInput] = useState(subscriptionCode);
@@ -407,8 +425,8 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
     const newReview: Review = {
       id: Date.now(),
-      name: isArabic ? "مجهول" : "Anonymous",
-      phone: "",
+      name: reviewerInfo?.name || (isArabic ? "مجهول" : "Anonymous"),
+      phone: reviewerInfo?.phone || "",
       rating: reviewRating,
       text: reviewText,
       date: isArabic ? "الآن" : "Just now",

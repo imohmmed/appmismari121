@@ -172,6 +172,7 @@ router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Prom
     .select({
       code: subscriptionsTable.code,
       subscriberName: subscriptionsTable.subscriberName,
+      phone: subscriptionsTable.phone,
       deviceType: subscriptionsTable.deviceType,
       planId: subscriptionsTable.planId,
       isActive: subscriptionsTable.isActive,
@@ -194,6 +195,7 @@ router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Prom
     subscriber: {
       code: sub.code,
       subscriberName: sub.subscriberName,
+      phone: sub.phone,
       deviceType: sub.deviceType,
       isActive: sub.isActive,
       activatedAt: sub.activatedAt,
