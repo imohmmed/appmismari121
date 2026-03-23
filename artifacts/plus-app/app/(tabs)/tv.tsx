@@ -472,7 +472,7 @@ export default function SignScreen() {
   const hasArabic = (s: string) => /[\u0600-\u06FF]/.test(s);
 
   const signTitle = (
-    <Text style={[styles.headerTitle, { color: colors.text }]}>
+    <Text style={[styles.headerTitle, { color: colors.text, textAlign: isArabic ? "right" : "left" }]}>
       {isArabic
         ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
         : <><Text style={{ fontFamily: "Inter_700Bold" }}>Mismari </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
