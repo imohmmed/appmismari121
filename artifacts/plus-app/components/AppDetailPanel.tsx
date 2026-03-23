@@ -24,6 +24,7 @@ import type { ThemeColors } from "@/constants/colors";
 import GlassBackButton from "@/components/GlassBackButton";
 import AppIconImg from "@/components/AppIconImg";
 import { useSign } from "@/hooks/useSign";
+import { nestedPanelActiveRef } from "@/utils/nestedPanelState";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_COLLAPSE_POINT = 120;
@@ -236,6 +237,10 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const nestedSlide = useRef(new Animated.Value(0)).current;
   const nestedTouchX = useRef(0);
   const nestedClosing = useRef(false);
+  const isArabicRef = useRef(isArabic);
+
+  useEffect(() => { isArabicRef.current = isArabic; }, [isArabic]);
+  useEffect(() => { nestedPanelActiveRef.current = nestedStack.length > 0; }, [nestedStack.length]);
 
   const OFFSCREEN = isArabic ? -SCREEN_WIDTH : SCREEN_WIDTH;
 
@@ -274,18 +279,20 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
       },
       onMoveShouldSetPanResponder: (_, g) => {
         const edge = 52;
-        if (isArabic) {
+        const ar = isArabicRef.current;
+        if (ar) {
           return nestedTouchX.current >= SCREEN_WIDTH - edge && g.dx < -10 && Math.abs(g.dy) < Math.abs(g.dx);
         }
         return nestedTouchX.current <= edge && g.dx > 10 && Math.abs(g.dy) < Math.abs(g.dx);
       },
       onPanResponderMove: (_, g) => {
-        if (isArabic) { if (g.dx < 0) nestedSlide.setValue(g.dx); }
+        if (isArabicRef.current) { if (g.dx < 0) nestedSlide.setValue(g.dx); }
         else { if (g.dx > 0) nestedSlide.setValue(g.dx); }
       },
       onPanResponderRelease: (_, g) => {
         const threshold = SCREEN_WIDTH * 0.3;
-        const should = isArabic
+        const ar = isArabicRef.current;
+        const should = ar
           ? g.dx < -threshold || g.vx < -0.8
           : g.dx > threshold || g.vx > 0.8;
         if (should) { closeNestedTopRef.current(); }

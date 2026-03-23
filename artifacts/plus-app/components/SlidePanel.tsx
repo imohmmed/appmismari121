@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { useSettings } from "@/contexts/SettingsContext";
+import { nestedPanelActiveRef } from "@/utils/nestedPanelState";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -62,6 +63,7 @@ export default function SlidePanel({ visible, onClose, children }: SlidePanelPro
         return false;
       },
       onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (nestedPanelActiveRef.current) return false;
         const moreHorizontal = Math.abs(gestureState.dy) < Math.abs(gestureState.dx);
         if (isArabic) {
           // RTL: swipe starts from right edge, going left to dismiss
