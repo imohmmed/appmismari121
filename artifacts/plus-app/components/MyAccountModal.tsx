@@ -78,7 +78,7 @@ export default function MyAccountModal({
   profilePhoto,
 }: MyAccountModalProps) {
   const insets = useSafeAreaInsets();
-  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
+  const { colors, t, fontAr, isArabic } = useSettings();
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = React.useRef(new Animated.Value(0)).current;
   const panY = React.useRef(new Animated.Value(0)).current;
@@ -194,16 +194,6 @@ export default function MyAccountModal({
                 </View>
               ) : null}
             </View>
-          </View>
-
-          {/* ── Subscription Code ──────────────────────────── */}
-          <View style={[styles.codeCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.codeLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-              {isArabic ? "كود الاشتراك" : "Subscription Code"}
-            </Text>
-            <Text style={[styles.codeValue, { color: colors.tint, fontFamily: "Inter_600SemiBold" }]} selectable>
-              {subscriptionCode || "—"}
-            </Text>
           </View>
 
           {loading ? (
@@ -416,16 +406,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   planBadgeText: { fontSize: 12 },
-  codeCard: {
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 10,
-    alignItems: "center",
-    gap: 4,
-  },
-  codeLabel: { fontSize: 11 },
-  codeValue: { fontSize: 20, letterSpacing: 2 },
   statsRow: {
     flexDirection: "row",
     gap: 10,
