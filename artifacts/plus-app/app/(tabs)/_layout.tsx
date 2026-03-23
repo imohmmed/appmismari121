@@ -16,7 +16,7 @@ function NativeTabLayout() {
       <Label>{t("tabPlus")}</Label>
     </NativeTabs.Trigger>,
     <NativeTabs.Trigger key="tv" name="tv">
-      <Icon sf={{ default: "play.tv", selected: "play.tv.fill" }} />
+      <Icon sf={{ default: "signature", selected: "signature" }} />
       <Label>{t("tabTV")}</Label>
     </NativeTabs.Trigger>,
     <NativeTabs.Trigger key="smm" name="smm">

@@ -14,7 +14,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 
 const TAB_KEYS = [
   { name: "index",   translationKey: "tabPlus"    as const, icon: "plus-square"  },
-  { name: "tv",      translationKey: "tabTV"       as const, icon: "tv"           },
+  { name: "tv",      translationKey: "tabTV"       as const, icon: "pen-tool"    },
   { name: "smm",     translationKey: "tabSMM"      as const, icon: "message-square" },
   { name: "numbers", translationKey: "tabNumbers"  as const, icon: "bar-chart-2"  },
   { name: "search",  translationKey: "headerSearch" as const, icon: "search"      },
