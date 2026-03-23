@@ -130,7 +130,6 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   const MENU_ITEMS = [
     { key: "profile", label: t("myAccount"), icon: "user" as const },
     { key: "purchases", label: t("purchases"), icon: "shopping-bag" as const },
-    { key: "notifications", label: t("notifications"), icon: "bell" as const },
     { key: "settings", label: t("settings"), icon: "settings" as const },
   ];
 
@@ -306,7 +305,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                         {tx.note || (tx.type === "credit" ? "إضافة رصيد" : tx.type === "purchase" ? "شراء" : "خصم رصيد")}
                       </Text>
                       <Text style={[styles.balanceTxAmt, { color: tx.type === "credit" ? "#34C759" : "#FF3B30", fontFamily: "Inter_600SemiBold" }]}>
-                        {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString("en-US")}
+                        {tx.type === "credit" ? "+" : "-"}{(tx.amount ?? 0).toLocaleString("en-US")}
                       </Text>
                     </View>
                   ))}
