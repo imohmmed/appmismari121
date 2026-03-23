@@ -260,7 +260,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                 ) : (
                   <>
                     <Text style={[styles.balanceAmount, { color: colors.tint, fontFamily: "Inter_700Bold" }]}>
-                      {balance.toLocaleString("ar-IQ")}
+                      {balance.toLocaleString("en-US")}
                     </Text>
                     <Text style={[styles.balanceCurrency, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
                       {" "}د.ع
@@ -277,7 +277,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
                         {tx.note || (tx.type === "credit" ? "إضافة رصيد" : tx.type === "purchase" ? "شراء" : "خصم رصيد")}
                       </Text>
                       <Text style={[styles.balanceTxAmt, { color: tx.type === "credit" ? "#34C759" : "#FF3B30", fontFamily: "Inter_600SemiBold" }]}>
-                        {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString("ar-IQ")}
+                        {tx.type === "credit" ? "+" : "-"}{tx.amount.toLocaleString("en-US")}
                       </Text>
                     </View>
                   ))}

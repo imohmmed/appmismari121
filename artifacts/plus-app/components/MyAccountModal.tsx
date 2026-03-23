@@ -78,7 +78,7 @@ export default function MyAccountModal({
   profilePhoto,
 }: MyAccountModalProps) {
   const insets = useSafeAreaInsets();
-  const { colors, t, fontAr, isArabic } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropAnim = React.useRef(new Animated.Value(0)).current;
   const panY = React.useRef(new Animated.Value(0)).current;
@@ -178,7 +178,7 @@ export default function MyAccountModal({
                 {subscriber.phone}
               </Text>
             ) : null}
-            {/* Status badge */}
+            {/* Status badge + referral */}
             <View style={styles.badgeRow}>
               <View style={[styles.statusBadge, { backgroundColor: isActive ? "#22c55e20" : "#ef444420" }]}>
                 <View style={[styles.statusDot, { backgroundColor: isActive ? "#22c55e" : "#ef4444" }]} />
@@ -186,12 +186,23 @@ export default function MyAccountModal({
                   {t(isActive ? "subActive" : "subInactive")}
                 </Text>
               </View>
-              {planLabel ? (
-                <View style={[styles.planBadge, { backgroundColor: `${colors.tint}18` }]}>
-                  <Text style={[styles.planBadgeText, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>
-                    {planLabel}
+              {subscriptionCode ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+                    const link = `https://${domain}/activate?ref=${subscriptionCode}`;
+                    await Clipboard.setStringAsync(link);
+                    Alert.alert("", isArabic ? "تم نسخ رابط الإحالة" : "Referral link copied");
+                  }}
+                  style={[styles.referralBadge, { backgroundColor: `${colors.tint}15`, borderColor: `${colors.tint}30` }]}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="link-2" size={10} color={colors.tint} />
+                  <Text style={[styles.referralText, { color: colors.tint, fontFamily: fontAr("SemiBold") }]}>
+                    {isArabic ? "رابط الإحالة" : "Referral Link"}
                   </Text>
-                </View>
+                  <Feather name="copy" size={10} color={`${colors.tint}80`} />
+                </TouchableOpacity>
               ) : null}
             </View>
           </View>
@@ -210,7 +221,7 @@ export default function MyAccountModal({
                 <View style={[styles.statCard, { backgroundColor: colors.card }]}>
                   <Feather name="credit-card" size={18} color={colors.tint} />
                   <Text style={[styles.statValue, { color: colors.text, fontFamily: "Inter_700Bold" }]}>
-                    {balance.toLocaleString("ar-IQ")}
+                    {balance.toLocaleString("en-US")}
                   </Text>
                   <Text style={[styles.statLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
                     {isArabic ? "الرصيد (د.ع)" : "Balance (IQD)"}
@@ -400,12 +411,16 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 12 },
-  planBadge: {
-    paddingHorizontal: 12,
+  referralBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+    borderWidth: 1,
   },
-  planBadgeText: { fontSize: 12 },
+  referralText: { fontSize: 11 },
   statsRow: {
     flexDirection: "row",
     gap: 10,
