@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   Linking,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -17,12 +19,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AccountPanel from "@/components/AccountPanel";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import SignUrlModal from "@/components/SignUrlModal";
 import { useSettings } from "@/contexts/SettingsContext";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
@@ -232,6 +237,33 @@ export default function SignScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
 
+  // ── Refs for swipe-back PanResponder (avoid stale closures) ─────────────
+  const screenRef = useRef(screen);
+  const isArabicRef = useRef(isArabic);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+  useEffect(() => { isArabicRef.current = isArabic; }, [isArabic]);
+  const resetToHomeRef = useRef<() => void>(() => {});
+
+  const swipeBackHandler = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (screenRef.current === "home") return false;
+        const isH = Math.abs(g.dx) > Math.abs(g.dy) + 5 && Math.abs(g.dx) > 25;
+        if (!isH) return false;
+        return isArabicRef.current ? g.dx < -15 : g.dx > 15;
+      },
+      onPanResponderRelease: (_, g) => {
+        if (screenRef.current === "home") return;
+        if (isArabicRef.current && (g.dx < -(SCREEN_WIDTH * 0.25) || g.vx < -0.5)) {
+          resetToHomeRef.current();
+        } else if (!isArabicRef.current && (g.dx > SCREEN_WIDTH * 0.25 || g.vx > 0.5)) {
+          resetToHomeRef.current();
+        }
+      },
+    })
+  ).current;
+
   const stopPoll = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
@@ -391,11 +423,13 @@ export default function SignScreen() {
     setCurrentJobId(null);
   }, [stopPoll]);
 
+  useEffect(() => { resetToHomeRef.current = resetToHome; }, [resetToHome]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   const paddingTop = isWeb ? 67 : insets.top;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop }]} {...swipeBackHandler.panHandlers}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <View style={[
@@ -406,14 +440,12 @@ export default function SignScreen() {
       ]}>
         {(screen !== "home") && (
           <TouchableOpacity onPress={resetToHome} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
-            <Feather name="arrow-left" size={16} color={colors.text} />
+            <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
           </TouchableOpacity>
         )}
         <View style={{
           flex: 1,
-          alignItems: screen !== "home"
-            ? (isArabic ? "flex-start" : "flex-end")
-            : (isArabic ? "flex-end" : "flex-start"),
+          alignItems: isArabic ? "flex-end" : "flex-start",
         }}>
           <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
             {isArabic
@@ -497,7 +529,7 @@ export default function SignScreen() {
         {/* ══ CUSTOMIZE ══════════════════════════════════════════════════════ */}
         {screen === "customize" && ipaInfo && (
           <>
-            <SectionHeader title={t("signInfoCard")} colors={colors} fontAr={fontAr} />
+            <SectionHeader title={t("signInfoCard")} colors={colors} fontAr={fontAr} isArabic={isArabic} />
 
             {/* IPA info card */}
             <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
@@ -521,7 +553,7 @@ export default function SignScreen() {
             </View>
 
             {/* Customize */}
-            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold"), marginTop: 24, marginBottom: 12 }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: fontAr("Bold"), marginTop: 24, marginBottom: 12, textAlign: isArabic ? "right" : "left" }]}>
               {t("signCustomize")}
             </Text>
 
@@ -530,8 +562,8 @@ export default function SignScreen() {
               { key: "customBundle", label: t("signCustomBundle"), hint: t("signCustomBundleHint"), value: customBundle, set: setCustomBundle, placeholder: ipaInfo.bundleId, mono: true },
             ].map(f => (
               <View key={f.key} style={{ marginBottom: 16 }}>
-                <Text style={[styles.fieldLabel, { color: TINT, fontFamily: fontAr("SemiBold") }]}>{f.label}</Text>
-                <Text style={[styles.fieldHint, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{f.hint}</Text>
+                <Text style={[styles.fieldLabel, { color: TINT, fontFamily: fontAr("SemiBold"), textAlign: isArabic ? "right" : "left" }]}>{f.label}</Text>
+                <Text style={[styles.fieldHint, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>{f.hint}</Text>
                 <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.cardBorder, marginTop: 6 }]}>
                   <TextInput
                     style={[styles.urlInput, { color: colors.text, fontFamily: f.mono ? "Inter_400Regular" : fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}
