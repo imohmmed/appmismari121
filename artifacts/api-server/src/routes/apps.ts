@@ -14,7 +14,7 @@ const router: IRouter = Router();
 
 /**
  * Rebuild the icon URL dynamically using the current request's host.
- * Stored icon URLs use an old Replit dev domain that changes on restart.
+ * Stored icon URLs use an old dev domain that changes on restart.
  * iconPath (e.g. /admin/FilesIPA/Icons/abc.png) is always stable.
  */
 function resolveIconUrl(req: any, icon: string, iconPath: string | null | undefined): string {

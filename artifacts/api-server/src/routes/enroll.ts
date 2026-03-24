@@ -22,14 +22,12 @@ function cleanExpiredTokens() {
 setInterval(cleanExpiredTokens, 60_000);
 
 // ─── Safe base URL resolution ─────────────────────────────────────────────────
-// Priority: APP_BASE_URL env → x-forwarded-host header → REPLIT_DEV_DOMAIN env → host header
 function getBaseUrl(req: import("express").Request): string {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   const proto = (req.headers["x-forwarded-proto"] as string) || "https";
   const host = (req.headers["x-forwarded-host"] as string)
-    || (process.env.REPLIT_DEV_DOMAIN ? process.env.REPLIT_DEV_DOMAIN : null)
     || (req.headers["host"] as string)
-    || "";
+    || "app.mismari.com";
   return `${proto}://${host}`;
 }
 

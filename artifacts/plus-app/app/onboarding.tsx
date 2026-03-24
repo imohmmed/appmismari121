@@ -250,7 +250,7 @@ export default function OnboardingScreen() {
         count++;
         if (count > maxSeconds) return;
         try {
-          // _t busts any proxy/CDN cache — Replit dev proxy ignores Cache-Control on GET
+          // _t busts any proxy/CDN cache
           const r = await fetch(
             `${getApiBase()}/api/profile/udid-check?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
             { cache: "no-store" }

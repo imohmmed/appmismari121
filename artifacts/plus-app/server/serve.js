@@ -84,9 +84,7 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
 function getApiDomain(req) {
   const host = req.headers["x-forwarded-host"] || req.headers["host"] || "";
   if (host && !host.includes("undefined")) return host.replace(/:\d+$/, "");
-  return process.env.REPLIT_INTERNAL_APP_DOMAIN
-    || process.env.REPLIT_DEV_DOMAIN
-    || "app.mismari.com";
+  return "app.mismari.com";
 }
 
 function serveStaticFile(urlPath, res, req) {
