@@ -423,7 +423,7 @@ export default function AdminSubscribers() {
     setLoading(true);
     try {
       const [subsData, plansData] = await Promise.all([
-        adminFetch(`/admin/subscriptions?limit=200${search ? `&search=${encodeURIComponent(search)}` : ""}`),
+        adminFetch(`/admin/subscriptions?limit=200&activated=yes${search ? `&search=${encodeURIComponent(search)}` : ""}`),
         adminFetch("/admin/plans"),
       ]);
       setSubs(subsData?.subscriptions || []);
@@ -435,11 +435,9 @@ export default function AdminSubscribers() {
   useEffect(() => { fetchData(); }, [search]);
 
   const filtered = useMemo(() => {
-    // Only show activated subscriptions (those with a real subscriber name)
-    const activated = subs.filter(s => !!s.subscriberName);
-    if (!search.trim()) return activated;
+    if (!search.trim()) return subs;
     const q = search.toLowerCase();
-    return activated.filter(s =>
+    return subs.filter(s =>
       (s.subscriberName || "").toLowerCase().includes(q) ||
       (s.phone || "").includes(q) ||
       (s.email || "").toLowerCase().includes(q) ||

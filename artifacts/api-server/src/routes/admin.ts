@@ -591,11 +591,13 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
   const page = Number((req.query as any).page || 1);
   const limit = Number((req.query as any).limit || 50);
   const search = (req.query as any).search as string | undefined;
+  const isActiveFilter = (req.query as any).isActive as string | undefined;
+  const activated = (req.query as any).activated as string | undefined;
   const offset = (page - 1) * limit;
 
-  const conditions: any[] = [];
+  const conds: any[] = [];
   if (search) {
-    conditions.push(or(
+    conds.push(or(
       ilike(subscriptionsTable.subscriberName, `%${search}%`),
       ilike(subscriptionsTable.phone, `%${search}%`),
       ilike(subscriptionsTable.email, `%${search}%`),
@@ -603,6 +605,16 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
       ilike(subscriptionsTable.udid, `%${search}%`),
     ));
   }
+  if (isActiveFilter === "true" || isActiveFilter === "false") {
+    conds.push(eq(subscriptionsTable.isActive, isActiveFilter));
+  }
+  if (activated === "yes") {
+    conds.push(sql`${subscriptionsTable.subscriberName} IS NOT NULL`);
+  } else if (activated === "no") {
+    conds.push(sql`${subscriptionsTable.subscriberName} IS NULL`);
+  }
+
+  const whereClause = conds.length === 0 ? undefined : conds.length === 1 ? conds[0] : and(...conds);
 
   const rows = await db
     .select({
@@ -619,18 +631,23 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
       planNameAr: plansTable.nameAr,
       sourceType: subscriptionsTable.sourceType,
       isActive: subscriptionsTable.isActive,
+      balance: subscriptionsTable.balance,
+      pushToken: subscriptionsTable.pushToken,
       activatedAt: subscriptionsTable.activatedAt,
       expiresAt: subscriptionsTable.expiresAt,
       createdAt: subscriptionsTable.createdAt,
     })
     .from(subscriptionsTable)
     .leftJoin(plansTable, eq(subscriptionsTable.planId, plansTable.id))
-    .where(conditions.length > 0 ? conditions[0] : undefined)
+    .where(whereClause)
     .orderBy(desc(subscriptionsTable.createdAt))
     .limit(limit)
     .offset(offset);
 
-  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(subscriptionsTable);
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(subscriptionsTable)
+    .where(whereClause);
 
   res.json({ subscriptions: rows, total, page, limit });
 });

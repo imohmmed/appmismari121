@@ -1,3 +1,4 @@
+import React from "react";
 import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -43,7 +44,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function AdminRoute({ component: Component }: { component: () => JSX.Element }) {
+function AdminRoute({ component: Component }: { component: () => React.ReactElement }) {
   const token = localStorage.getItem("adminToken");
   if (!token) return <Redirect to="/admin/login" />;
   return <Component />;
