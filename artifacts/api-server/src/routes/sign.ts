@@ -184,6 +184,30 @@ async function signIpa(opts: {
 const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
 fs.mkdirSync(DYLIB_DIR, { recursive: true });
 
+async function ensureAntiRevokeDylib(): Promise<string | null> {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  if (fs.existsSync(p)) return p;
+  try {
+    const srcPath = path.join(process.cwd(), "scripts", "antirevoke.c");
+    if (!fs.existsSync(srcPath)) return null;
+    const zigBin = "/tmp/zig-linux-x86_64-0.11.0/zig";
+    if (!fs.existsSync(zigBin)) return null;
+    const { promisify } = await import("util");
+    const { execFile: ef } = await import("child_process");
+    const execAsync = promisify(ef);
+    await execAsync(zigBin, ["cc", "-target", "aarch64-macos", "-shared", "-o", p, srcPath, "-ldl"], { timeout: 30000 });
+    if (fs.existsSync(p)) {
+      console.log("[antirevoke] Built dylib automatically:", p);
+      return p;
+    }
+  } catch (e: any) {
+    console.error("[antirevoke] Auto-build failed:", e.message);
+  }
+  return null;
+}
+
+ensureAntiRevokeDylib();
+
 function getAntiRevokeDylibPath(): string | null {
   const p = path.join(DYLIB_DIR, "antirevoke.dylib");
   return fs.existsSync(p) ? p : null;
