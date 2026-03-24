@@ -47,3 +47,12 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Large binary files
+*.ipa
+artifacts/api-server/uploads/
+artifacts/store-website/public/ipa/
+attached_assets/
+
+# GitHub workflows (manage separately)
+.github/
