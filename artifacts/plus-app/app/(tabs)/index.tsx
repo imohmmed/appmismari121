@@ -239,7 +239,8 @@ function FeaturedCard({ item, index }: { item: ApiBanner; index: number }) {
   };
 
   if (imageUrl) {
-    const src = imageUrl.startsWith("http") ? imageUrl : `https://app.mismari.com${imageUrl}`;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
+    const src = imageUrl.startsWith("http") ? imageUrl : `https://${domain}${imageUrl}`;
     return (
       <Pressable
         style={[styles.featuredCard, { width: BANNER_WIDTH }]}

@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, ilike, inArray } from "drizzle-orm";
+import fs from "fs";
+import path from "path";
 import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable, appPlansTable, subscriptionsTable, notificationsTable } from "@workspace/db";
 import {
   ListAppsQueryParams,
@@ -283,6 +285,15 @@ router.get("/settings", async (_req, res): Promise<void> => {
 router.get("/banners", async (_req, res): Promise<void> => {
   const banners = await db.select().from(featuredBannersTable).where(eq(featuredBannersTable.isActive, true)).orderBy(featuredBannersTable.sortOrder);
   res.json({ banners });
+});
+
+router.get("/admin/banner-image/:filename", (req, res): void => {
+  const filename = path.basename(req.params.filename);
+  if (filename.includes("..")) { res.status(400).send("Invalid"); return; }
+  const filePath = path.join(process.cwd(), "uploads", "banners", filename);
+  if (!fs.existsSync(filePath)) { res.status(404).send("Not found"); return; }
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.sendFile(filePath);
 });
 
 // ─── PUBLIC NOTIFICATIONS ─────────────────────────────────────────────────────
