@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  ImageBackground,
   Linking,
   Platform,
   Pressable,
@@ -224,25 +225,54 @@ function CategoryCard({ cat, onPress }: { cat: ApiCategory; onPress: () => void 
 
 // ─── Featured Card ────────────────────────────────────────────────────────────
 const BANNER_COLORS = ["#007AFF", "#5856D6", "#FF9500", "#34C759", "#FF3B30", "#AF52DE"];
+const BANNER_WIDTH = SCREEN_WIDTH - 48;
+const BANNER_HEIGHT = BANNER_WIDTH * (9 / 16);
 
 function FeaturedCard({ item, index }: { item: ApiBanner; index: number }) {
   const { fontAr, isArabic } = useSettings();
   const title = (isArabic ? item.title : item.titleEn) || item.title;
   const subtitle = (isArabic ? item.description : item.descriptionEn) || item.description || "";
   const color = BANNER_COLORS[index % BANNER_COLORS.length];
+  const imageUrl = (isArabic ? item.image : item.imageEn) || item.image;
   const handlePress = () => {
     if (item.link) Linking.openURL(item.link);
   };
+
+  if (imageUrl) {
+    const src = imageUrl.startsWith("http") ? imageUrl : `https://app.mismari.com${imageUrl}`;
+    return (
+      <Pressable
+        style={[styles.featuredCard, { width: BANNER_WIDTH }]}
+        onPress={handlePress}
+        disabled={!item.link}
+      >
+        <ImageBackground
+          source={{ uri: src }}
+          style={[styles.featuredGradient, { height: BANNER_HEIGHT }]}
+          imageStyle={{ borderRadius: 16 }}
+          resizeMode="cover"
+        >
+          <View style={styles.featuredOverlay}>
+            <View style={styles.featuredContent}>
+              <Text style={[styles.featuredTitle, { fontFamily: fontAr("Bold") }]}>{title}</Text>
+              {subtitle ? <Text style={[styles.featuredSubtitle, { fontFamily: fontAr("Regular") }]}>{subtitle}</Text> : null}
+            </View>
+          </View>
+        </ImageBackground>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
-      style={[styles.featuredCard, { width: SCREEN_WIDTH - 48 }]}
+      style={[styles.featuredCard, { width: BANNER_WIDTH }]}
       onPress={handlePress}
       disabled={!item.link}
     >
-      <View style={[styles.featuredGradient, { backgroundColor: color }]}>
+      <View style={[styles.featuredGradient, { backgroundColor: color, height: BANNER_HEIGHT }]}>
         <View style={styles.featuredContent}>
           <Text style={[styles.featuredTitle, { fontFamily: fontAr("Bold") }]}>{title}</Text>
-          <Text style={[styles.featuredSubtitle, { fontFamily: fontAr("Regular") }]}>{subtitle}</Text>
+          {subtitle ? <Text style={[styles.featuredSubtitle, { fontFamily: fontAr("Regular") }]}>{subtitle}</Text> : null}
         </View>
       </View>
     </Pressable>
@@ -595,7 +625,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 22 },
   sectionSubtitle: { fontSize: 13, marginTop: 2 },
   featuredCard: { borderRadius: 16, overflow: "hidden" },
-  featuredGradient: { borderRadius: 16, padding: 24, minHeight: 180, justifyContent: "flex-end" },
+  featuredGradient: { borderRadius: 16, justifyContent: "flex-end" },
+  featuredOverlay: { flex: 1, justifyContent: "flex-end", borderRadius: 16, padding: 24, backgroundColor: "rgba(0,0,0,0.3)" },
   featuredContent: { gap: 4 },
   featuredTitle: { fontSize: 22, color: "#FFF" },
   featuredSubtitle: { fontSize: 14, color: "rgba(255,255,255,0.8)" },

@@ -3,6 +3,7 @@ import { eq, desc, sql, ilike, or, and, ne, inArray } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import multer from "multer";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable } from "@workspace/db";
@@ -708,6 +709,32 @@ router.post("/admin/subscriptions/bulk-delete", async (req, res): Promise<void> 
   if (numIds.length === 0) { res.status(400).json({ error: "invalid ids" }); return; }
   await db.delete(subscriptionsTable).where(inArray(subscriptionsTable.id, numIds));
   res.json({ deleted: numIds.length });
+});
+
+// ─── BANNER IMAGE UPLOAD ───────────────────────────────────────────────────
+const bannerUploadDir = path.join(process.cwd(), "uploads", "banners");
+if (!fs.existsSync(bannerUploadDir)) fs.mkdirSync(bannerUploadDir, { recursive: true });
+
+const bannerStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, bannerUploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `banner_${crypto.randomBytes(8).toString("hex")}${ext}`);
+  },
+});
+const bannerUpload = multer({ storage: bannerStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+router.post("/admin/upload-banner", bannerUpload.single("image"), (req, res): void => {
+  if (!req.file) { res.status(400).json({ error: "No file" }); return; }
+  const url = `/api/admin/banner-image/${req.file.filename}`;
+  res.json({ url });
+});
+
+router.get("/admin/banner-image/:filename", (req, res): void => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(bannerUploadDir, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).send("Not found"); return; }
+  res.sendFile(filePath);
 });
 
 // ─── FEATURED BANNERS ──────────────────────────────────────────────────────

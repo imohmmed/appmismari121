@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Plus, Trash2, Edit2, X, Loader2, Eye, EyeOff, Link2, Image as ImageIcon, Globe } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Loader2, Eye, EyeOff, Link2, Image as ImageIcon, Globe, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -14,6 +14,19 @@ async function adminFetch(path: string, opts?: RequestInit) {
   });
   if (res.status === 204) return null;
   return res.json();
+}
+
+async function uploadBannerImage(file: File): Promise<string> {
+  const token = localStorage.getItem("adminToken") || "";
+  const fd = new FormData();
+  fd.append("image", file);
+  const res = await fetch(`${API}/api/admin/upload-banner`, {
+    method: "POST",
+    headers: { "x-admin-token": token },
+    body: fd,
+  });
+  const data = await res.json();
+  return data.url;
 }
 
 interface Banner {
@@ -36,6 +49,64 @@ const blankForm = {
   image: "", imageEn: "",
   link: "", isActive: true,
 };
+
+function ImageUploadField({ label, value, onChange, langLabel }: {
+  label: string; value: string; onChange: (v: string) => void; langLabel: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadBannerImage(file);
+      onChange(url);
+    } catch {}
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const resolvedSrc = value
+    ? (value.startsWith("http") ? value : `${API}${value}`)
+    : "";
+
+  return (
+    <div>
+      <div className="text-[10px] text-white/30 mb-1 flex items-center gap-1">
+        <Globe className="w-2.5 h-2.5" /> {langLabel}
+      </div>
+      {resolvedSrc ? (
+        <div className="relative group rounded-xl overflow-hidden border border-white/10" style={{ aspectRatio: "16/9" }}>
+          <img src={resolvedSrc} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <button onClick={() => inputRef.current?.click()} className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-xs">تغيير</button>
+            <button onClick={() => onChange("")} className="px-3 py-1.5 rounded-lg bg-red-500/40 text-white text-xs">حذف</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="w-full rounded-xl border-2 border-dashed border-white/15 hover:border-white/30 transition-colors flex flex-col items-center justify-center gap-2 py-6 text-white/30 hover:text-white/50"
+          style={{ aspectRatio: "16/9" }}
+        >
+          {uploading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            <>
+              <Upload className="w-6 h-6" />
+              <span className="text-xs">رفع صورة {langLabel}</span>
+              <span className="text-[10px] text-white/20">16:9 — أقصى 10 MB</span>
+            </>
+          )}
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  );
+}
 
 function LangField({ label, ar, en, onChangeAr, onChangeEn, placeholder, ltr = false }: {
   label: string; ar: string; en: string;
@@ -146,8 +217,10 @@ export default function AdminFeatured() {
     fetchBanners();
   };
 
-  const arImage = form.image;
-  const enImage = form.imageEn;
+  const resolveUrl = (url: string | null) => {
+    if (!url) return "";
+    return url.startsWith("http") ? url : `${API}${url}`;
+  };
 
   return (
     <AdminLayout>
@@ -155,7 +228,7 @@ export default function AdminFeatured() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">البنرات</h2>
-            <p className="text-white/40 text-xs mt-0.5">بنرات وإعلانات الصفحة الرئيسية — باللغتين العربية والإنجليزية</p>
+            <p className="text-white/40 text-xs mt-0.5">بنرات وإعلانات الصفحة الرئيسية — القياس 16:9</p>
           </div>
           <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-black" style={{ background: A }}>
             <Plus className="w-4 h-4" /> إضافة بانر
@@ -165,62 +238,53 @@ export default function AdminFeatured() {
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {banners.map(b => (
               <div key={b.id} className="bg-[#111111] rounded-xl border border-white/8 overflow-hidden group">
-                <div className="flex items-stretch">
-                  <div className="w-24 sm:w-32 shrink-0 bg-[#0a0a0a] flex items-center justify-center relative overflow-hidden">
-                    {b.image ? (
-                      <img src={b.image} alt={b.title} className="w-full h-full object-cover absolute inset-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <ImageIcon className="w-7 h-7 text-white/20" />
+                <div className="relative" style={{ aspectRatio: "16/9" }}>
+                  {b.image ? (
+                    <img src={resolveUrl(b.image)} alt={b.title} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <div className="w-full h-full bg-[#0a0a0a] flex items-center justify-center">
+                      <ImageIcon className="w-10 h-10 text-white/10" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur-sm ${b.isActive ? "bg-green-500/30 text-green-300" : "bg-white/10 text-white/50"}`}>
+                      {b.isActive ? "نشط" : "مخفي"}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                    <h3 className="text-white font-semibold text-sm truncate">{b.title}</h3>
+                    {b.description && <p className="text-white/60 text-xs truncate mt-0.5">{b.description}</p>}
+                  </div>
+                </div>
+                <div className="px-3 py-2 flex items-center justify-between border-t border-white/5">
+                  <div className="flex items-center gap-2 text-[10px] text-white/30 min-w-0">
+                    {b.image && <span>🖼 ع</span>}
+                    {b.imageEn && <span>🖼 EN</span>}
+                    {b.link && (
+                      <span className="truncate flex items-center gap-0.5">
+                        <Link2 className="w-2.5 h-2.5 shrink-0" /> {b.link}
+                      </span>
                     )}
                   </div>
-                  <div className="flex-1 px-4 py-3 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="text-white font-semibold text-sm truncate">{b.title}</h3>
-                          {b.titleEn && <span className="text-white/40 text-xs truncate">{b.titleEn}</span>}
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${b.isActive ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"}`}>
-                            {b.isActive ? "نشط" : "مخفي"}
-                          </span>
-                        </div>
-                        {(b.description || b.descriptionEn) && (
-                          <p className="text-white/40 text-xs truncate">
-                            {b.description}{b.description && b.descriptionEn ? " / " : ""}{b.descriptionEn}
-                          </p>
-                        )}
-                        {b.link && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <Link2 className="w-3 h-3 shrink-0" style={{ color: `${A}80` }} />
-                            <span className="text-xs font-mono truncate" style={{ color: `${A}80` }}>{b.link}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/25">
-                          {b.image && <span>🖼 ع</span>}
-                          {b.imageEn && <span>🖼 EN</span>}
-                          <span>ترتيب: {b.sortOrder}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => toggleActive(b)} className={`p-1.5 rounded-lg transition-colors ${b.isActive ? "text-white/40 hover:text-yellow-400 hover:bg-yellow-500/10" : "text-white/40 hover:text-green-400 hover:bg-green-500/10"}`}>
-                          {b.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                        <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={() => toggleActive(b)} className={`p-1.5 rounded-lg transition-colors ${b.isActive ? "text-white/40 hover:text-yellow-400 hover:bg-yellow-500/10" : "text-white/40 hover:text-green-400 hover:bg-green-500/10"}`}>
+                      {b.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
             ))}
             {banners.length === 0 && (
-              <div className="py-16 text-center text-white/30 text-sm bg-[#111111] rounded-xl border border-white/5">
+              <div className="col-span-full py-16 text-center text-white/30 text-sm bg-[#111111] rounded-xl border border-white/5">
                 لا توجد بنرات بعد — اضغط "إضافة بانر" لإنشاء أول بانر
               </div>
             )}
@@ -253,35 +317,25 @@ export default function AdminFeatured() {
                 placeholder="وصف مختصر"
               />
 
-              <LangField
-                label="رابط الصورة"
-                ar={form.image} en={form.imageEn}
-                onChangeAr={v => setForm(f => ({ ...f, image: v }))}
-                onChangeEn={v => setForm(f => ({ ...f, imageEn: v }))}
-                placeholder="https://..."
-                ltr
-              />
-
-              {(arImage || enImage) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {arImage && (
-                    <div>
-                      <div className="text-[10px] text-white/30 mb-1">معاينة الصورة العربية</div>
-                      <div className="rounded-lg overflow-hidden border border-white/10 h-20 bg-black">
-                        <img src={arImage} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                  )}
-                  {enImage && (
-                    <div>
-                      <div className="text-[10px] text-white/30 mb-1">English Image Preview</div>
-                      <div className="rounded-lg overflow-hidden border border-white/10 h-20 bg-black">
-                        <img src={enImage} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    </div>
-                  )}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium flex items-center gap-1.5" style={{ color: `${A}99` }}>
+                  صورة البانر (16:9)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <ImageUploadField
+                    label="الصورة العربية"
+                    langLabel="عربي"
+                    value={form.image}
+                    onChange={v => setForm(f => ({ ...f, image: v }))}
+                  />
+                  <ImageUploadField
+                    label="English Image"
+                    langLabel="English"
+                    value={form.imageEn}
+                    onChange={v => setForm(f => ({ ...f, imageEn: v }))}
+                  />
                 </div>
-              )}
+              </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium" style={{ color: `${A}99` }}>
@@ -294,7 +348,6 @@ export default function AdminFeatured() {
                   placeholder="https://..."
                   className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-xs text-white focus:border-[#9fbcff]/50 focus:outline-none placeholder-white/20"
                 />
-                <p className="text-[10px] text-white/25">رابط واحد ثابت للنسختين العربية والإنجليزية</p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
