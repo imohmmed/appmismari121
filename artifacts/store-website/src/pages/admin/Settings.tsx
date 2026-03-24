@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
-  Save, Loader2, RefreshCw, Globe, Instagram, MessageCircle, Phone,
-  Shield, Key, Package, Settings as SettingsIcon, Link2, FileArchive,
-  ToggleLeft, ToggleRight, ChevronDown, ChevronUp,
+  Save, Loader2, RefreshCw, Globe, Instagram, Phone,
+  Settings as SettingsIcon, Link2,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,36 +71,6 @@ const SECTIONS: SettingSection[] = [
       { key: "auto_approve_enrollment", label: "قبول تلقائي للطلبات", toggle: true },
       { key: "enrollment_message", label: "رسالة الترحيب عند التسجيل", placeholder: "شكراً لتسجيلك في مسماري...", textarea: true },
       { key: "max_devices_per_code", label: "الحد الأقصى للأجهزة لكل كود", placeholder: "1", type: "number" },
-    ],
-  },
-  {
-    id: "signing",
-    icon: <FileArchive className="w-3.5 h-3.5" />,
-    label: "إعدادات التوقيع",
-    labelEn: "Signing",
-    color: "#f59e0b",
-    fields: [
-      { key: "signing_enabled", label: "تفعيل خاصية التوقيع وتثبيت IPA", toggle: true },
-      {
-        key: "store_ipa_url",
-        label: "رابط IPA المتجر (storeIpaPath)",
-        placeholder: "https://domain/api/admin/FilesIPA/StoreIPA/store.ipa",
-        type: "url",
-        hint: "الرابط الكامل لملف IPA المتجر — يستخدم عند التثبيت عبر كود الاشتراك",
-      },
-      {
-        key: "store_app_name",
-        label: "اسم التطبيق في IPA المتجر",
-        placeholder: "Mismari+",
-        type: "text",
-      },
-      {
-        key: "signed_token_ttl_hours",
-        label: "مدة صلاحية رابط التثبيت (ساعات)",
-        placeholder: "24",
-        type: "number",
-        hint: "روابط التثبيت المؤقتة تنتهي بعد هذه المدة",
-      },
     ],
   },
   {
@@ -314,7 +284,7 @@ export default function AdminSettings() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">الإعدادات</h2>
-            <p className="text-white/40 text-xs mt-0.5">إعدادات المتجر، التوقيع، والتواصل الاجتماعي</p>
+            <p className="text-white/40 text-xs mt-0.5">إعدادات المتجر والتواصل الاجتماعي</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={fetchSettings} className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors">
@@ -336,12 +306,6 @@ export default function AdminSettings() {
           <div className="bg-[#111111] rounded-xl border border-white/8 p-3 text-center">
             <p className="text-xl font-black" style={{ fontFamily: "Outfit", color: A }}>{filledCount}</p>
             <p className="text-white/40 text-xs mt-0.5">إعداد مكتمل</p>
-          </div>
-          <div className="bg-[#111111] rounded-xl border border-white/8 p-3 text-center">
-            <p className="text-xl font-black" style={{ fontFamily: "Outfit", color: "#22c55e" }}>
-              {settings["signing_enabled"] === "true" ? "✓" : "✕"}
-            </p>
-            <p className="text-white/40 text-xs mt-0.5">التوقيع</p>
           </div>
           <div className="bg-[#111111] rounded-xl border border-white/8 p-3 text-center">
             <p className="text-xl font-black" style={{ fontFamily: "Outfit", color: settings["maintenance_mode"] === "true" ? "#ef4444" : "#22c55e" }}>
