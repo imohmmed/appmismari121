@@ -1235,27 +1235,30 @@ router.post("/admin/translate", async (req, res): Promise<void> => {
   const { text, from, to } = req.body;
   if (!text?.trim()) { res.json({ translated: "" }); return; }
 
-  const LANG_MAP: Record<string, string> = { ar: "ar", en: "en", auto: "auto" };
-  const srcLang = LANG_MAP[from] || "auto";
-  const tgtLang = LANG_MAP[to] || "en";
+  const srcLang = from || "auto";
+  const tgtLang = to || "en";
 
   try {
-    const resp = await fetch("https://libretranslate.de/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: text,
-        source: srcLang,
-        target: tgtLang,
-        format: "text",
-      }),
-    });
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${srcLang}&tl=${tgtLang}&dt=t&q=${encodeURIComponent(text)}`;
+    const resp = await fetch(url);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json() as any;
-    res.json({ translated: data.translatedText || text });
+    const translated = (data[0] || []).map((s: any) => s[0]).join("");
+    if (!translated) throw new Error("Empty result");
+    res.json({ translated });
   } catch {
-    // Fallback: return original text
-    res.json({ translated: text, fallback: true });
+    try {
+      const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${srcLang}|${tgtLang}`;
+      const resp2 = await fetch(url2);
+      const data2 = await resp2.json() as any;
+      if (data2?.responseData?.translatedText) {
+        res.json({ translated: data2.responseData.translatedText });
+        return;
+      }
+      throw new Error("no result");
+    } catch {
+      res.json({ translated: text, fallback: true });
+    }
   }
 });
 
