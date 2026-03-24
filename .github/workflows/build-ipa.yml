@@ -21,8 +21,7 @@ jobs:
         run: sudo gem install cocoapods
       - name: Expo Prebuild
         working-directory: artifacts/plus-app
-        run: npx expo prebuild --platform ios --clean
-        env:
+        run: npx expo prebuild --platform ios --clean --no-install        env:
           EXPO_NO_TELEMETRY: 1
       - name: Pod Install
         working-directory: artifacts/plus-app/ios
