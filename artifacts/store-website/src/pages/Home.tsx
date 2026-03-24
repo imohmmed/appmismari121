@@ -198,10 +198,24 @@ const FEATURES = [
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function goToEnroll(planName?: string) {
+  const token = sessionStorage.getItem("enroll_token") || crypto.randomUUID().replace(/-/g, "").substring(0, 20);
+  sessionStorage.setItem("enroll_token", token);
+
+  const planParam = planName ? `&plan=${encodeURIComponent(planName)}` : "";
+  const profileUrl = `${API}/api/profile/enroll?source=web&token=${encodeURIComponent(token)}${planParam}`;
+
+  const a = document.createElement("a");
+  a.href = profileUrl;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
   const params = new URLSearchParams();
   if (planName) params.set("plan", planName);
   params.set("auto", "1");
-  window.location.href = `${BASE}enroll?${params.toString()}`;
+  setTimeout(() => {
+    window.location.href = `${BASE}enroll?${params.toString()}`;
+  }, 600);
 }
 
 interface ActivateResult {

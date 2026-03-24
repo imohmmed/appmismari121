@@ -71,12 +71,6 @@ export default function Enroll() {
 
     if (autoDownload && !autoTriggeredRef.current) {
       autoTriggeredRef.current = true;
-      const url = `${API}/api/profile/enroll?source=web&token=${encodeURIComponent(token)}${urlPlan ? `&plan=${encodeURIComponent(urlPlan)}` : ""}`;
-      const a = document.createElement("a");
-      a.href = url;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
     }
   }, []);
 
