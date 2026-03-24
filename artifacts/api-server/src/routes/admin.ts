@@ -304,7 +304,7 @@ router.get("/admin/apps", async (req, res): Promise<void> => {
   const planRows = appIds.length > 0
     ? await db.select({ appId: appPlansTable.appId, planId: appPlansTable.planId })
         .from(appPlansTable)
-        .where(sql`${appPlansTable.appId} = ANY(${sql.raw(`ARRAY[${appIds.join(",")}]::int[]`)})`)
+        .where(inArray(appPlansTable.appId, appIds))
     : [];
   const plansByApp: Record<number, number[]> = {};
   for (const row of planRows) {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Loader2, CheckCircle2, AlertCircle,
-  Download, Send,
+  Download, Send, Smartphone,
   Key, User, Phone, Mail, Shield, CheckCircle,
 } from "lucide-react";
 
@@ -475,23 +475,6 @@ export default function Activate() {
               )}
             </div>
 
-            {/* Store Download Button */}
-            {successData.storeDownloadLink ? (
-              <a
-                href={successData.storeDownloadLink}
-                className="flex items-center justify-center gap-3 py-5 rounded-2xl text-base font-bold transition-all shadow-lg"
-                style={{ background: A, color: "#000", boxShadow: `0 8px 32px ${A}30` }}
-              >
-                <Download className="w-5 h-5" />
-                تثبيت متجر مسماري+
-              </a>
-            ) : (
-              <div className="bg-[#111] border border-white/10 rounded-2xl p-5 text-center">
-                <p className="text-white/40 text-sm">سيتم إرسال رابط التثبيت قريباً</p>
-                <p className="text-white/20 text-xs mt-1">تواصل مع الإدارة للحصول على الرابط</p>
-              </div>
-            )}
-
             {/* Info summary */}
             <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
               <div className="px-5 py-3 border-b border-white/5">
@@ -501,7 +484,11 @@ export default function Activate() {
                 {[
                   { label: "الاسم", value: successData.subscriber.subscriberName },
                   { label: "الهاتف", value: successData.subscriber.phone, mono: true },
+                  { label: "البريد", value: successData.subscriber.email, mono: true },
+                  { label: "الكود", value: successData.subscriber.code, mono: true },
                   { label: "الباقة", value: successData.subscriber.planNameAr || successData.subscriber.planName },
+                  { label: "المجموعة", value: successData.subscriber.groupName },
+                  { label: "الحالة", value: successData.subscriber.isActive === "true" ? "فعّال ✓" : "غير فعّال" },
                 ].filter(r => r.value).map(({ label, value, mono }) => (
                   <div key={label} className="px-5 py-3 flex items-center justify-between">
                     <span className="text-white/40 text-xs">{label}</span>
@@ -511,6 +498,60 @@ export default function Activate() {
                 ))}
               </div>
             </div>
+
+            {/* Install App Section */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ background: `${A}15` }}>
+                <Smartphone className="w-8 h-8" style={{ color: A }} />
+              </div>
+              <h3 className="text-white text-lg font-bold">مسماري+</h3>
+
+              {successData.storeDownloadLink ? (
+                <>
+                  <a
+                    href={successData.storeDownloadLink}
+                    className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-base font-bold transition-all active:scale-95"
+                    style={{ background: `linear-gradient(135deg, ${A}, #7aa3ff)`, color: "#000" }}
+                  >
+                    <Download className="w-5 h-5" />
+                    تثبيت التطبيق
+                  </a>
+                  <p className="text-white/30 text-xs text-center">
+                    اضغط على "ثقة" في إعدادات الجهاز بعد التثبيت
+                  </p>
+                </>
+              ) : (
+                <div className="text-center">
+                  <p className="text-white/40 text-sm">سيتم إرسال رابط التثبيت قريباً</p>
+                  <p className="text-white/20 text-xs mt-1">تواصل مع الإدارة للحصول على الرابط</p>
+                </div>
+              )}
+            </div>
+
+            {/* Install Instructions */}
+            {successData.storeDownloadLink && (
+              <div className="w-full rounded-2xl p-4 border"
+                style={{ background: "#0a0a0a", borderColor: "rgba(255,255,255,0.05)" }}>
+                <p className="text-white/40 text-xs font-semibold mb-3">خطوات التثبيت</p>
+                {[
+                  "اضغط على زر التثبيت أعلاه",
+                  "اسمح للمتصفح بفتح رابط التطبيق",
+                  "اضغط \"ثقة\" عند ظهور رسالة التأكيد",
+                  "انتظر اكتمال التثبيت",
+                ].map((s, i) => (
+                  <div key={i} className="flex items-start gap-2.5 py-1.5">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
+                      style={{ background: `${A}20`, color: A }}>{i + 1}</span>
+                    <p className="text-white/50 text-xs">{s}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-white/15 text-xs text-center mt-2">
+              يجب فتح هذه الصفحة من Safari على iPhone أو iPad
+            </p>
           </div>
         )}
 

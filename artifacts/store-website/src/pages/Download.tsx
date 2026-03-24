@@ -7,7 +7,6 @@ const A = "#9fbcff";
 
 interface DownloadInfo {
   certName: string;
-  bundleId: string;
   hasIpa: boolean;
   plistUrl: string;
   downloadLink: string;
@@ -88,7 +87,6 @@ export default function DownloadPage() {
             </div>
             <div className="text-center">
               <h1 className="text-white text-xl font-bold mb-1">مسماري+</h1>
-              <p className="text-white/30 text-xs font-mono">{info.bundleId}</p>
             </div>
 
             {/* Download Button */}

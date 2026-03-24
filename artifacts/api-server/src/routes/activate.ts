@@ -112,7 +112,6 @@ router.post("/activate/validate", validateLimiter, async (req, res): Promise<voi
 
   // Get group info + IPA link (prefer ipaUrl over legacy storeIpaPath)
   let downloadLink: string | null = null;
-  let groupBundleId: string | null = null;
   if (sub.groupName) {
     const [group] = await db
       .select({ storeIpaPath: groupsTable.storeIpaPath, ipaUrl: groupsTable.ipaUrl, bundleId: groupsTable.bundleId, certName: groupsTable.certName })
@@ -124,7 +123,6 @@ router.post("/activate/validate", validateLimiter, async (req, res): Promise<voi
       const base = getBaseUrl(req);
       downloadLink = `itms-services://?action=download-manifest&url=${encodeURIComponent(`${base}/api/groups/${encodeURIComponent(group.certName)}/manifest.plist`)}`;
     }
-    groupBundleId = group?.bundleId || null;
   }
 
   res.json({
@@ -172,7 +170,6 @@ router.get("/d/:slug", async (req, res): Promise<void> => {
 
   res.json({
     certName: group.certName,
-    bundleId: group.bundleId || "com.mismari.app",
     hasIpa: true,
     plistUrl,
     downloadLink,
