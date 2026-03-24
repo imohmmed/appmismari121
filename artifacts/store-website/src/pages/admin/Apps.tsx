@@ -445,11 +445,6 @@ function IpaImportModal({ onClose, onDone }: { onClose: () => void; onDone: () =
                     {categories.length === 0 && <option value={1}>تطبيقات بلس</option>}
                   </Select>
                 </FieldGroup>
-                <FieldGroup label="النوع">
-                  <Select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value as any })}>
-                    {TAGS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </Select>
-                </FieldGroup>
 
                 <div className="col-span-2">
                   <DescriptionFields
@@ -589,11 +584,6 @@ function EditAppModal({ app, onClose }: { app: App; onClose: () => void }) {
               <FieldGroup label="التصنيف">
                 <Select value={form.categoryId} onChange={e => setForm({ ...form, categoryId: Number(e.target.value) })}>
                   {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Select>
-              </FieldGroup>
-              <FieldGroup label="النوع">
-                <Select value={form.tag} onChange={e => setForm({ ...form, tag: e.target.value as any })}>
-                  {TAGS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </Select>
               </FieldGroup>
               <FieldGroup label="الحجم">
@@ -1374,7 +1364,6 @@ export default function AdminApps() {
                             onError={e => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${app.name}&background=111111&color=9fbcff&bold=true`; }} />
                           <div className="min-w-0">
                             <span className="text-white font-medium text-sm truncate block max-w-[130px]">{app.name}</span>
-                            {tagBadge(app.tag)}
                           </div>
                         </div>
                       </td>

@@ -17,7 +17,10 @@ export interface ApiApp {
   id: number;
   name: string;
   description: string | null;
+  descriptionAr?: string | null;
+  descriptionEn?: string | null;
   descAr?: string | null;
+  descEn?: string | null;
   icon: string;
   categoryId: number;
   categoryName: string;
