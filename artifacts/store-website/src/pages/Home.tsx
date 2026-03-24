@@ -1,5 +1,5 @@
 import { useListPlans } from "@workspace/api-client-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X, Shield, Smartphone, Zap } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
@@ -197,9 +197,12 @@ const FEATURES = [
 ];
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+let enrollPollingInterval: ReturnType<typeof setInterval> | null = null;
+
 function goToEnroll(planName?: string) {
   const token = sessionStorage.getItem("enroll_token") || crypto.randomUUID().replace(/-/g, "").substring(0, 20);
   sessionStorage.setItem("enroll_token", token);
+  if (planName) sessionStorage.setItem("enroll_plan", planName);
 
   const planParam = planName ? `&plan=${encodeURIComponent(planName)}` : "";
   const profileUrl = `${API}/api/profile/enroll?source=web&token=${encodeURIComponent(token)}${planParam}`;
@@ -210,12 +213,22 @@ function goToEnroll(planName?: string) {
   a.click();
   document.body.removeChild(a);
 
-  const params = new URLSearchParams();
-  if (planName) params.set("plan", planName);
-  params.set("auto", "1");
-  setTimeout(() => {
-    window.location.href = `${BASE}enroll?${params.toString()}`;
-  }, 600);
+  if (enrollPollingInterval) clearInterval(enrollPollingInterval);
+  enrollPollingInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/api/profile/udid-check?token=${token}`, { cache: "no-store" });
+      const d = await r.json();
+      if (d.found && d.udid) {
+        if (enrollPollingInterval) clearInterval(enrollPollingInterval);
+        enrollPollingInterval = null;
+        sessionStorage.setItem("enroll_udid", d.udid);
+        const params = new URLSearchParams();
+        params.set("udid", d.udid);
+        if (planName) params.set("plan", planName);
+        window.location.href = `${BASE}enroll?${params.toString()}`;
+      }
+    } catch {}
+  }, 2000);
 }
 
 interface ActivateResult {
