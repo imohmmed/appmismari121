@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import { db, subscriptionsTable, groupsTable, plansTable } from "@workspace/db";
 import { registerDeviceWithApple } from "../apple-connect";
 import { adminAuth } from "../middleware/adminAuth";
+import { signIpa, saveToken, randomHex, resolveLocalPath, downloadToTemp, SIGNED_DIR, TOKEN_TTL_MS, type TokenMeta } from "../lib/signer";
 
 const router: IRouter = Router();
 
@@ -178,12 +179,20 @@ router.get("/d/:slug", async (req, res): Promise<void> => {
   });
 });
 
-// ─── GET /groups/:certName/manifest.plist — dynamic plist ────────────────────
+// ─── GET /groups/:certName/manifest.plist — sign + serve manifest ────────────
 router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> => {
   const { certName } = req.params;
 
   const [group] = await db
-    .select({ storeIpaPath: groupsTable.storeIpaPath, ipaUrl: groupsTable.ipaUrl, certName: groupsTable.certName, bundleId: groupsTable.bundleId })
+    .select({
+      storeIpaPath: groupsTable.storeIpaPath,
+      ipaUrl: groupsTable.ipaUrl,
+      certName: groupsTable.certName,
+      bundleId: groupsTable.bundleId,
+      p12Data: groupsTable.p12Data,
+      mobileprovisionData: groupsTable.mobileprovisionData,
+      p12Password: groupsTable.p12Password,
+    })
     .from(groupsTable)
     .where(eq(groupsTable.certName, decodeURIComponent(certName)))
     .limit(1);
@@ -195,23 +204,53 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
   }
 
   const base = getBaseUrl(req);
-
-  // Build a publicly accessible IPA URL.
-  let rawIpaUrl = effectiveIpaUrl;
-  let ipaUrl: string;
-  if (rawIpaUrl.startsWith("http")) {
-    ipaUrl = rawIpaUrl.replace(
-      /\/api\/admin\/FilesIPA\/StoreIPA\//,
-      "/admin/FilesIPA/StoreIPA/"
-    );
-  } else {
-    ipaUrl = `${base}${rawIpaUrl}`;
-  }
-
-  // bundleId: prefer group's bundleId (from mobileprovision), fall back to Mismari+ default
   const bundleId = group.bundleId || "com.mismari.app";
 
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+  // ── If group has signing credentials → sign the IPA and serve signed URL ──
+  if (group.p12Data && group.mobileprovisionData) {
+    try {
+      // Resolve local path or download from URL
+      let inputPath: string;
+      let tempDownloaded = false;
+
+      const localPath = resolveLocalPath(effectiveIpaUrl);
+      if (fs.existsSync(localPath)) {
+        inputPath = localPath;
+      } else {
+        // Might be an external URL — download first
+        const fullUrl = effectiveIpaUrl.startsWith("http")
+          ? effectiveIpaUrl
+          : `${base}${effectiveIpaUrl}`;
+        inputPath = await downloadToTemp(fullUrl);
+        tempDownloaded = true;
+      }
+
+      const token = randomHex(16);
+      const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+
+      await signIpa({
+        p12Base64: group.p12Data,
+        p12Password: group.p12Password || "",
+        mpBase64: group.mobileprovisionData,
+        inputPath,
+        outputPath,
+      });
+
+      if (tempDownloaded) {
+        fs.rmSync(inputPath, { force: true });
+      }
+
+      const meta: TokenMeta = {
+        appName: "Mismari+",
+        appVersion: "1.0.0",
+        bundleId,
+        ipaPath: outputPath,
+        expiresAt: Date.now() + TOKEN_TTL_MS,
+      };
+      saveToken(token, meta);
+
+      const ipaUrl = `${base}/api/sign/ipa/${token}.ipa`;
+      const plistXml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -242,10 +281,59 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
   </array>
 </dict>
 </plist>`;
+      res.setHeader("Content-Type", "text/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache");
+      res.send(plistXml);
+      return;
+    } catch (err: any) {
+      console.error("[manifest] signing failed:", err?.message || err);
+      // Fall through to serve unsigned manifest
+    }
+  }
 
+  // ── Fallback: serve manifest pointing to raw IPA (unsigned) ──
+  let rawIpaUrl = effectiveIpaUrl;
+  let ipaUrl: string;
+  if (rawIpaUrl.startsWith("http")) {
+    ipaUrl = rawIpaUrl.replace(/\/api\/admin\/FilesIPA\/StoreIPA\//, "/admin/FilesIPA/StoreIPA/");
+  } else {
+    ipaUrl = `${base}${rawIpaUrl}`;
+  }
+
+  const plistXml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>items</key>
+  <array>
+    <dict>
+      <key>assets</key>
+      <array>
+        <dict>
+          <key>kind</key>
+          <string>software-package</string>
+          <key>url</key>
+          <string>${ipaUrl}</string>
+        </dict>
+      </array>
+      <key>metadata</key>
+      <dict>
+        <key>bundle-identifier</key>
+        <string>${bundleId}</string>
+        <key>bundle-version</key>
+        <string>1.0.0</string>
+        <key>kind</key>
+        <string>software</string>
+        <key>title</key>
+        <string>Mismari+</string>
+      </dict>
+    </dict>
+  </array>
+</dict>
+</plist>`;
   res.setHeader("Content-Type", "text/xml; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
-  res.send(plist);
+  res.send(plistXml);
 });
 
 // ─── POST /activate/complete — save user info to subscription ─────────────────
