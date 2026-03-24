@@ -1,0 +1,84 @@
+name: Build Unsigned IPA - Mismari+
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies (monorepo root)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Run Expo Prebuild (generate iOS project)
+        working-directory: artifacts/plus-app
+        run: npx expo prebuild --platform ios --clean
+        env:
+          EXPO_NO_TELEMETRY: 1
+
+      - name: Install CocoaPods dependencies
+        working-directory: artifacts/plus-app/ios
+        run: pod install
+
+      - name: Find Xcode workspace
+        id: workspace
+        working-directory: artifacts/plus-app/ios
+        run: |
+          WORKSPACE=$(ls *.xcworkspace | head -1)
+          SCHEME=$(echo "$WORKSPACE" | sed 's/.xcworkspace//')
+          echo "workspace=$WORKSPACE" >> $GITHUB_OUTPUT
+          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          echo "Found workspace: $WORKSPACE | scheme: $SCHEME"
+
+      - name: Build iOS App (Unsigned)
+        working-directory: artifacts/plus-app/ios
+        run: |
+          xcodebuild \
+            -workspace "${{ steps.workspace.outputs.workspace }}" \
+            -scheme "${{ steps.workspace.outputs.scheme }}" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE="" \
+            | xcpretty || true
+
+      - name: Find built .app file
+        id: appfile
+        run: |
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "*.app" -path "*/Release-iphoneos/*" | head -1)
+          echo "path=$APP_PATH" >> $GITHUB_OUTPUT
+          echo "Found app: $APP_PATH"
+
+      - name: Create IPA (Payload trick)
+        run: |
+          mkdir -p IPA_Build/Payload
+          cp -r "${{ steps.appfile.outputs.path }}" IPA_Build/Payload/
+          cd IPA_Build
+          zip -r ../Mismari-Plus-Unsigned.ipa Payload
+          echo "IPA created successfully!"
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mismari-Plus-Unsigned-IPA
+          path: Mismari-Plus-Unsigned.ipa
+          retention-days: 30
