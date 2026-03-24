@@ -17,7 +17,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { type NotifType } from "@/utils/notificationStorage";
 import { emitOpenApp } from "@/utils/openAppSignal";
 
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
 
 type Tab = "all" | "broadcast" | "apps";

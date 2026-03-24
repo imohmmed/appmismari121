@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Linking, Alert, Platform } from "react-native";
 
 const getBase = () => {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
   return domain ? `https://${domain}/api` : "";
 };
 

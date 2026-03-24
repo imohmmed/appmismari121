@@ -73,7 +73,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
   // Fetch social links
   React.useEffect(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/settings`)
       .then(r => r.json())
@@ -90,7 +90,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   // Fetch subscriber info and balance when panel opens
   React.useEffect(() => {
     if (!visible || !subscriptionCode) { setSubscriber(null); setBalance(null); setBalanceTxs([]); return; }
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     // Fetch balance
     fetch(`https://${domain}/api/subscriber/balance?code=${encodeURIComponent(subscriptionCode)}`)
@@ -101,7 +101,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
 
   React.useEffect(() => {
     if (!visible || !subscriptionCode) { setSubscriber(null); return; }
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     setSubLoading(true);
     fetch(`https://${domain}/api/subscriber/me?code=${encodeURIComponent(subscriptionCode)}`)

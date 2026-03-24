@@ -6,7 +6,7 @@ import { router } from "expo-router";
 import { useSettings } from "@/contexts/SettingsContext";
 import { saveNotification, setPendingOpenApp, type NotifType } from "@/utils/notificationStorage";
 
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
 
 Notifications.setNotificationHandler({

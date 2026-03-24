@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const getBase = () => {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
   return domain ? `https://${domain}/api` : "";
 };
 

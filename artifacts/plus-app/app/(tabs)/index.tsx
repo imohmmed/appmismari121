@@ -29,7 +29,7 @@ import { registerOpenCategoryHandler } from "@/utils/openCategorySignal";
 import { registerOpenAppHandler } from "@/utils/openAppSignal";
 import { consumePendingOpenApp, getUnreadCount } from "@/utils/notificationStorage";
 
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

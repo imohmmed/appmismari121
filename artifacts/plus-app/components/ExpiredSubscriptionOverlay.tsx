@@ -23,7 +23,7 @@ export default function ExpiredSubscriptionOverlay({ visible }: { visible: boole
   const opacityAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/settings`)
       .then(r => r.json())

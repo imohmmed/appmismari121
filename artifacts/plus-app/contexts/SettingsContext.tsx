@@ -71,7 +71,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loaded) return;
     if (subscriptionCode || !deviceUdid) return;
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/enroll/check?udid=${encodeURIComponent(deviceUdid)}`)
       .then(r => r.json())

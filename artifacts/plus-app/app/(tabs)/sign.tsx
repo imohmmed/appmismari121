@@ -30,7 +30,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
 
 function apiUrl(path: string) {

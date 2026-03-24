@@ -18,7 +18,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com"}`);
 
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);

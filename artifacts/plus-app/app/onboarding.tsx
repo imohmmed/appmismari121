@@ -33,7 +33,8 @@ const GREEN = "#34C759";
 const DARK = "#2b283b";
 const WHITE = "#ffffff";
 
-const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
+const API_BASE = `https://${API_DOMAIN}`;
 
 type Step = "language" | "theme" | "landing" | "download" | "install" | "udid" | "checking" | "result";
 
@@ -186,8 +187,7 @@ export default function OnboardingScreen() {
 
   // Fetch contact links from admin settings
   useEffect(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
-    if (!domain) return;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     fetch(`https://${domain}/api/settings`)
       .then(r => r.json())
       .then(data => setSocialLinks({

@@ -60,7 +60,7 @@ export default function TabLayout() {
 
   const checkSubscription = async () => {
     if (!deviceUdid) return;
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     try {
       const res = await fetch(`https://${domain}/api/enroll/check?udid=${encodeURIComponent(deviceUdid)}`);

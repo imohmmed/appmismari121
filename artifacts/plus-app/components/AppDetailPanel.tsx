@@ -244,7 +244,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const [reviewerInfo, setReviewerInfo] = useState<{ name: string; phone: string } | null>(null);
 
   useEffect(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain || !app.id) return;
     setReviewsLoading(true);
     fetch(`https://${domain}/api/reviews?appId=${app.id}`)
@@ -269,7 +269,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   // Fetch subscriber info to use in reviews
   useEffect(() => {
     if (!subscriptionCode) return;
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/subscriber/${encodeURIComponent(subscriptionCode)}`)
       .then(r => r.ok ? r.json() : null)
@@ -424,7 +424,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
 
   const submitReview = async () => {
     if (!reviewText.trim() || reviewRating === 0) return;
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     const newReview: Review = {
       id: Date.now(),
       name: reviewerInfo?.name || (isArabic ? "مجهول" : "Anonymous"),
