@@ -180,9 +180,28 @@ async function signIpa(opts: {
 // Same code+appId always → same suffix → user keeps clone data after reinstall
 function stableCloneSuffix(code: string, appId: number): string {
   const hash = crypto.createHash("sha256").update(`${code}:${appId}`).digest("hex");
-  // Convert first 4 hex chars to a 2-digit number (10–99)
   const num = (parseInt(hash.slice(0, 4), 16) % 90) + 10;
   return `m${num}`;
+}
+
+function readProvisioningBundleId(mpBase64: string): string | null {
+  try {
+    const buf = Buffer.from(mpBase64, "base64");
+    const raw = buf.toString("utf8");
+    const xmlMatch = raw.match(/<\?xml[\s\S]*<\/plist>/);
+    if (!xmlMatch) return null;
+    const data = plist.parse(xmlMatch[0]) as Record<string, any>;
+    const entitlements = data["Entitlements"] as Record<string, any> | undefined;
+    if (!entitlements) return null;
+    return entitlements["application-identifier"]?.replace(/^[A-Z0-9]+\./, "") || null;
+  } catch {
+    return null;
+  }
+}
+
+function isWildcardProfile(mpBase64: string): boolean {
+  const bundleId = readProvisioningBundleId(mpBase64);
+  return bundleId === "*" || (bundleId?.endsWith(".*") ?? false);
 }
 
 function resolveLocalPath(storedPath: string): string {
@@ -351,7 +370,7 @@ router.get("/sign/manifest/:token.plist", (req, res): void => {
     version: meta.appVersion,
     appName: meta.appName,
   });
-  res.setHeader("Content-Type", "application/x-apple-aspen-config");
+  res.setHeader("Content-Type", "text/xml; charset=utf-8");
   res.send(manifestXml);
 });
 
@@ -514,9 +533,21 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     }
 
     const appInfo = readIpaInfo(inputPath);
-    const suffix = stableCloneSuffix(code, appIdNum);
-    const newBundleId = `${app.bundleId || appInfo.bundleId}.${suffix}`;
     const cloneName = newName?.trim() || `${app.name || appInfo.name} 2`;
+    const originalBundleId = app.bundleId || appInfo.bundleId;
+
+    const wildcard = isWildcardProfile(group.mobileprovisionData!);
+    const profileBundleId = readProvisioningBundleId(group.mobileprovisionData!);
+
+    let newBundleId: string;
+    if (wildcard) {
+      const suffix = stableCloneSuffix(code, appIdNum);
+      newBundleId = `${originalBundleId}.${suffix}`;
+    } else if (profileBundleId) {
+      newBundleId = profileBundleId;
+    } else {
+      newBundleId = originalBundleId;
+    }
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
@@ -550,7 +581,7 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
       manifestUrl,
       appName: cloneName,
       appVersion: app.version || appInfo.version,
-      originalBundleId: app.bundleId || appInfo.bundleId,
+      originalBundleId,
       newBundleId,
       expiresAt: new Date(meta.expiresAt).toISOString(),
     });
