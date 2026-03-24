@@ -85,10 +85,12 @@ export async function signIpa(opts: {
     if (opts.bundleName) { args.push("-n", opts.bundleName); }
     args.push(opts.inputPath);
 
-    await execFileAsync(ZSIGN_BIN, args, {
+    const result = await execFileAsync(ZSIGN_BIN, args, {
       timeout: 10 * 60 * 1000,
       maxBuffer: 10 * 1024 * 1024,
     });
+    if (result.stdout) console.log("[zsign stdout]", result.stdout);
+    if (result.stderr) console.error("[zsign stderr]", result.stderr);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

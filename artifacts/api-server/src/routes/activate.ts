@@ -234,6 +234,8 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
         mpBase64: group.mobileprovisionData,
         inputPath,
         outputPath,
+        bundleId,
+        bundleName: "Mismari+",
       });
 
       if (tempDownloaded) {
