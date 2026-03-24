@@ -1058,6 +1058,206 @@ router.put("/admin/groups/ipa-url-all", async (req, res): Promise<void> => {
   res.json({ success: true, updatedCount });
 });
 
+// ─── DYLIB UPLOAD ─────────────────────────────────────────────────────────────
+const dylibUpload = multer({ dest: "/tmp/dylib-uploads", limits: { fileSize: 50 * 1024 * 1024 } });
+const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
+fs.mkdirSync(DYLIB_DIR, { recursive: true });
+
+router.post("/admin/dylib/upload", dylibUpload.single("file"), async (req: any, res): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "الملف مطلوب" }); return; }
+  const dest = path.join(DYLIB_DIR, "antirevoke.dylib");
+  fs.copyFileSync(req.file.path, dest);
+  fs.rmSync(req.file.path, { force: true });
+  const stat = fs.statSync(dest);
+  res.json({ success: true, size: stat.size, path: dest });
+});
+
+router.get("/admin/dylib/status", async (_req, res): Promise<void> => {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  if (fs.existsSync(p)) {
+    const stat = fs.statSync(p);
+    res.json({ exists: true, size: stat.size, updatedAt: stat.mtime.toISOString() });
+  } else {
+    res.json({ exists: false });
+  }
+});
+
+router.delete("/admin/dylib", async (_req, res): Promise<void> => {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  if (fs.existsSync(p)) fs.rmSync(p, { force: true });
+  res.json({ success: true });
+});
+
+// ─── SIGN ALL GROUPS (IPA + dylib) ───────────────────────────────────────────
+const SIGNED_STORE_DIR = path.join(process.cwd(), "uploads", "SignedStore");
+fs.mkdirSync(SIGNED_STORE_DIR, { recursive: true });
+
+router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
+  const { ipaUrl } = req.body as { ipaUrl?: string };
+  if (!ipaUrl?.trim()) {
+    res.status(400).json({ error: "رابط IPA مطلوب" });
+    return;
+  }
+
+  try {
+    const parsed = new URL(ipaUrl.trim());
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      res.status(400).json({ error: "يجب أن يكون الرابط http أو https" });
+      return;
+    }
+    const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", "169.254.169.254", "metadata.google.internal"];
+    if (blockedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith(".internal"))) {
+      res.status(400).json({ error: "رابط غير مسموح" });
+      return;
+    }
+  } catch {
+    res.status(400).json({ error: "رابط غير صالح" });
+    return;
+  }
+
+  const allGroups = await db.select().from(groupsTable);
+  const testGroups = allGroups.filter(g => g.groupType === "test_certificate" && g.p12Data && g.mobileprovisionData);
+
+  if (testGroups.length === 0) {
+    res.status(400).json({ error: "لا توجد شهادات (test_certificate) مع p12 و mobileprovision" });
+    return;
+  }
+
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const execFileAsync = promisify(execFile);
+
+  let tmpIpaPath = "";
+  try {
+    tmpIpaPath = path.join("/tmp", `store_${crypto.randomBytes(8).toString("hex")}.ipa`);
+    await execFileAsync("curl", ["-L", "-s", "--max-time", "300", "-o", tmpIpaPath, ipaUrl.trim()], {
+      timeout: 5 * 60 * 1000,
+    });
+    if (!fs.existsSync(tmpIpaPath) || fs.statSync(tmpIpaPath).size < 1000) {
+      throw new Error("فشل تحميل ملف IPA من الرابط");
+    }
+  } catch (err: any) {
+    if (tmpIpaPath && fs.existsSync(tmpIpaPath)) fs.rmSync(tmpIpaPath, { force: true });
+    res.status(400).json({ error: `فشل تحميل IPA: ${err.message}` });
+    return;
+  }
+
+  const dylibPath = path.join(DYLIB_DIR, "antirevoke.dylib");
+  const hasDylib = fs.existsSync(dylibPath);
+
+  const findZsign = (): string => {
+    const candidates = [
+      path.join(process.cwd(), "bin", "zsign"),
+      path.join(process.cwd(), "artifacts/api-server/bin", "zsign"),
+      "/home/runner/workspace/artifacts/api-server/bin/zsign",
+    ];
+    for (const p of candidates) { if (fs.existsSync(p)) return p; }
+    return candidates[0];
+  };
+  const zsignBin = findZsign();
+
+  const baseUrl = process.env.APP_BASE_URL?.replace(/\/$/, "")
+    || `https://${req.headers["x-forwarded-host"] || req.headers["host"] || "app.mismari.com"}`;
+
+  const results: Array<{ groupId: number; certName: string; success: boolean; error?: string; downloadUrl?: string; slug?: string }> = [];
+
+  for (const group of testGroups) {
+    const tmpDir = fs.mkdtempSync("/tmp/zsign-store-");
+    try {
+      const p12Path = path.join(tmpDir, "cert.p12");
+      const mpPath = path.join(tmpDir, "app.mobileprovision");
+      fs.writeFileSync(p12Path, Buffer.from(group.p12Data!, "base64"));
+      fs.writeFileSync(mpPath, Buffer.from(group.mobileprovisionData!, "base64"));
+
+      const signedFilename = `signed_${group.id}_${crypto.randomBytes(6).toString("hex")}.ipa`;
+      const outputPath = path.join(SIGNED_STORE_DIR, signedFilename);
+
+      const oldFiles = fs.readdirSync(SIGNED_STORE_DIR).filter(f => f.startsWith(`signed_${group.id}_`));
+      for (const of2 of oldFiles) {
+        fs.rmSync(path.join(SIGNED_STORE_DIR, of2), { force: true });
+      }
+
+      const args: string[] = [
+        "-k", p12Path,
+        "-p", group.p12Password || "",
+        "-m", mpPath,
+        "-o", outputPath,
+        "-z", "6",
+      ];
+      if (hasDylib) { args.push("-l", dylibPath); }
+      args.push(tmpIpaPath);
+
+      await execFileAsync(zsignBin, args, {
+        timeout: 10 * 60 * 1000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+
+      if (!fs.existsSync(outputPath)) {
+        throw new Error("zsign لم ينتج ملف الخرج");
+      }
+
+      let slug = group.downloadSlug;
+      if (!slug) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const candidate = crypto.randomBytes(4).toString("hex");
+          const [taken] = await db.select({ id: groupsTable.id }).from(groupsTable).where(eq(groupsTable.downloadSlug, candidate));
+          if (!taken) { slug = candidate; break; }
+        }
+      }
+
+      const signedIpaUrl = `${baseUrl}/api/admin/signed-store/${signedFilename}`;
+
+      await db.update(groupsTable).set({
+        ipaUrl: signedIpaUrl,
+        storeIpaPath: `/admin/signed-store/${signedFilename}`,
+        downloadSlug: slug,
+      }).where(eq(groupsTable.id, group.id));
+
+      results.push({
+        groupId: group.id,
+        certName: group.certName,
+        success: true,
+        downloadUrl: signedIpaUrl,
+        slug: slug || undefined,
+      });
+    } catch (err: any) {
+      results.push({
+        groupId: group.id,
+        certName: group.certName,
+        success: false,
+        error: err.message || "فشل التوقيع",
+      });
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  fs.rmSync(tmpIpaPath, { force: true });
+
+  const successCount = results.filter(r => r.success).length;
+  res.json({
+    success: true,
+    total: testGroups.length,
+    successCount,
+    failedCount: testGroups.length - successCount,
+    hasDylib,
+    results,
+  });
+});
+
+// ─── SERVE SIGNED STORE IPAs ──────────────────────────────────────────────────
+router.get("/admin/signed-store/:filename", (req, res): void => {
+  const filename = req.params.filename;
+  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+  const filePath = path.join(SIGNED_STORE_DIR, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
+  const stat = fs.statSync(filePath);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Length", stat.size);
+  fs.createReadStream(filePath).pipe(res);
+});
+
 router.put("/admin/groups/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }

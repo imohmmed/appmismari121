@@ -75,7 +75,7 @@ All admin pages are dark-themed (#1a1a2e bg, #22223a cards, #2a2a45 borders) wit
 - `/admin/apps` - Apps management (table, 3-dot menu, search, bulk actions)
 - `/admin/featured` - Featured banners (add/edit/delete banners with image/title/desc/link)
 - `/admin/subscribers` - Subscriber management (table, search, bulk WhatsApp)
-- `/admin/groups` - Subscriber groups
+- `/admin/groups` - Subscriber groups + Anti-Revoke dylib injection + batch signing
 - `/admin/categories` - Category management
 - `/admin/subcodes` - Subscription codes
 - `/admin/requests` - Subscription requests
@@ -137,6 +137,14 @@ Colors per step: Blue (#9fbcff), Orange (#FF8A50), Purple (#B07DFF)
 - **ProfileAvatar**: Shared component — shows profile photo or feather user icon; used in all 4 tab headers
 - All screens use `useSettings()` hook for dynamic colors, translations, and font selection
 - Public API endpoint `GET /api/subscriber/me?code=XXX` returns subscriber details (no auth required)
+
+### Anti-Revoke Dylib Injection System
+- Admin uploads `.dylib` file via Groups page → stored at `uploads/dylibs/antirevoke.dylib`
+- API endpoints: `POST /admin/dylib/upload`, `GET /admin/dylib/status`, `DELETE /admin/dylib`
+- **Batch signing**: `POST /admin/groups/sign-all` — downloads IPA from URL, signs for each test_certificate group with p12+mobileprovision, injects dylib via zsign `-l` flag, saves signed IPAs to `uploads/SignedStore/`, updates group's `ipaUrl` and `downloadSlug`
+- **Auto-injection**: All individual app/store/clone signing also injects dylib automatically if present
+- Signed IPAs served at `GET /admin/signed-store/:filename`
+- URL validation blocks SSRF (localhost, internal hosts, non-http protocols)
 
 ## Website (store-website)
 

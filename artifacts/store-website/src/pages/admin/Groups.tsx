@@ -1415,6 +1415,12 @@ export default function AdminGroups() {
   const [ipaUrlAll, setIpaUrlAll] = useState("");
   const [savingUrlAll, setSavingUrlAll] = useState(false);
   const allIpaRef = useRef<HTMLInputElement>(null);
+  const dylibRef = useRef<HTMLInputElement>(null);
+  const [dylibStatus, setDylibStatus] = useState<{ exists: boolean; size?: number; updatedAt?: string } | null>(null);
+  const [uploadingDylib, setUploadingDylib] = useState(false);
+  const [signingAll, setSigningAll] = useState(false);
+  const [signResults, setSignResults] = useState<any>(null);
+  const [signIpaUrl, setSignIpaUrl] = useState("");
 
   const handleUploadAll = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1466,6 +1472,75 @@ export default function AdminGroups() {
     setSavingUrlAll(false);
   };
 
+  const fetchDylibStatus = async () => {
+    try {
+      const res = await adminFetch("/admin/dylib/status");
+      const data = await res.json();
+      setDylibStatus(data);
+    } catch { setDylibStatus({ exists: false }); }
+  };
+
+  const handleUploadDylib = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDylib(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await adminUpload("/admin/dylib/upload", fd);
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "تم رفع ملف Anti-Revoke بنجاح", description: `الحجم: ${(data.size / 1024).toFixed(1)} KB` });
+        fetchDylibStatus();
+      } else {
+        toast({ title: "فشل الرفع", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "فشل الرفع", variant: "destructive" });
+    }
+    setUploadingDylib(false);
+    if (dylibRef.current) dylibRef.current.value = "";
+  };
+
+  const handleDeleteDylib = async () => {
+    try {
+      await adminFetch("/admin/dylib", { method: "DELETE" });
+      toast({ title: "تم حذف ملف Anti-Revoke" });
+      fetchDylibStatus();
+    } catch {
+      toast({ title: "فشل الحذف", variant: "destructive" });
+    }
+  };
+
+  const handleSignAll = async () => {
+    if (!signIpaUrl.trim()) {
+      toast({ title: "أدخل رابط IPA أولاً", variant: "destructive" });
+      return;
+    }
+    setSigningAll(true);
+    setSignResults(null);
+    try {
+      const res = await adminFetch("/admin/groups/sign-all", {
+        method: "POST",
+        body: JSON.stringify({ ipaUrl: signIpaUrl.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSignResults(data);
+        toast({
+          title: `تم التوقيع: ${data.successCount}/${data.total} مجموعة`,
+          description: data.hasDylib ? "مع حقن Anti-Revoke ✓" : "بدون Anti-Revoke (لم يُرفع ملف dylib)",
+        });
+        fetchGroups();
+      } else {
+        toast({ title: "فشل التوقيع", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "فشل التوقيع", variant: "destructive" });
+    }
+    setSigningAll(false);
+  };
+
   const fetchGroups = async () => {
     setLoading(true);
     const res = await adminFetch("/admin/groups");
@@ -1479,7 +1554,7 @@ export default function AdminGroups() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchGroups(); }, []);
+  useEffect(() => { fetchGroups(); fetchDylibStatus(); }, []);
 
   const totalIPhone = groups.reduce((s, g) => s + (g.iphoneOfficialCount || 0) + (g.iphoneMacCount || 0), 0);
   const totalIPad = groups.reduce((s, g) => s + (g.ipadCount || 0), 0);
@@ -1672,6 +1747,131 @@ export default function AdminGroups() {
             </div>
           );
         })()}
+
+        {/* ── Anti-Revoke + توقيع جماعي ── */}
+        {groups.length > 0 && (
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "#f59e0b25", background: "#f59e0b06" }}>
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#f59e0b15" }}>
+                  <Shield className="w-5 h-5" style={{ color: "#f59e0b" }} />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-sm">Anti-Revoke + توقيع جماعي</h3>
+                  <p className="text-white/35 text-xs mt-0.5">
+                    ارفع ملف .dylib ← أدخل رابط IPA الأصلي ← يوقّع لكل مجموعة (test_certificate) مع حقن الـ dylib تلقائياً
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white/[0.03] rounded-xl px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-white/60 text-xs font-medium">ملف Anti-Revoke (.dylib)</span>
+                    {dylibStatus?.exists ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#22c55e15", color: "#22c55e" }}>
+                        مرفوع ✓ ({((dylibStatus.size || 0) / 1024).toFixed(0)} KB)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#ef444415", color: "#ef4444" }}>
+                        غير مرفوع
+                      </span>
+                    )}
+                  </div>
+                  {dylibStatus?.updatedAt && (
+                    <p className="text-white/20 text-xs">آخر تحديث: {new Date(dylibStatus.updatedAt).toLocaleString("ar-SA")}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => dylibRef.current?.click()}
+                    disabled={uploadingDylib}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                    style={{ background: "#f59e0b18", color: "#f59e0b" }}>
+                    {uploadingDylib ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {uploadingDylib ? "جاري الرفع..." : "رفع dylib"}
+                  </button>
+                  <input ref={dylibRef} type="file" accept=".dylib" className="hidden" onChange={handleUploadDylib} />
+                  {dylibStatus?.exists && (
+                    <button onClick={handleDeleteDylib}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                      style={{ background: "#ef444418", color: "#ef4444" }}>
+                      <Trash2 className="w-3.5 h-3.5" />حذف
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-white/5" />
+
+              <div className="space-y-2">
+                <span className="text-white/60 text-xs font-medium">رابط IPA الأصلي (غير موقّع)</span>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="url"
+                    value={signIpaUrl}
+                    onChange={e => setSignIpaUrl(e.target.value)}
+                    placeholder="https://example.com/original-app.ipa"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80 placeholder:text-white/20 font-mono outline-none focus:border-white/20"
+                    dir="ltr"
+                    onKeyDown={e => e.key === "Enter" && handleSignAll()}
+                  />
+                  <button
+                    onClick={handleSignAll}
+                    disabled={signingAll || !signIpaUrl.trim()}
+                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-colors shrink-0"
+                    style={{ background: "#f59e0b", color: "#000" }}>
+                    {signingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                    {signingAll ? "جاري التوقيع..." : "توقيع للكل"}
+                  </button>
+                </div>
+                {!dylibStatus?.exists && (
+                  <p className="text-white/25 text-xs flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    لم يُرفع ملف dylib — سيتم التوقيع بدون Anti-Revoke
+                  </p>
+                )}
+              </div>
+
+              {signResults && (
+                <div className="bg-white/[0.03] rounded-xl px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-white/70 text-sm font-bold">نتائج التوقيع</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#22c55e15", color: "#22c55e" }}>
+                      {signResults.successCount} نجح
+                    </span>
+                    {signResults.failedCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#ef444415", color: "#ef4444" }}>
+                        {signResults.failedCount} فشل
+                      </span>
+                    )}
+                    {signResults.hasDylib && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#f59e0b15", color: "#f59e0b" }}>
+                        Anti-Revoke ✓
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {signResults.results?.map((r: any) => (
+                      <div key={r.groupId} className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0">
+                        <span className="text-white/60">{r.certName}</span>
+                        {r.success ? (
+                          <span className="flex items-center gap-1.5" style={{ color: "#22c55e" }}>
+                            <CheckCircle className="w-3 h-3" />تم
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5" style={{ color: "#ef4444" }}>
+                            <XCircle className="w-3 h-3" />{r.error}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-white/30" /></div>
