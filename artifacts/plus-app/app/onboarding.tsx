@@ -19,6 +19,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Feather } from "@expo/vector-icons";
 
 import { useSettings } from "@/contexts/SettingsContext";
+import { getApiBase, getApiDomain } from "@/constants/api";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
@@ -33,8 +34,8 @@ const GREEN = "#34C759";
 const DARK = "#2b283b";
 const WHITE = "#ffffff";
 
-const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
-const API_BASE = `https://${API_DOMAIN}`;
+
+
 
 type Step = "language" | "theme" | "landing" | "download" | "install" | "udid" | "checking" | "result";
 
@@ -187,8 +188,7 @@ export default function OnboardingScreen() {
 
   // Fetch contact links from admin settings
   useEffect(() => {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
-    fetch(`https://${domain}/api/settings`)
+    fetch(`${getApiBase()}/api/settings`)
       .then(r => r.json())
       .then(data => setSocialLinks({
         whatsapp: data.whatsapp || "",
@@ -238,7 +238,7 @@ export default function OnboardingScreen() {
   async function handleDownloadProfile() {
     // Generate a session token — server stores UDID under this token when callback fires
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const url = `${API_BASE}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
+    const url = `${getApiBase()}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
 
     let foundUdid = false;
 
@@ -252,7 +252,7 @@ export default function OnboardingScreen() {
         try {
           // _t busts any proxy/CDN cache — Replit dev proxy ignores Cache-Control on GET
           const r = await fetch(
-            `${API_BASE}/api/profile/udid-check?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
+            `${getApiBase()}/api/profile/udid-check?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
             { cache: "no-store" }
           );
           const data = await r.json();
@@ -298,7 +298,7 @@ export default function OnboardingScreen() {
     setStep("checking");
     fadeAnim.setValue(1);
     try {
-      const res = await fetch(`${API_BASE}/api/enroll/check?udid=${encodeURIComponent(udid)}`);
+      const res = await fetch(`${getApiBase()}/api/enroll/check?udid=${encodeURIComponent(udid)}`);
       const data = await res.json();
       if (data.found) {
         setCheckResult({ success: true, message: "جهازك مسجّل وجاهز!" });
