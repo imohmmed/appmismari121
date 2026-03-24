@@ -81,7 +81,15 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
   res.end(html);
 }
 
-function serveStaticFile(urlPath, res) {
+function getApiDomain(req) {
+  const host = req.headers["x-forwarded-host"] || req.headers["host"] || "";
+  if (host && !host.includes("undefined")) return host.replace(/:\d+$/, "");
+  return process.env.REPLIT_INTERNAL_APP_DOMAIN
+    || process.env.REPLIT_DEV_DOMAIN
+    || "app.mismari.com";
+}
+
+function serveStaticFile(urlPath, res, req) {
   const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, "");
   const filePath = path.join(STATIC_ROOT, safePath);
 
@@ -99,7 +107,17 @@ function serveStaticFile(urlPath, res) {
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  const content = fs.readFileSync(filePath);
+  let content = fs.readFileSync(filePath);
+
+  if (ext === ".js") {
+    let text = content.toString("utf-8");
+    if (text.includes("https://undefined")) {
+      const domain = getApiDomain(req);
+      text = text.replace(/https:\/\/undefined/g, `https://${domain}`);
+      content = Buffer.from(text, "utf-8");
+    }
+  }
+
   res.writeHead(200, { "content-type": contentType });
   res.end(content);
 }
@@ -126,7 +144,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  serveStaticFile(pathname, res);
+  serveStaticFile(pathname, res, req);
 });
 
 const port = parseInt(process.env.PORT || "3000", 10);
