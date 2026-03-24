@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -20,18 +21,21 @@ const TAB_KEYS = [
 
 export default function MismariTabBar({ state, navigation }: BottomTabBarProps) {
   const { colors, t, fontAr, isDark, isArabic } = useSettings();
+  const insets = useSafeAreaInsets();
 
   const activeRoute = state.routes[state.index]?.name;
 
   const tabsForRender = isArabic ? [...TAB_KEYS].reverse() : TAB_KEYS;
 
-  const isWeb = Platform.OS === "web";
   const isIOS = Platform.OS === "ios";
 
-  const tabsSection = (
-    <View style={s.tabsContainer}>
+  const tabsRow = (
+    <View style={s.tabsRow}>
       {tabsForRender.map((tab) => {
         const isActive = activeRoute === tab.name;
+        const tintColor = isActive
+          ? (isDark ? "#0A84FF" : "#007AFF")
+          : (isDark ? "#8E8E93" : "#999");
         return (
           <Pressable
             key={tab.name}
@@ -46,15 +50,15 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
           >
             <Feather
               name={tab.icon as any}
-              size={20}
-              color={isActive ? colors.tint : colors.tabIconDefault}
+              size={22}
+              color={tintColor}
             />
             <Text
               style={[
                 s.tabLabel,
                 {
-                  color: isActive ? colors.tint : colors.tabIconDefault,
-                  fontFamily: fontAr("SemiBold"),
+                  color: tintColor,
+                  fontFamily: fontAr("Medium"),
                 },
               ]}
               numberOfLines={1}
@@ -67,87 +71,66 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
     </View>
   );
 
-  const barContent = (
-    <View style={s.barInner}>
-      {tabsSection}
-    </View>
-  );
-
-  const webGlassBg = isDark ? "rgba(43,40,59,0.85)" : "rgba(255,255,255,0.85)";
-
-  if (isWeb) {
-    return (
-      <View style={s.barWrapper}>
-        <View style={[s.glassBar, s.webGlass, { backgroundColor: webGlassBg }]}>{barContent}</View>
-      </View>
-    );
-  }
+  const bottomPadding = Math.max(insets.bottom, 8);
 
   if (isIOS) {
     return (
-      <View style={s.barWrapper}>
-        <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={s.glassBar}>
-          {barContent}
+      <View style={[s.wrapper, { paddingBottom: bottomPadding }]}>
+        <View style={s.separator} />
+        <BlurView
+          intensity={98}
+          tint={isDark ? "systemChromeMaterialDark" : "systemChromeMaterial"}
+          style={[s.blurContainer, { paddingBottom: bottomPadding }]}
+        >
+          {tabsRow}
         </BlurView>
       </View>
     );
   }
 
   return (
-    <View style={s.barWrapper}>
-      <View style={[s.glassBar, { backgroundColor: colors.background }]}>{barContent}</View>
+    <View style={[s.wrapper, { paddingBottom: bottomPadding }]}>
+      <View style={s.separator} />
+      <View style={[s.fallbackContainer, {
+        backgroundColor: isDark ? "#1C1C1E" : "#F8F8F8",
+        paddingBottom: bottomPadding,
+      }]}>
+        {tabsRow}
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  barWrapper: {
+  wrapper: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 12,
-    paddingBottom: Platform.OS === "web" ? 12 : 28,
   },
-  glassBar: {
-    borderRadius: 28,
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(0,0,0,0.12)",
+  },
+  blurContainer: {
     overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: { elevation: 8 },
-      web: {
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-      },
-    }),
   },
-  webGlass: {
-    backdropFilter: "blur(20px)",
+  fallbackContainer: {
+    overflow: "hidden",
   },
-  barInner: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    minHeight: 56,
-  },
-  tabsContainer: {
-    flex: 1,
+  tabsRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(120,120,128,0.08)",
-    borderRadius: 22,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    justifyContent: "space-around",
+    paddingTop: 6,
+    paddingHorizontal: 16,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6,
-    gap: 2,
+    paddingVertical: 4,
+    gap: 3,
   },
   tabLabel: {
     fontSize: 10,
