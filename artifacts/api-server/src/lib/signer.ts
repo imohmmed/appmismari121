@@ -6,7 +6,19 @@ import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
-export const ZSIGN_BIN = path.join(process.cwd(), "bin", "zsign");
+function findZsign(): string {
+  const candidates = [
+    path.join(process.cwd(), "bin", "zsign"),
+    path.join(process.cwd(), "artifacts/api-server/bin", "zsign"),
+    path.join(__dirname, "../../bin", "zsign"),
+    "/home/runner/workspace/artifacts/api-server/bin/zsign",
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+export const ZSIGN_BIN = findZsign();
 export const SIGNED_DIR = path.join(process.cwd(), "uploads", "Signed");
 
 fs.mkdirSync(SIGNED_DIR, { recursive: true });

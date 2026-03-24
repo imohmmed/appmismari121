@@ -29,7 +29,18 @@ const signLimiter = rateLimit({
 // ─── Concurrency limiter: max 2 zsign operations at once ───────────────────
 const signLimit = pLimit(2);
 
-const ZSIGN_BIN = path.join(process.cwd(), "bin", "zsign");
+function findZsign(): string {
+  const candidates = [
+    path.join(process.cwd(), "bin", "zsign"),
+    path.join(process.cwd(), "artifacts/api-server/bin", "zsign"),
+    "/home/runner/workspace/artifacts/api-server/bin/zsign",
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+const ZSIGN_BIN = findZsign();
 const SIGNED_DIR = path.join(process.cwd(), "uploads", "Signed");
 
 fs.mkdirSync(SIGNED_DIR, { recursive: true });
