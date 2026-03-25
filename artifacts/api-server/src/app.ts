@@ -79,6 +79,13 @@ app.use("/admin/FilesIPA/StoreIPA", express.static(path.join(uploadsDir, "StoreI
   },
 }));
 
+app.use("/ipa", express.static(path.join(uploadsDir, "ipa"), {
+  setHeaders(res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", "application/octet-stream");
+  },
+}));
+
 app.use(
   pinoHttp({
     logger,
