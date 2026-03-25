@@ -11,6 +11,12 @@ import { signIpa, saveToken, randomHex, resolveLocalPath, downloadToTemp, SIGNED
 
 const router: IRouter = Router();
 
+const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
+function getAntiRevokeDylibPath(): string | null {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  return fs.existsSync(p) ? p : null;
+}
+
 // ─── Rate limiters ────────────────────────────────────────────────────────────
 const validateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -33,9 +39,7 @@ const completeLimiter = rateLimit({
 // Falls back to reconstructing from request headers in dev.
 function getBaseUrl(req: import("express").Request): string {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
-  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
-  const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
-  return `${proto}://${host}`;
+  return "https://app.mismari.com";
 }
 
 
@@ -225,6 +229,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
       const token = randomHex(16);
       const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
 
+      const dylibPath = getAntiRevokeDylibPath();
       await signIpa({
         p12Base64: group.p12Data,
         p12Password: group.p12Password || "",
@@ -233,6 +238,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
         outputPath,
         bundleId,
         bundleName: "Mismari+",
+        dylibPaths: dylibPath ? [dylibPath] : undefined,
       });
 
       if (tempDownloaded) {

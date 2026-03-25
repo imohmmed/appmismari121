@@ -53,9 +53,7 @@ function randomHex(n = 16) {
 
 function getBaseUrl(req: import("express").Request): string {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
-  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
-  const host = (req.headers["x-forwarded-host"] as string) || (req.headers["host"] as string) || "";
-  return `${proto}://${host}`;
+  return "https://app.mismari.com";
 }
 
 interface TokenMeta {

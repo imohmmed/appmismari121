@@ -66,6 +66,7 @@ export async function signIpa(opts: {
   outputPath: string;
   bundleId?: string;
   bundleName?: string;
+  dylibPaths?: string[];
 }): Promise<void> {
   const tmpDir = fs.mkdtempSync("/tmp/zsign-");
   try {
@@ -83,6 +84,9 @@ export async function signIpa(opts: {
     ];
     if (opts.bundleId)   { args.push("-b", opts.bundleId); }
     if (opts.bundleName) { args.push("-n", opts.bundleName); }
+    if (opts.dylibPaths) {
+      for (const dp of opts.dylibPaths) { args.push("-l", dp); }
+    }
     args.push(opts.inputPath);
 
     const result = await execFileAsync(ZSIGN_BIN, args, {
@@ -107,7 +111,12 @@ export function resolveLocalPath(storedPath: string): string {
     if (appMatch) return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", appMatch[1]);
     const relMatch = p.match(/\/admin\/FilesIPA\/(.+)$/);
     if (relMatch) return path.join(process.cwd(), "uploads", "FilesIPA", relMatch[1]);
+    const signedStoreMatch = p.match(/\/(?:api\/)?admin\/signed-store\/(.+)$/);
+    if (signedStoreMatch) return path.join(process.cwd(), "uploads", "SignedStore", signedStoreMatch[1]);
     return path.join(process.cwd(), "uploads", path.basename(p));
+  }
+  if (storedPath.startsWith("/admin/signed-store/")) {
+    return path.join(process.cwd(), "uploads", "SignedStore", path.basename(storedPath));
   }
   if (storedPath.startsWith("/admin/FilesIPA/StoreIPA/")) {
     return path.join(process.cwd(), "uploads", "StoreIPA", path.basename(storedPath));

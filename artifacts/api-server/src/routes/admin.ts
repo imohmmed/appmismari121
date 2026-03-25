@@ -1156,8 +1156,7 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
   };
   const zsignBin = findZsign();
 
-  const baseUrl = process.env.APP_BASE_URL?.replace(/\/$/, "")
-    || `https://${req.headers["x-forwarded-host"] || req.headers["host"] || "app.mismari.com"}`;
+  const baseUrl = process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://app.mismari.com";
 
   const results: Array<{ groupId: number; certName: string; success: boolean; error?: string; downloadUrl?: string; slug?: string }> = [];
 
