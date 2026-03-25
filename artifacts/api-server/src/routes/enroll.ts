@@ -261,7 +261,6 @@ router.get("/profile/udid-check", (req, res): void => {
 
   const entry = udidTokenStore.get(token);
   if (entry && Date.now() - entry.createdAt <= TOKEN_TTL_MS) {
-    udidTokenStore.delete(token); // consume it
     res.json({ found: true, udid: entry.udid });
   } else {
     res.json({ found: false });
