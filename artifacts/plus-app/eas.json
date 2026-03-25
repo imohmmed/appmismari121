@@ -24,6 +24,16 @@
         "credentialsSource": "local",
         "image": "latest"
       }
+    },
+    "local": {
+      "distribution": "internal",
+      "ios": {
+        "credentialsSource": "local",
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "app.mismari.com"
+      }
     }
   }
 }

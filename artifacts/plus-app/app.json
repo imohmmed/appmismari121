@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Mismari+",
-    "slug": "plus-app",
+    "name": "مسماري+",
+    "slug": "mismari-plus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.jpg",
     "scheme": "mismari",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -18,6 +18,9 @@
       "bundleIdentifier": "com.mismari.app",
       "buildNumber": "1",
       "infoPlist": {
+        "CFBundleDisplayName": "مسماري+",
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "للتصوير ورفع الصور",
         "NSPhotoLibraryUsageDescription": "للوصول لمكتبة الصور",
         "NSAppTransportSecurity": {
@@ -39,7 +42,7 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
+      "expo-glass-effect",
       [
         "expo-notifications",
         {
@@ -52,11 +55,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      }
     }
   }
 }
