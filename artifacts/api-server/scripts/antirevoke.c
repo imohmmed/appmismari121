@@ -1,4 +1,5 @@
 #include <string.h>
+#include <strings.h>
 #include <netdb.h>
 #include <dlfcn.h>
 #include <stddef.h>
@@ -32,7 +33,7 @@ typedef int (*getaddrinfo_t)(const char *, const char *,
                              const struct addrinfo *, struct addrinfo **);
 typedef struct hostent *(*gethostbyname_t)(const char *);
 
-static getaddrinfo_t  orig_getaddrinfo  = NULL;
+static getaddrinfo_t   orig_getaddrinfo   = NULL;
 static gethostbyname_t orig_gethostbyname = NULL;
 
 int my_getaddrinfo(const char *hostname, const char *servname,
@@ -45,10 +46,14 @@ int my_getaddrinfo(const char *hostname, const char *servname,
 }
 
 struct hostent *my_gethostbyname(const char *name) {
-    if (is_blocked(name)) return NULL;
+    if (is_blocked(name)) {
+        h_errno = HOST_NOT_FOUND;
+        return NULL;
+    }
     if (!orig_gethostbyname)
         orig_gethostbyname = (gethostbyname_t)dlsym(RTLD_NEXT, "gethostbyname");
     if (orig_gethostbyname) return orig_gethostbyname(name);
+    h_errno = HOST_NOT_FOUND;
     return NULL;
 }
 
