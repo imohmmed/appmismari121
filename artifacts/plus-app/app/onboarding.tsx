@@ -10,6 +10,8 @@ import {
   Animated,
   Easing,
   StatusBar,
+  Alert,
+  AppState,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -236,33 +238,31 @@ export default function OnboardingScreen() {
     });
   }
 
+  const [pollStatus, setPollStatus] = useState("");
+
   async function handleDownloadProfile() {
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const url = `${getApiBase()}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
+    const url = `https://app.mismari.com/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
+
+    setPollStatus("فتح المتصفح...");
 
     await WebBrowser.openBrowserAsync(url, {
       dismissButtonStyle: "done",
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
 
+    setPollStatus("تم إغلاق المتصفح — بدء البحث...");
     setIsPolling(true);
     transition("install");
 
     const pollUrl = `https://app.mismari.com/api/profile/udid-check`;
-    let attempts = 0;
 
-    async function poll() {
-      if (attempts >= 90) {
-        setIsPolling(false);
-        return;
-      }
-      attempts++;
+    for (let i = 1; i <= 90; i++) {
+      setPollStatus(`محاولة ${i}/90...`);
       try {
-        const r = await fetch(
-          `${pollUrl}?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
-          { headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" } }
-        );
+        const r = await fetch(`${pollUrl}?token=${encodeURIComponent(token)}&_t=${Date.now()}`);
         const data = await r.json();
+        setPollStatus(`محاولة ${i}: ${data.found ? "تم!" : "لم يتم بعد"}`);
         if (data.found && data.udid) {
           setUdid(data.udid);
           setDeviceUdid(data.udid);
@@ -271,13 +271,14 @@ export default function OnboardingScreen() {
           router.replace("/(tabs)");
           return;
         }
-      } catch (e) {
-        // ignore
+      } catch (e: any) {
+        setPollStatus(`محاولة ${i}: خطأ - ${e?.message || "فشل"}`);
       }
-      setTimeout(poll, 2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
-    poll();
+    setPollStatus("انتهت المحاولات — لم يتم العثور");
+    setIsPolling(false);
   }
 
   async function handleCheckDevice() {
@@ -590,6 +591,11 @@ export default function OnboardingScreen() {
                       جارٍ الكشف عن معرّف جهازك...
                     </Text>
                   </View>
+                  {pollStatus ? (
+                    <Text style={{ color: "#999", fontSize: 11, fontFamily: "Inter_400Regular", direction: "ltr", textAlign: "center" }}>
+                      {pollStatus}
+                    </Text>
+                  ) : null}
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: DARK, marginTop: 4 }]}
                     activeOpacity={0.85}
