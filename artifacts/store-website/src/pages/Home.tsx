@@ -251,6 +251,12 @@ export default function Home() {
   const [activating, setActivating] = useState(false);
   const [activateResult, setActivateResult] = useState<ActivateResult | null>(null);
 
+  const activatePollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => { if (activatePollingRef.current) clearInterval(activatePollingRef.current); };
+  }, []);
+
   async function handleActivate() {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
@@ -264,8 +270,37 @@ export default function Home() {
       });
       const data: ActivateResult = await res.json();
       if (data.valid) {
-        // Redirect to full activation flow — profile download + form + Apple registration
-        window.location.href = `${BASE}activate?code=${encodeURIComponent(trimmed)}`;
+        if (data.alreadyRegistered) {
+          window.location.href = `${BASE}activate?code=${encodeURIComponent(trimmed)}`;
+          return;
+        }
+
+        const token = sessionStorage.getItem("activate_token") || crypto.randomUUID().replace(/-/g, "").substring(0, 20);
+        sessionStorage.setItem("activate_token", token);
+
+        const profileUrl = `${API}/api/profile/enroll?source=activate&token=${encodeURIComponent(token)}`;
+        const a = document.createElement("a");
+        a.href = profileUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        if (activatePollingRef.current) clearInterval(activatePollingRef.current);
+        activatePollingRef.current = setInterval(async () => {
+          try {
+            const r = await fetch(`${API}/api/profile/udid-check?token=${token}`, { cache: "no-store" });
+            const d = await r.json();
+            if (d.found && d.udid) {
+              if (activatePollingRef.current) clearInterval(activatePollingRef.current);
+              activatePollingRef.current = null;
+              sessionStorage.setItem("activate_udid", d.udid);
+              window.location.href = `${BASE}activate?code=${encodeURIComponent(trimmed)}&udid=${encodeURIComponent(d.udid)}`;
+            }
+          } catch {}
+        }, 2000);
+
+        setActivateResult({ valid: true });
+        setActivating(false);
         return;
       }
       setActivateResult(data);
@@ -377,23 +412,17 @@ export default function Home() {
               {!activateResult.valid ? (
                 <p style={{ color: "#e53e3e" }}>{activateResult.error || "الكود غير صحيح أو منتهي الصلاحية"}</p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <p className="font-bold" style={{ color: PRIMARY }}>✓ اشتراك نشط</p>
-                  {activateResult.planName && (
-                    <p style={{ color: TEXT }}>الباقة: <span className="font-semibold">{activateResult.planName}</span></p>
-                  )}
-                  {activateResult.downloadLink && (
-                    <a
-                      href={activateResult.downloadLink}
-                      className="mt-2 block w-full py-3 rounded-xl font-bold text-sm text-center transition-all hover:opacity-90"
-                      style={{ background: PRIMARY, color: TEXT }}
-                    >
-                      تحميل مسماري+
-                    </a>
-                  )}
-                  {!activateResult.hasIpa && (
-                    <p className="text-xs opacity-60" style={{ color: TEXT }}>تواصل مع المسؤول لاستلام التطبيق</p>
-                  )}
+                <div className="flex flex-col gap-2 items-center text-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: `${PRIMARY}25` }}>
+                    <Shield className="w-5 h-5" style={{ color: PRIMARY }} />
+                  </div>
+                  <p className="font-bold" style={{ color: PRIMARY }}>تم تحميل ملف التعريف</p>
+                  <p className="text-xs" style={{ color: `${TEXT}80` }}>
+                    ثبّت الملف من الإعدادات → عام → VPN وإدارة الأجهزة
+                  </p>
+                  <p className="text-xs" style={{ color: `${TEXT}60` }}>
+                    سيتم نقلك تلقائياً بعد التثبيت لإكمال التفعيل
+                  </p>
                 </div>
               )}
             </div>

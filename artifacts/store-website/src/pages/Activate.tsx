@@ -52,18 +52,20 @@ function getOrCreateToken(): string {
 }
 
 export default function Activate() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlCode = urlParams.get("code") || "";
+  const urlUdid = urlParams.get("udid") || "";
+
   const [step, setStep] = useState<Step>("code");
   const [errorMsg, setErrorMsg] = useState("");
   const [token] = useState(() => getOrCreateToken());
 
-  // Read code from URL query param (e.g. /activate?code=MSM-XXXX)
-  const urlCode = new URLSearchParams(window.location.search).get("code") || "";
   const [codeInput, setCodeInput] = useState(urlCode);
   const [codeLoading, setCodeLoading] = useState(false);
   const [validated, setValidated] = useState<ValidateResult | null>(null);
 
-  const [udid, setUdid] = useState("");
-  const [udidFound, setUdidFound] = useState(false);
+  const [udid, setUdid] = useState(urlUdid);
+  const [udidFound, setUdidFound] = useState(!!urlUdid);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -100,13 +102,17 @@ export default function Activate() {
   }, [pollOnce]);
 
   useEffect(() => {
-    const savedUdid = sessionStorage.getItem("activate_udid");
-    if (savedUdid && step === "code") {
-      setUdid(savedUdid);
-      setUdidFound(true);
+    if (urlUdid) {
       foundRef.current = true;
+      sessionStorage.setItem("activate_udid", urlUdid);
+    } else {
+      const savedUdid = sessionStorage.getItem("activate_udid");
+      if (savedUdid && step === "code") {
+        setUdid(savedUdid);
+        setUdidFound(true);
+        foundRef.current = true;
+      }
     }
-    // Auto-validate if code came from URL query param
     if (urlCode) {
       doValidateCode(urlCode);
     }
