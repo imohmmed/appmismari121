@@ -202,11 +202,11 @@ export default function OnboardingScreen() {
     if (params.udid) {
       setUdid(params.udid);
       setDeviceUdid(params.udid);
-      setStep("udid");
+      setOnboardingDone(true);
+      router.replace("/(tabs)");
     }
   }, [params.udid]);
 
-  // Keep deeplink listener as fallback
   useEffect(() => {
     const sub = Linking.addEventListener("url", (event) => {
       const parsed = Linking.parse(event.url);
@@ -214,7 +214,8 @@ export default function OnboardingScreen() {
         const u = parsed.queryParams.udid as string;
         setUdid(u);
         setDeviceUdid(u);
-        setStep("udid");
+        setOnboardingDone(true);
+        router.replace("/(tabs)");
       }
     });
     return () => sub.remove();
@@ -260,8 +261,9 @@ export default function OnboardingScreen() {
             foundUdid = true;
             setUdid(data.udid);
             setDeviceUdid(data.udid);
+            setOnboardingDone(true);
             WebBrowser.dismissBrowser();
-            setTimeout(() => transition("udid"), 300);
+            setTimeout(() => router.replace("/(tabs)"), 300);
           }
         } catch (e) {
           console.log("[poll] error:", e);

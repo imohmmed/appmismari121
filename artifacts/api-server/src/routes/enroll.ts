@@ -2,24 +2,14 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { db, subscriptionsTable, enrollmentRequestsTable, plansTable } from "@workspace/db";
+import { db, subscriptionsTable, enrollmentRequestsTable, plansTable, udidTokensTable } from "@workspace/db";
 import { signMobileconfig } from "../sign-profile.js";
 import { registerDeviceWithApple } from "../apple-connect.js";
 import { JWT_SECRET } from "../middleware/adminAuth.js";
 
 const router: IRouter = Router();
 
-// ─── In-memory token → UDID store (TTL: 5 min) ───────────────────────────────
-const udidTokenStore = new Map<string, { udid: string; createdAt: number }>();
-const TOKEN_TTL_MS = 5 * 60 * 1000;
-
-function cleanExpiredTokens() {
-  const now = Date.now();
-  for (const [token, val] of udidTokenStore) {
-    if (now - val.createdAt > TOKEN_TTL_MS) udidTokenStore.delete(token);
-  }
-}
-setInterval(cleanExpiredTokens, 60_000);
+const TOKEN_TTL_MS = 10 * 60 * 1000;
 
 // ─── Safe base URL resolution ─────────────────────────────────────────────────
 function getBaseUrl(req: import("express").Request): string {
@@ -165,9 +155,12 @@ router.post(
 
       console.info(`[callback] UDID: ${udid}, device: ${deviceName || "unknown"}, source: ${source}`);
 
-      // Save UDID to token store (for app polling)
       if (token) {
-        udidTokenStore.set(token, { udid, createdAt: Date.now() });
+        try {
+          await db.insert(udidTokensTable).values({ token, udid }).onConflictDoNothing();
+        } catch (e) {
+          console.error("[callback] DB insert udid_tokens failed:", e);
+        }
       }
 
       // For web source, save UDID as a pending enrollment request
@@ -228,7 +221,7 @@ router.get("/profile/success", (req, res): void => {
 });
 
 // ─── Poll for UDID by token (app polls this after profile install) ────────────
-router.get("/profile/udid-check", (req, res): void => {
+router.get("/profile/udid-check", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -236,13 +229,18 @@ router.get("/profile/udid-check", (req, res): void => {
   const token = (req.query.token as string) || "";
   if (!token) { res.status(400).json({ error: "token required" }); return; }
 
-  console.info(`[udid-check] Polling token=${token.substring(0, 8)}... store_size=${udidTokenStore.size}`);
+  console.info(`[udid-check] Polling token=${token.substring(0, 8)}...`);
 
-  const entry = udidTokenStore.get(token);
-  if (entry && Date.now() - entry.createdAt <= TOKEN_TTL_MS) {
-    console.info(`[udid-check] FOUND udid=${entry.udid} for token=${token.substring(0, 8)}...`);
-    res.json({ found: true, udid: entry.udid });
-  } else {
+  try {
+    const [entry] = await db.select().from(udidTokensTable).where(eq(udidTokensTable.token, token)).limit(1);
+    if (entry && (Date.now() - new Date(entry.createdAt).getTime()) <= TOKEN_TTL_MS) {
+      console.info(`[udid-check] FOUND udid=${entry.udid} for token=${token.substring(0, 8)}...`);
+      res.json({ found: true, udid: entry.udid });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (e) {
+    console.error("[udid-check] DB query failed:", e);
     res.json({ found: false });
   }
 });
