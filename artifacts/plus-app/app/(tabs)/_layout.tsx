@@ -1,12 +1,19 @@
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Tabs, Redirect } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import React, { useEffect, useState, useRef } from "react";
+import { Platform } from "react-native";
 
 import MismariTabBar from "@/components/MismariTabBar";
 import ExpiredSubscriptionOverlay from "@/components/ExpiredSubscriptionOverlay";
 import { useSettings } from "@/contexts/SettingsContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+
+let liquidGlassAvailable = false;
+try {
+  const mod = require("expo-glass-effect");
+  liquidGlassAvailable = mod.isLiquidGlassAvailable?.() ?? false;
+} catch {}
+const useNativeTabs = Platform.OS === "ios";
 
 function NativeTabLayout() {
   const { t, isArabic } = useSettings();
@@ -94,7 +101,7 @@ export default function TabLayout() {
 
   return (
     <>
-      {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
+      {useNativeTabs ? <NativeTabLayout /> : <ClassicTabLayout />}
       <ExpiredSubscriptionOverlay visible={subscriptionExpired} />
     </>
   );
