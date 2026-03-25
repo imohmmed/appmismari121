@@ -237,65 +237,47 @@ export default function OnboardingScreen() {
   }
 
   async function handleDownloadProfile() {
-    // Generate a session token — server stores UDID under this token when callback fires
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const url = `${getApiBase()}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
-
-    let foundUdid = false;
-
-    const pollUrl = `https://app.mismari.com/api/profile/udid-check`;
-
-    function startPolling(maxSeconds: number): ReturnType<typeof setInterval> {
-      let count = 0;
-      return setInterval(async () => {
-        if (foundUdid) return;
-        count++;
-        if (count > maxSeconds) return;
-        try {
-          const r = await fetch(
-            `${pollUrl}?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
-            { cache: "no-store", headers: { "Accept": "application/json" } }
-          );
-          const data = await r.json();
-          if (data.found && data.udid) {
-            foundUdid = true;
-            setUdid(data.udid);
-            setDeviceUdid(data.udid);
-            setOnboardingDone(true);
-            WebBrowser.dismissBrowser();
-            setTimeout(() => router.replace("/(tabs)"), 300);
-          }
-        } catch (e) {
-          console.log("[poll] error:", e);
-        }
-      }, 2000);
-    }
-
-    // Start polling BEFORE opening browser so we catch the UDID as soon as it arrives
-    const prePoll = startPolling(90);
 
     await WebBrowser.openBrowserAsync(url, {
       dismissButtonStyle: "done",
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
 
-    // Browser closed — clear the pre-poll and show install step
-    clearInterval(prePoll);
-
-    if (foundUdid) return; // Already found while browser was open — done!
-
-    // Continue polling for 60 MORE seconds after browser closes.
-    // iOS sometimes fires the callback just AFTER the user closes the browser
-    // (e.g. after "Profile Installation Failed" tap-OK → close).
     setIsPolling(true);
     transition("install");
-    const postPoll = startPolling(60);
 
-    // Auto-clear when found or after 60s
-    const guard = setInterval(() => {
-      if (foundUdid) { clearInterval(postPoll); clearInterval(guard); setIsPolling(false); }
-    }, 500);
-    setTimeout(() => { clearInterval(postPoll); clearInterval(guard); setIsPolling(false); }, 62000);
+    const pollUrl = `https://app.mismari.com/api/profile/udid-check`;
+    let attempts = 0;
+
+    async function poll() {
+      if (attempts >= 90) {
+        setIsPolling(false);
+        return;
+      }
+      attempts++;
+      try {
+        const r = await fetch(
+          `${pollUrl}?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
+          { headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" } }
+        );
+        const data = await r.json();
+        if (data.found && data.udid) {
+          setUdid(data.udid);
+          setDeviceUdid(data.udid);
+          setOnboardingDone(true);
+          setIsPolling(false);
+          router.replace("/(tabs)");
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+      setTimeout(poll, 2000);
+    }
+
+    poll();
   }
 
   async function handleCheckDevice() {
