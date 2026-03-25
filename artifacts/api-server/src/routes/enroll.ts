@@ -129,7 +129,7 @@ function startPolling() {
           foundUdid = data.udid;
           document.getElementById('polling').classList.add('hidden');
           document.getElementById('found').classList.remove('hidden');
-          var appUrl = 'mismari://udid?udid=' + encodeURIComponent(data.udid);
+          var appUrl = 'mismari://onboarding?udid=' + encodeURIComponent(data.udid);
           document.getElementById('openApp').href = appUrl;
           window.location.href = appUrl;
         } else {
