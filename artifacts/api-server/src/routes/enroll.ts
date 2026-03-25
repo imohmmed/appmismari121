@@ -63,7 +63,7 @@ router.get("/profile/enroll-page", (req, res): void => {
   const source = (req.query.source as string) || "app";
   const token = (req.query.token as string) || "";
   const base = getBaseUrl(req);
-  const enrollUrl = `${base}/api/profile/enroll?source=${encodeURIComponent(source)}&token=${encodeURIComponent(token)}`;
+  const enrollUrl = `${base}/api/profile/enroll?source=${encodeURIComponent(source)}&token=${encodeURIComponent(token)}&dl=1`;
   const checkUrl = `${base}/api/profile/udid-check`;
 
   const html = `<!DOCTYPE html>
@@ -157,7 +157,7 @@ router.get("/profile/enroll", (req, res): void => {
   const plan = (req.query.plan as string) || "";
   const token = (req.query.token as string) || "";
 
-  if (source === "app" && token) {
+  if (source === "app" && token && req.query.dl !== "1") {
     const pageUrl = `${base}/api/profile/enroll-page?source=app&token=${encodeURIComponent(token)}`;
     res.redirect(302, pageUrl);
     return;
