@@ -81,9 +81,9 @@ router.get("/apps", async (req, res): Promise<void> => {
   }
   if (categoryId) conditions.push(eq(appsTable.categoryId, categoryId));
   if (section === "most_downloaded") {
-    // no extra filter, sort by downloads desc
+    conditions.push(sql`${appsTable.downloads} > 0`);
   } else if (section === "trending") {
-    // show apps ordered by downloads, prefer isHot if any, otherwise all
+    conditions.push(eq(appsTable.isHot, true));
   } else if (section === "latest") {
     // show most recently added apps (no date filter)
   } else if (filter && filter !== "all") {

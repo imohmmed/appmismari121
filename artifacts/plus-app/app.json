@@ -42,7 +42,6 @@
         }
       ],
       "expo-font",
-      "expo-glass-effect",
       [
         "expo-notifications",
         {
