@@ -172,53 +172,21 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      console.info("[callback] Returning 301 redirect to success page for UDID:", udid);
-      const successUrl = `${base}/api/profile/success?udid=${encodeURIComponent(udid)}&token=${encodeURIComponent(token)}`;
-      res.writeHead(301, { Location: successUrl });
-      res.end();
+      console.info("[callback] Returning redirect to app for UDID:", udid);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<script>
+  window.location.href = "mismari://onboarding?udid=${encodeURIComponent(udid)}";
+  setTimeout(function() { try { window.close(); } catch(e) {} }, 1500);
+</script>
+</head><body></body></html>`);
     } catch (err) {
       console.error("Profile callback error:", err);
       res.status(500).send("Server error");
     }
   }
 );
-
-// ─── Success page after UDID callback — shown in the in-app browser ──────────
-router.get("/profile/success", (req, res): void => {
-  const udid = (req.query.udid as string) || "";
-  const token = (req.query.token as string) || "";
-
-  console.info(`[success] UDID success page shown: udid=${udid}, token=${token ? token.substring(0, 8) + "..." : "none"}`);
-
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(`<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تم التسجيل</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .card { background: #1a1a1a; border-radius: 20px; padding: 40px 30px; text-align: center; max-width: 380px; width: 100%; }
-    .icon { font-size: 64px; margin-bottom: 16px; }
-    h1 { font-size: 22px; margin-bottom: 8px; color: #4ade80; }
-    p { font-size: 15px; color: #999; margin-bottom: 20px; line-height: 1.6; }
-    .udid-box { background: #111; border: 1px solid #333; border-radius: 10px; padding: 12px; font-family: monospace; font-size: 11px; color: #9fbcff; word-break: break-all; margin-bottom: 20px; direction: ltr; }
-    .btn { display: block; background: #4ade80; color: #000; font-weight: 700; font-size: 16px; padding: 14px; border-radius: 12px; border: none; cursor: pointer; width: 100%; margin-bottom: 10px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">✅</div>
-    <h1>تم تسجيل جهازك بنجاح!</h1>
-    <p>اضغط "Done" أو أغلق هذه الصفحة وارجع للتطبيق</p>
-    <div class="udid-box">${udid}</div>
-    <button class="btn" onclick="window.close()">إغلاق</button>
-  </div>
-</body>
-</html>`);
-});
 
 // ─── Poll for UDID by token (app polls this after profile install) ────────────
 router.get("/profile/udid-check", async (req, res): Promise<void> => {
