@@ -3,6 +3,8 @@
 #include <netdb.h>
 #include <dlfcn.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <time.h>
 
 static const char *blocked_domains[] = {
     "ocsp.apple.com",
@@ -38,20 +40,20 @@ static gethostbyname_t orig_gethostbyname = NULL;
 
 int my_getaddrinfo(const char *hostname, const char *servname,
                    const struct addrinfo *hints, struct addrinfo **res) {
-    if (is_blocked(hostname)) return EAI_FAIL;
     if (!orig_getaddrinfo)
         orig_getaddrinfo = (getaddrinfo_t)dlsym(RTLD_NEXT, "getaddrinfo");
+    if (is_blocked(hostname)) return EAI_FAIL;
     if (orig_getaddrinfo) return orig_getaddrinfo(hostname, servname, hints, res);
-    return EAI_FAIL;
+    return EAI_NONAME;
 }
 
 struct hostent *my_gethostbyname(const char *name) {
+    if (!orig_gethostbyname)
+        orig_gethostbyname = (gethostbyname_t)dlsym(RTLD_NEXT, "gethostbyname");
     if (is_blocked(name)) {
         h_errno = HOST_NOT_FOUND;
         return NULL;
     }
-    if (!orig_gethostbyname)
-        orig_gethostbyname = (gethostbyname_t)dlsym(RTLD_NEXT, "gethostbyname");
     if (orig_gethostbyname) return orig_gethostbyname(name);
     h_errno = HOST_NOT_FOUND;
     return NULL;
