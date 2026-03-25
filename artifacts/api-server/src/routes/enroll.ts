@@ -172,63 +172,8 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      console.info("[callback] Returning signed response profile for UDID:", udid);
-
-      const profileUuid = crypto.randomUUID();
-      const clipUuid = crypto.randomUUID();
-
-      const responseProfile = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>PayloadContent</key>
-  <array>
-    <dict>
-      <key>PayloadType</key>
-      <string>com.apple.webClip.managed</string>
-      <key>PayloadVersion</key>
-      <integer>1</integer>
-      <key>PayloadIdentifier</key>
-      <string>com.mismari.clip.${clipUuid}</string>
-      <key>PayloadUUID</key>
-      <string>${clipUuid}</string>
-      <key>PayloadDisplayName</key>
-      <string>Mismari+</string>
-      <key>URL</key>
-      <string>${base}</string>
-      <key>Label</key>
-      <string>Mismari+</string>
-      <key>IsRemovable</key>
-      <true/>
-    </dict>
-  </array>
-  <key>PayloadDescription</key>
-  <string>تم تسجيل جهازك — يمكنك حذف هذا الملف لاحقاً</string>
-  <key>PayloadDisplayName</key>
-  <string>مسماري+</string>
-  <key>PayloadIdentifier</key>
-  <string>com.mismari.enrolled.${profileUuid}</string>
-  <key>PayloadOrganization</key>
-  <string>Mismari</string>
-  <key>PayloadRemovalDisallowed</key>
-  <false/>
-  <key>PayloadType</key>
-  <string>Configuration</string>
-  <key>PayloadUUID</key>
-  <string>${profileUuid}</string>
-  <key>PayloadVersion</key>
-  <integer>1</integer>
-</dict>
-</plist>`;
-
-      const { buf: signedBuf, signed: didSign } = signMobileconfig(responseProfile);
-      res.setHeader("Content-Type", "application/x-apple-aspen-config");
-      if (didSign) {
-        console.info("[callback] Returning SIGNED WebClip profile for UDID:", udid);
-      } else {
-        console.warn("[callback] Returning UNSIGNED profile — may cause install error");
-      }
-      res.send(signedBuf);
+      console.info("[callback] UDID saved. Returning empty 200 (will show 'Profile Installation Failed' — normal).");
+      res.status(200).end();
     } catch (err) {
       console.error("Profile callback error:", err);
       res.status(500).send("Server error");
