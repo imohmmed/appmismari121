@@ -78,13 +78,14 @@ body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,san
 .card{max-width:360px;width:100%}
 h1{font-size:22px;margin-bottom:8px}
 p{font-size:14px;color:#aaa;margin-bottom:24px}
-.btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;margin-bottom:12px}
+.btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;margin-bottom:12px;text-align:center}
 .btn-primary{background:#9fbcff;color:#000}
 .btn-success{background:#34c759;color:#fff}
 .status{font-size:13px;color:#888;margin-top:16px;min-height:20px}
 .spinner{display:inline-block;width:18px;height:18px;border:2px solid #555;border-top-color:#9fbcff;border-radius:50%;animation:spin .8s linear infinite;margin-left:8px;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none}
+.check{color:#34c759;font-size:18px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -100,13 +101,15 @@ p{font-size:14px;color:#aaa;margin-bottom:24px}
     </div>
   </div>
   <div id="found" class="hidden">
-    <a id="openApp" class="btn btn-success" href="#">تم! فتح التطبيق</a>
+    <div class="check">✅</div>
+    <p style="color:#fff;font-size:16px;margin-bottom:16px" id="foundMsg">تم التعرف على جهازك!</p>
+    <a id="openApp" class="btn btn-success" href="#">فتح التطبيق</a>
   </div>
 </div>
 <script>
 var token = ${JSON.stringify(token)};
 var checkUrl = ${JSON.stringify(checkUrl)};
-var foundUdid = null;
+var subCheckUrl = ${JSON.stringify(base + "/api/enroll/check")};
 
 document.getElementById('dlBtn').addEventListener('click', function() {
   setTimeout(startPolling, 3000);
@@ -126,12 +129,8 @@ function startPolling() {
       .then(function(r){return r.json()})
       .then(function(data){
         if (data.found && data.udid) {
-          foundUdid = data.udid;
           document.getElementById('polling').classList.add('hidden');
-          document.getElementById('found').classList.remove('hidden');
-          var appUrl = 'mismari://onboarding?udid=' + encodeURIComponent(data.udid);
-          document.getElementById('openApp').href = appUrl;
-          window.location.href = appUrl;
+          checkSubscription(data.udid);
         } else {
           setTimeout(poll, 2000);
         }
@@ -141,6 +140,26 @@ function startPolling() {
       });
   }
   poll();
+}
+
+function checkSubscription(udid) {
+  fetch(subCheckUrl + '?udid=' + encodeURIComponent(udid))
+    .then(function(r){return r.json()})
+    .then(function(data){
+      openApp(udid, data.found ? 'active' : 'none', data.subscriber && data.subscriber.code ? data.subscriber.code : '');
+    })
+    .catch(function(){
+      openApp(udid, 'unknown', '');
+    });
+}
+
+function openApp(udid, status, code) {
+  document.getElementById('found').classList.remove('hidden');
+  var params = 'udid=' + encodeURIComponent(udid) + '&status=' + encodeURIComponent(status);
+  if (code) params += '&code=' + encodeURIComponent(code);
+  var appUrl = 'mismari://onboarding?' + params;
+  document.getElementById('openApp').href = appUrl;
+  window.location.href = appUrl;
 }
 </script>
 </body>
