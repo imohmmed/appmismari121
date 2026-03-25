@@ -252,15 +252,18 @@ router.post(
 
 // ─── Poll for UDID by token (app polls this after profile install) ────────────
 router.get("/profile/udid-check", (req, res): void => {
-  // Must disable all caching — stale 304s prevent the app from detecting UDID
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Pragma", "no-cache");
+  res.setHeader("Access-Control-Allow-Origin", "*");
 
   const token = (req.query.token as string) || "";
   if (!token) { res.status(400).json({ error: "token required" }); return; }
 
+  console.info(`[udid-check] Polling token=${token.substring(0, 8)}... store_size=${udidTokenStore.size}`);
+
   const entry = udidTokenStore.get(token);
   if (entry && Date.now() - entry.createdAt <= TOKEN_TTL_MS) {
+    console.info(`[udid-check] FOUND udid=${entry.udid} for token=${token.substring(0, 8)}...`);
     res.json({ found: true, udid: entry.udid });
   } else {
     res.json({ found: false });

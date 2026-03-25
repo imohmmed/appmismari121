@@ -242,7 +242,8 @@ export default function OnboardingScreen() {
 
     let foundUdid = false;
 
-    // Build a poll function that can be reused (started before AND after browser closes)
+    const pollUrl = `https://app.mismari.com/api/profile/udid-check`;
+
     function startPolling(maxSeconds: number): ReturnType<typeof setInterval> {
       let count = 0;
       return setInterval(async () => {
@@ -250,10 +251,9 @@ export default function OnboardingScreen() {
         count++;
         if (count > maxSeconds) return;
         try {
-          // _t busts any proxy/CDN cache
           const r = await fetch(
-            `${getApiBase()}/api/profile/udid-check?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
-            { cache: "no-store" }
+            `${pollUrl}?token=${encodeURIComponent(token)}&_t=${Date.now()}`,
+            { cache: "no-store", headers: { "Accept": "application/json" } }
           );
           const data = await r.json();
           if (data.found && data.udid) {
@@ -263,8 +263,10 @@ export default function OnboardingScreen() {
             WebBrowser.dismissBrowser();
             setTimeout(() => transition("udid"), 300);
           }
-        } catch {}
-      }, 1000);
+        } catch (e) {
+          console.log("[poll] error:", e);
+        }
+      }, 2000);
     }
 
     // Start polling BEFORE opening browser so we catch the UDID as soon as it arrives
