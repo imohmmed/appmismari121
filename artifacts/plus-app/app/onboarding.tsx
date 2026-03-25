@@ -17,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
+
 import { Feather } from "@expo/vector-icons";
 
 import { useSettings } from "@/contexts/SettingsContext";
@@ -201,7 +201,12 @@ export default function OnboardingScreen() {
   }, []);
 
   useEffect(() => {
+    return () => { stopPolling(); };
+  }, []);
+
+  useEffect(() => {
     if (params.udid) {
+      stopPolling();
       setUdid(params.udid);
       setDeviceUdid(params.udid);
       setOnboardingDone(true);
@@ -238,16 +243,51 @@ export default function OnboardingScreen() {
     });
   }
 
+  const pollTokenRef = useRef<string>("");
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopPolling() {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  }
+
+  function startUdidPolling(token: string) {
+    stopPolling();
+    setIsPolling(true);
+    let attempts = 0;
+    pollIntervalRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > 120) { stopPolling(); return; }
+      try {
+        const r = await fetch(`https://app.mismari.com/api/profile/udid-check?token=${encodeURIComponent(token)}&_t=${Date.now()}`);
+        const data = await r.json();
+        if (data.found && data.udid) {
+          stopPolling();
+          setUdid(data.udid);
+          setDeviceUdid(data.udid);
+          try {
+            const subRes = await fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(data.udid)}`);
+            const subData = await subRes.json();
+            if (subData.found && subData.subscriber?.code) {
+              setSubscriptionCode(subData.subscriber.code);
+            }
+          } catch {}
+          setOnboardingDone(true);
+          router.replace("/(tabs)");
+        }
+      } catch {}
+    }, 2000);
+  }
+
   async function handleDownloadProfile() {
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const url = `https://app.mismari.com/api/profile/enroll-page?source=app&token=${encodeURIComponent(token)}`;
-
-    await WebBrowser.openBrowserAsync(url, {
-      dismissButtonStyle: "done",
-      presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-    });
-
-    setIsPolling(false);
+    pollTokenRef.current = token;
+    const url = `https://app.mismari.com/api/profile/enroll?source=app&token=${encodeURIComponent(token)}&dl=1`;
+    await Linking.openURL(url);
+    startUdidPolling(token);
     transition("install");
   }
 
@@ -543,10 +583,17 @@ export default function OnboardingScreen() {
 
               <Text style={[styles.stepDesc, { fontFamily: fontAr("Regular") }]}>
                 {step === "download" && "حمّل ملف التعريف للحصول على معرّف جهازك. يساعدنا هذا على تسجيل جهازك."}
-                {step === "install" && isPolling && "تم استلام طلبك. إذا ظهرت رسالة خطأ في الإعدادات فلا تقلق — سيتم الكشف عن جهازك تلقائياً."}
-                {step === "install" && !isPolling && "اذهب إلى الإعدادات ← عام ← إدارة VPN والأجهزة وقم بتثبيت الملف الذي حمّلته."}
+                {step === "install" && "اذهب إلى الإعدادات ← عام ← إدارة VPN والأجهزة وثبّت الملف. سيتم الكشف عن جهازك تلقائياً."}
                 {step === "udid" && "تم الكشف عن معرّف جهازك الفريد. اضغط إرسال للتحقق من اشتراكك."}
               </Text>
+              {step === "install" && isPolling && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, opacity: 0.7 }}>
+                  <ActivityIndicator size="small" color={ORANGE} />
+                  <Text style={[{ fontFamily: fontAr("Regular"), fontSize: 13, color: "#888" }]}>
+                    جارٍ البحث عن جهازك...
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Bottom action */}
@@ -562,30 +609,11 @@ export default function OnboardingScreen() {
                 </TouchableOpacity>
               )}
 
-              {step === "install" && isPolling && (
-                <View style={{ alignItems: "center", gap: 10 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, opacity: 0.7 }}>
-                    <ActivityIndicator size="small" color={ORANGE} />
-                    <Text style={[styles.stepDesc, { fontFamily: fontAr("Regular"), marginBottom: 0 }]}>
-                      جارٍ الكشف عن معرّف جهازك...
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: DARK, marginTop: 4 }]}
-                    activeOpacity={0.85}
-                    onPress={() => transition("udid")}
-                  >
-                    <Feather name="check-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تم التثبيت يدوياً</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {step === "install" && !isPolling && (
+              {step === "install" && (
                 <TouchableOpacity
                   style={[styles.actionBtn, { backgroundColor: DARK }]}
                   activeOpacity={0.85}
-                  onPress={() => transition("udid")}
+                  onPress={() => { stopPolling(); transition("udid"); }}
                 >
                   <Feather name="check-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
                   <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تم التثبيت</Text>
