@@ -156,6 +156,13 @@ router.get("/profile/enroll", (req, res): void => {
   const source = (req.query.source as string) || "web";
   const plan = (req.query.plan as string) || "";
   const token = (req.query.token as string) || "";
+
+  if (source === "app" && token) {
+    const pageUrl = `${base}/api/profile/enroll-page?source=app&token=${encodeURIComponent(token)}`;
+    res.redirect(302, pageUrl);
+    return;
+  }
+
   // Use &amp; in XML — raw & is invalid XML and causes "Invalid Profile"
   const callbackParams = `source=${encodeURIComponent(source)}${token ? `&amp;token=${encodeURIComponent(token)}` : ""}`;
   const callbackUrl = `${base}/api/profile/callback?${callbackParams}`;
