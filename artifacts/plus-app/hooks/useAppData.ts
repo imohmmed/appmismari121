@@ -83,7 +83,18 @@ export function useApps(opts?: {
     setLoading(true);
     fetch(url)
       .then(r => r.json())
-      .then(d => { if (!cancelled) { setApps(d?.apps || []); setLoading(false); } })
+      .then(d => {
+        if (!cancelled) {
+          const raw: ApiApp[] = d?.apps || [];
+          const mapped = raw.map(a => ({
+            ...a,
+            descAr: a.descAr || a.descriptionAr || null,
+            descEn: a.descEn || a.descriptionEn || a.description || null,
+          }));
+          setApps(mapped);
+          setLoading(false);
+        }
+      })
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };

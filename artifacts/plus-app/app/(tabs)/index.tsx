@@ -125,7 +125,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
   const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
   const { apps, loading } = useApps({ categoryId: cat.id, limit: 50, code: subscriptionCode || undefined });
   const tagColor = getCategoryColor(cat.id);
-  const desc = (app: ApiApp) => (isArabic ? app.descAr : null) || app.description || "";
+  const desc = (app: ApiApp) => isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
   const catName = isArabic ? (cat.nameAr || cat.name) : (cat.name || cat.nameAr);
   const textAlign = isArabic ? ("right" as const) : ("left" as const);
   const appFont = (name: string) => /[\u0600-\u06FF]/.test(name) ? fontAr("SemiBold") : "Inter_600SemiBold";

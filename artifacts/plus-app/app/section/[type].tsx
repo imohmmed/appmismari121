@@ -99,7 +99,7 @@ export default function SectionDetailScreen() {
           <View style={[styles.listCard, { backgroundColor: colors.card }]}>
             {apps.map((app, index) => {
               const tc = getTagColor(app.tag);
-              const desc = (isArabic ? app.descAr : null) || app.description || "";
+              const desc = isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
               const textAlign = isArabic ? ("right" as const) : ("left" as const);
               return (
                 <View key={app.id}>

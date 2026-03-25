@@ -91,7 +91,7 @@ export default function CategorySlideContent({
           <View style={st.list}>
             {apps.map((app, idx) => {
               const tc = getTagColor(app.tag);
-              const desc = (isArabic ? app.descAr : null) || app.description || "";
+              const desc = isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
               return (
                 <View key={app.id}>
                   <Pressable

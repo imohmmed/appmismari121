@@ -425,7 +425,10 @@ router.get("/sign/ipa/:token.ipa", (req, res): void => {
   const stat = fs.statSync(ipaPath);
   res.setHeader("Content-Type", "application/octet-stream");
   res.setHeader("Content-Disposition", `attachment; filename="${meta.appName.replace(/[^a-z0-9]/gi, "_")}.ipa"`);
-  res.setHeader("Content-Length", stat.size);
+  res.setHeader("Content-Length", String(stat.size));
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   fs.createReadStream(ipaPath).pipe(res);
 });
 
