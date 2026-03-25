@@ -58,6 +58,98 @@ function randomCode(len = 10): string {
   return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
+// ─── Enroll page: HTML wrapper that polls from the BROWSER ─────────────────
+router.get("/profile/enroll-page", (req, res): void => {
+  const source = (req.query.source as string) || "app";
+  const token = (req.query.token as string) || "";
+  const base = getBaseUrl(req);
+  const enrollUrl = `${base}/api/profile/enroll?source=${encodeURIComponent(source)}&token=${encodeURIComponent(token)}`;
+  const checkUrl = `${base}/api/profile/udid-check`;
+
+  const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mismari — تسجيل الجهاز</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px}
+.card{max-width:360px;width:100%}
+h1{font-size:22px;margin-bottom:8px}
+p{font-size:14px;color:#aaa;margin-bottom:24px}
+.btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;margin-bottom:12px}
+.btn-primary{background:#9fbcff;color:#000}
+.btn-success{background:#34c759;color:#fff}
+.status{font-size:13px;color:#888;margin-top:16px;min-height:20px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #555;border-top-color:#9fbcff;border-radius:50%;animation:spin .8s linear infinite;margin-left:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>مسماري+</h1>
+  <p>اضغط الزر لتحميل ملف التعريف ثم ثبّته من الإعدادات</p>
+  <a id="dlBtn" class="btn btn-primary" href="${enrollUrl}">تحميل ملف التعريف</a>
+  <div id="polling" class="hidden">
+    <div style="padding:16px;background:#111;border-radius:12px">
+      <span class="spinner"></span>
+      <span style="font-size:15px">جارٍ البحث عن جهازك...</span>
+      <div id="statusText" class="status"></div>
+    </div>
+  </div>
+  <div id="found" class="hidden">
+    <a id="openApp" class="btn btn-success" href="#">تم! فتح التطبيق</a>
+  </div>
+</div>
+<script>
+var token = ${JSON.stringify(token)};
+var checkUrl = ${JSON.stringify(checkUrl)};
+var foundUdid = null;
+
+document.getElementById('dlBtn').addEventListener('click', function() {
+  setTimeout(startPolling, 3000);
+});
+
+function startPolling() {
+  document.getElementById('polling').classList.remove('hidden');
+  var attempt = 0;
+  function poll() {
+    if (attempt >= 90) {
+      document.getElementById('statusText').textContent = 'انتهت المحاولات — حاول مجدداً';
+      return;
+    }
+    attempt++;
+    document.getElementById('statusText').textContent = 'محاولة ' + attempt + '/90';
+    fetch(checkUrl + '?token=' + encodeURIComponent(token) + '&_t=' + Date.now())
+      .then(function(r){return r.json()})
+      .then(function(data){
+        if (data.found && data.udid) {
+          foundUdid = data.udid;
+          document.getElementById('polling').classList.add('hidden');
+          document.getElementById('found').classList.remove('hidden');
+          var appUrl = 'mismari://udid?udid=' + encodeURIComponent(data.udid);
+          document.getElementById('openApp').href = appUrl;
+          window.location.href = appUrl;
+        } else {
+          setTimeout(poll, 2000);
+        }
+      })
+      .catch(function(){
+        setTimeout(poll, 2000);
+      });
+  }
+  poll();
+}
+</script>
+</body>
+</html>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(html);
+});
+
 // ─── UDID enrollment profile ─────────────────────────────────────────────────
 router.get("/profile/enroll", (req, res): void => {
   const base = getBaseUrl(req);
