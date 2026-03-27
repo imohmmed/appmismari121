@@ -304,6 +304,8 @@ router.post(
   <string>تم تسجيل جهازك بنجاح في مسماري</string>
   <key>PayloadOrganization</key>
   <string>Mismari</string>
+  <key>PayloadIdentifier</key>
+  <string>com.mismari.enrolled.${responseUuid}</string>
   <key>PayloadRemovalDisallowed</key>
   <false/>
   <key>PayloadType</key>
