@@ -156,7 +156,7 @@ function RelatedAppsRow({ apps, onPress }: { apps: AppData[]; onPress: (app: App
       renderItem={({ item: chunk }) => (
         <View style={[{ width: pageW }, mirrorStyle]}>
           {chunk.map((a, idx) => {
-            const desc = isArabic ? (a.descAr || (a as any).descriptionAr || a.desc || "") : (a.descEn || (a as any).descriptionEn || a.desc || "");
+            const desc = (a as any).description || (isArabic ? (a.descAr || (a as any).descriptionAr || a.desc || "") : (a.descEn || (a as any).descriptionEn || a.desc || ""));
             return (
               <View key={a.id}>
                 <Pressable
@@ -407,13 +407,13 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const downloadBtnLabel = signState === "signing" ? signingLabel : signState === "opening" ? t("installing") : t("download");
   const cloneBtnLabel    = signState === "signing" ? signingLabel : signState === "opening" ? t("installing") : t("retry");
 
-  const appDesc = isArabic ? (app.descAr || (app as any).descriptionAr || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.desc || "");
+  const appDesc = app.description || (isArabic ? (app.descAr || (app as any).descriptionAr || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.desc || ""));
   const catName = app.category || (app as any).categoryName || "";
   const catNameAr = app.categoryNameAr || (app as any).categoryNameAr || "";
   const catTransKey = CAT_TRANSLATION_KEY[app.catKey || ""] || CAT_TRANSLATION_KEY[catName] || catName;
   const catLabel = isArabic ? (catNameAr || t(catTransKey as any) || catName) : (t(catTransKey as any) || catName);
 
-  const fullDesc = isArabic ? (app.descAr || (app as any).descriptionAr || app.description || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.description || app.desc || "");
+  const fullDesc = app.description || (isArabic ? (app.descAr || (app as any).descriptionAr || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.desc || ""));
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
