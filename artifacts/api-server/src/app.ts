@@ -7,15 +7,6 @@ import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
-const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
-fs.mkdirSync(DYLIB_DIR, { recursive: true });
-const bundledDylib = path.join(process.cwd(), "data", "antirevoke.dylib");
-const targetDylib = path.join(DYLIB_DIR, "antirevoke.dylib");
-if (fs.existsSync(bundledDylib) && !fs.existsSync(targetDylib)) {
-  fs.copyFileSync(bundledDylib, targetDylib);
-  logger.info("[startup] Copied bundled antirevoke.dylib to uploads/dylibs/");
-}
-
 const app: Express = express();
 
 // Trust the Replit/Nginx reverse proxy so rate-limiter sees the real client IP

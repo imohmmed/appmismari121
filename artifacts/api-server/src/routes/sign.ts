@@ -143,7 +143,6 @@ async function signIpa(opts: {
   outputPath: string;
   bundleId?: string;
   bundleName?: string;
-  dylibPaths?: string[];
 }): Promise<void> {
   await signLimit(async () => {
     const tmpDir = fs.mkdtempSync("/tmp/zsign-");
@@ -162,11 +161,6 @@ async function signIpa(opts: {
       ];
       if (opts.bundleId)   { args.push("-b", opts.bundleId); }
       if (opts.bundleName) { args.push("-n", opts.bundleName); }
-      if (opts.dylibPaths) {
-        for (const dp of opts.dylibPaths) {
-          if (fs.existsSync(dp)) { args.push("-l", dp); }
-        }
-      }
       args.push(opts.inputPath);
 
       await execFileAsync(ZSIGN_BIN, args, {
@@ -179,37 +173,7 @@ async function signIpa(opts: {
   });
 }
 
-const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
-fs.mkdirSync(DYLIB_DIR, { recursive: true });
-
-async function ensureAntiRevokeDylib(): Promise<string | null> {
-  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  if (fs.existsSync(p)) return p;
-  try {
-    const srcPath = path.join(process.cwd(), "scripts", "antirevoke.c");
-    if (!fs.existsSync(srcPath)) return null;
-    const zigBin = "/tmp/zig-linux-x86_64-0.11.0/zig";
-    if (!fs.existsSync(zigBin)) return null;
-    const { promisify } = await import("util");
-    const { execFile: ef } = await import("child_process");
-    const execAsync = promisify(ef);
-    await execAsync(zigBin, ["cc", "-target", "aarch64-macos", "-shared", "-o", p, srcPath, "-ldl"], { timeout: 30000 });
-    if (fs.existsSync(p)) {
-      console.log("[antirevoke] Built dylib automatically:", p);
-      return p;
-    }
-  } catch (e: any) {
-    console.error("[antirevoke] Auto-build failed:", e.message);
-  }
-  return null;
-}
-
-ensureAntiRevokeDylib();
-
-function getAntiRevokeDylibPath(): string | null {
-  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  return fs.existsSync(p) ? p : null;
-}
+// antirevoke dylib removed
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
 // Same code+appId always → same suffix → user keeps clone data after reinstall
@@ -455,14 +419,12 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
 
-    const dylibPath = getAntiRevokeDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
-      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -515,14 +477,12 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
 
-    const dylibPath2 = getAntiRevokeDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
-      dylibPaths: dylibPath2 ? [dylibPath2] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -594,7 +554,6 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
 
-    const dylibPath3 = getAntiRevokeDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
@@ -603,7 +562,6 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
       outputPath,
       bundleId: newBundleId,
       bundleName: cloneName,
-      dylibPaths: dylibPath3 ? [dylibPath3] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -725,7 +683,6 @@ async function performPersonalSign(jobId: string, inputPath: string) {
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
 
-    const dylibPath4 = getAntiRevokeDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
@@ -734,7 +691,6 @@ async function performPersonalSign(jobId: string, inputPath: string) {
       outputPath,
       bundleId:   job.customBundleId || undefined,
       bundleName: job.customName || undefined,
-      dylibPaths: dylibPath4 ? [dylibPath4] : undefined,
     });
 
     const expiresAt = new Date(Date.now() + SIGN_TTL_MS);

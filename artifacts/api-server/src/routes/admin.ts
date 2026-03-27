@@ -1058,37 +1058,7 @@ router.put("/admin/groups/ipa-url-all", async (req, res): Promise<void> => {
   res.json({ success: true, updatedCount });
 });
 
-// ─── DYLIB UPLOAD ─────────────────────────────────────────────────────────────
-const dylibUpload = multer({ dest: "/tmp/dylib-uploads", limits: { fileSize: 50 * 1024 * 1024 } });
-const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
-fs.mkdirSync(DYLIB_DIR, { recursive: true });
-
-router.post("/admin/dylib/upload", dylibUpload.single("file"), async (req: any, res): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "الملف مطلوب" }); return; }
-  const dest = path.join(DYLIB_DIR, "antirevoke.dylib");
-  fs.copyFileSync(req.file.path, dest);
-  fs.rmSync(req.file.path, { force: true });
-  const stat = fs.statSync(dest);
-  res.json({ success: true, size: stat.size, path: dest });
-});
-
-router.get("/admin/dylib/status", async (_req, res): Promise<void> => {
-  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  if (fs.existsSync(p)) {
-    const stat = fs.statSync(p);
-    res.json({ exists: true, size: stat.size, updatedAt: stat.mtime.toISOString() });
-  } else {
-    res.json({ exists: false });
-  }
-});
-
-router.delete("/admin/dylib", async (_req, res): Promise<void> => {
-  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  if (fs.existsSync(p)) fs.rmSync(p, { force: true });
-  res.json({ success: true });
-});
-
-// ─── SIGN ALL GROUPS (IPA + dylib) ───────────────────────────────────────────
+// ─── SIGN ALL GROUPS ─────────────────────────────────────────────────────────
 const SIGNED_STORE_DIR = path.join(process.cwd(), "uploads", "SignedStore");
 fs.mkdirSync(SIGNED_STORE_DIR, { recursive: true });
 
@@ -1142,9 +1112,6 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
     return;
   }
 
-  const dylibPath = path.join(DYLIB_DIR, "antirevoke.dylib");
-  const hasDylib = fs.existsSync(dylibPath);
-
   const findZsign = (): string => {
     const candidates = [
       path.join(process.cwd(), "bin", "zsign"),
@@ -1183,7 +1150,6 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         "-o", outputPath,
         "-z", "6",
       ];
-      if (hasDylib) { args.push("-l", dylibPath); }
       args.push(tmpIpaPath);
 
       await execFileAsync(zsignBin, args, {
@@ -1239,7 +1205,6 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
     total: testGroups.length,
     successCount,
     failedCount: testGroups.length - successCount,
-    hasDylib,
     results,
   });
 });
