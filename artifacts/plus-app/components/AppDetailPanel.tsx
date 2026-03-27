@@ -407,13 +407,17 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
   const downloadBtnLabel = signState === "signing" ? signingLabel : signState === "opening" ? t("installing") : t("download");
   const cloneBtnLabel    = signState === "signing" ? signingLabel : signState === "opening" ? t("installing") : t("retry");
 
-  const appDesc = app.description || (isArabic ? (app.descAr || (app as any).descriptionAr || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.desc || ""));
+  // Language-first: show the language-specific description when available,
+  // fall back to the generic `description` field (usually Arabic baseline text).
+  const appDesc = isArabic
+    ? (app.descAr || (app as any).descriptionAr || app.description || app.desc || "")
+    : (app.descEn || (app as any).descriptionEn || app.description || app.desc || "");
   const catName = app.category || (app as any).categoryName || "";
   const catNameAr = app.categoryNameAr || (app as any).categoryNameAr || "";
   const catTransKey = CAT_TRANSLATION_KEY[app.catKey || ""] || CAT_TRANSLATION_KEY[catName] || catName;
   const catLabel = isArabic ? (catNameAr || t(catTransKey as any) || catName) : (t(catTransKey as any) || catName);
 
-  const fullDesc = app.description || (isArabic ? (app.descAr || (app as any).descriptionAr || app.desc || "") : (app.descEn || (app as any).descriptionEn || app.desc || ""));
+  const fullDesc = appDesc;
 
   const avgRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
