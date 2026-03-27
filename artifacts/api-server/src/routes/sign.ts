@@ -173,7 +173,12 @@ async function signIpa(opts: {
   });
 }
 
-// antirevoke dylib removed
+// ─── Antirevoke dylib helper ──────────────────────────────────────────────────
+const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
+function getAntiRevokeDylibPath(): string | null {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  return fs.existsSync(p) ? p : null;
+}
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
 // Same code+appId always → same suffix → user keeps clone data after reinstall
@@ -459,6 +464,7 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+    const dylibPath = getAntiRevokeDylibPath();
 
     await signIpa({
       p12Base64: group.p12Data!,
@@ -466,6 +472,7 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
+      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -517,6 +524,7 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+    const dylibPath = getAntiRevokeDylibPath();
 
     await signIpa({
       p12Base64: group.p12Data!,
@@ -524,6 +532,7 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
+      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -594,6 +603,7 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+    const dylibPath = getAntiRevokeDylibPath();
 
     await signIpa({
       p12Base64: group.p12Data!,
@@ -603,6 +613,7 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
       outputPath,
       bundleId: newBundleId,
       bundleName: cloneName,
+      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {
@@ -723,6 +734,7 @@ async function performPersonalSign(jobId: string, inputPath: string) {
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+    const dylibPath = getAntiRevokeDylibPath();
 
     await signIpa({
       p12Base64: group.p12Data!,
@@ -732,6 +744,7 @@ async function performPersonalSign(jobId: string, inputPath: string) {
       outputPath,
       bundleId:   job.customBundleId || undefined,
       bundleName: job.customName || undefined,
+      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const expiresAt = new Date(Date.now() + SIGN_TTL_MS);

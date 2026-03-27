@@ -155,7 +155,7 @@ function HealthBar({ colors, fontAr, isArabic, code }: any) {
             </Text>
             {quota && (
               <Text style={{ color: TINT, fontFamily: "Inter_600SemiBold", fontSize: 11, marginRight: "auto", marginLeft: "auto" }}>
-                {`${(quota.usedGB ?? 0).toFixed(1)} / 4 GB`}
+                {`${(Number(quota.usedGB) || 0).toFixed(1)} / 4 GB`}
               </Text>
             )}
           </View>
