@@ -1,7 +1,7 @@
 import { Tabs, Redirect } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import React, { useEffect, useState, useRef } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 
 import MismariTabBar from "@/components/MismariTabBar";
 import ExpiredSubscriptionOverlay from "@/components/ExpiredSubscriptionOverlay";
@@ -60,7 +60,7 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { onboardingDone, deviceUdid } = useSettings();
+  const { onboardingDone, deviceUdid, loaded } = useSettings();
   usePushNotifications();
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -94,6 +94,11 @@ export default function TabLayout() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [onboardingDone, deviceUdid]);
+
+  // Wait for AsyncStorage to finish loading before making any routing decisions.
+  // Without this guard, `onboardingDone` starts as false and the user gets
+  // redirected to onboarding on every app reload even if they already completed it.
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
 
   if (!onboardingDone) {
     return <Redirect href="/onboarding" />;

@@ -25,6 +25,7 @@ interface SettingsContextType {
   setDeviceUdid: (udid: string) => void;
   profilePhoto: string;
   setProfilePhoto: (uri: string) => void;
+  loaded: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -166,6 +167,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setDeviceUdid,
         profilePhoto,
         setProfilePhoto,
+        loaded,
       }}
     >
       {children}
