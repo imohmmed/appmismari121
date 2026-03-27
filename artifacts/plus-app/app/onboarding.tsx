@@ -207,10 +207,23 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (params.udid) {
       stopPolling();
-      setUdid(params.udid);
-      setDeviceUdid(params.udid);
-      setOnboardingDone(true);
-      router.replace("/(tabs)");
+      const u = params.udid;
+      setUdid(u);
+      setDeviceUdid(u);
+      // Check if already has an active subscription — if yes go straight to store
+      fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.found && data.subscriber?.code) {
+            setSubscriptionCode(data.subscriber.code);
+            setOnboardingDone(true);
+            router.replace("/(tabs)");
+          } else {
+            // No subscription yet — show UDID so user can contact admin
+            transition("udid");
+          }
+        })
+        .catch(() => transition("udid"));
     }
   }, [params.udid]);
 
@@ -221,8 +234,18 @@ export default function OnboardingScreen() {
         const u = parsed.queryParams.udid as string;
         setUdid(u);
         setDeviceUdid(u);
-        setOnboardingDone(true);
-        router.replace("/(tabs)");
+        fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.found && data.subscriber?.code) {
+              setSubscriptionCode(data.subscriber.code);
+              setOnboardingDone(true);
+              router.replace("/(tabs)");
+            } else {
+              transition("udid");
+            }
+          })
+          .catch(() => transition("udid"));
       }
     });
     return () => sub.remove();
@@ -268,15 +291,20 @@ export default function OnboardingScreen() {
           stopPolling();
           setUdid(data.udid);
           setDeviceUdid(data.udid);
+          // Check if already subscribed
           try {
             const subRes = await fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(data.udid)}`);
             const subData = await subRes.json();
             if (subData.found && subData.subscriber?.code) {
+              // Already activated — go straight to the store
               setSubscriptionCode(subData.subscriber.code);
+              setOnboardingDone(true);
+              router.replace("/(tabs)");
+              return;
             }
           } catch {}
-          setOnboardingDone(true);
-          router.replace("/(tabs)");
+          // No subscription yet — show UDID step so user can see their ID
+          transition("udid");
         }
       } catch {}
     }, 2000);
