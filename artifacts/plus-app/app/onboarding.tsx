@@ -210,20 +210,16 @@ export default function OnboardingScreen() {
       const u = params.udid;
       setUdid(u);
       setDeviceUdid(u);
-      // Check if already has an active subscription — if yes go straight to store
+      // Pre-load subscription code if available, then always show UDID step
       fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
         .then(r => r.json())
         .then(data => {
           if (data.found && data.subscriber?.code) {
             setSubscriptionCode(data.subscriber.code);
-            setOnboardingDone(true);
-            router.replace("/(tabs)");
-          } else {
-            // No subscription yet — show UDID so user can contact admin
-            transition("udid");
           }
         })
-        .catch(() => transition("udid"));
+        .catch(() => {})
+        .finally(() => transition("udid"));
     }
   }, [params.udid]);
 
@@ -234,18 +230,16 @@ export default function OnboardingScreen() {
         const u = parsed.queryParams.udid as string;
         setUdid(u);
         setDeviceUdid(u);
+        // Pre-load subscription code if available, then always show UDID step
         fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
           .then(r => r.json())
           .then(data => {
             if (data.found && data.subscriber?.code) {
               setSubscriptionCode(data.subscriber.code);
-              setOnboardingDone(true);
-              router.replace("/(tabs)");
-            } else {
-              transition("udid");
             }
           })
-          .catch(() => transition("udid"));
+          .catch(() => {})
+          .finally(() => transition("udid"));
       }
     });
     return () => sub.remove();
@@ -291,19 +285,15 @@ export default function OnboardingScreen() {
           stopPolling();
           setUdid(data.udid);
           setDeviceUdid(data.udid);
-          // Check if already subscribed
+          // Pre-load subscription code if available (will be used when user taps submit)
           try {
             const subRes = await fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(data.udid)}`);
             const subData = await subRes.json();
             if (subData.found && subData.subscriber?.code) {
-              // Already activated — go straight to the store
               setSubscriptionCode(subData.subscriber.code);
-              setOnboardingDone(true);
-              router.replace("/(tabs)");
-              return;
             }
           } catch {}
-          // No subscription yet — show UDID step so user can see their ID
+          // Always show UDID step so user sees their ID before entering the store
           transition("udid");
         }
       } catch {}
