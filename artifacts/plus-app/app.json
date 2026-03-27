@@ -41,15 +41,7 @@
           "origin": "https://app.mismari.com/"
         }
       ],
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.jpg",
-          "color": "#9fbcff",
-          "sounds": []
-        }
-      ]
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
