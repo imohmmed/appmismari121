@@ -588,18 +588,11 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     const cloneName = newName?.trim() || `${app.name || appInfo.name} 2`;
     const originalBundleId = app.bundleId || appInfo.bundleId;
 
-    const wildcard = isWildcardProfile(group.mobileprovisionData!);
-    const profileBundleId = readProvisioningBundleId(group.mobileprovisionData!);
-
-    let newBundleId: string;
-    if (wildcard) {
-      const suffix = stableCloneSuffix(code, appIdNum);
-      newBundleId = `${originalBundleId}.${suffix}`;
-    } else if (profileBundleId) {
-      newBundleId = profileBundleId;
-    } else {
-      newBundleId = originalBundleId;
-    }
+    // Always derive a unique bundle ID from the original app's bundle ID.
+    // Using the profile's bundle ID for non-wildcard profiles causes conflicts
+    // with the already-installed Mismari+ store app (same com.mismari.app bundle ID).
+    const suffix = stableCloneSuffix(code, appIdNum);
+    const newBundleId = `${originalBundleId}.${suffix}`;
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
