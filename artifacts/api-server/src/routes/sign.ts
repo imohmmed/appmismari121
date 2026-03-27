@@ -373,6 +373,22 @@ router.get("/sign/manifest/:token.plist", (req, res): void => {
   res.send(manifestXml);
 });
 
+// ─── HEAD /api/sign/ipa/:token.ipa ───────────────────────────────────────────
+router.head("/sign/ipa/:token.ipa", (req, res): void => {
+  const token = req.params.token;
+  const meta = loadToken(token);
+  if (!meta) { res.status(404).end(); return; }
+  const ipaPath = path.join(SIGNED_DIR, `${token}.ipa`);
+  if (!fs.existsSync(ipaPath)) { res.status(404).end(); return; }
+  const stat = fs.statSync(ipaPath);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", String(stat.size));
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Content-Disposition", `attachment; filename="${meta.appName.replace(/[^a-z0-9]/gi, "_")}.ipa"`);
+  res.status(200).end();
+});
+
 // ─── GET /api/sign/ipa/:token.ipa ────────────────────────────────────────────
 router.get("/sign/ipa/:token.ipa", (req, res): void => {
   const token = req.params.token;
@@ -387,12 +403,37 @@ router.get("/sign/ipa/:token.ipa", (req, res): void => {
     return;
   }
   const stat = fs.statSync(ipaPath);
+  const totalSize = stat.size;
+  const fileName = meta.appName.replace(/[^a-z0-9]/gi, "_") + ".ipa";
+
   res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${meta.appName.replace(/[^a-z0-9]/gi, "_")}.ipa"`);
-  res.setHeader("Content-Length", String(stat.size));
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
   res.setHeader("Accept-Ranges", "bytes");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Connection", "keep-alive");
+
+  const rangeHeader = req.headers["range"];
+  if (rangeHeader) {
+    const match = rangeHeader.match(/bytes=(\d*)-(\d*)/);
+    if (match) {
+      const start = match[1] ? parseInt(match[1], 10) : 0;
+      const end   = match[2] ? parseInt(match[2], 10) : totalSize - 1;
+      if (start > end || end >= totalSize) {
+        res.setHeader("Content-Range", `bytes */${totalSize}`);
+        res.status(416).end();
+        return;
+      }
+      const chunkSize = end - start + 1;
+      res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+      res.setHeader("Content-Length", String(chunkSize));
+      res.status(206);
+      fs.createReadStream(ipaPath, { start, end }).pipe(res);
+      return;
+    }
+  }
+
+  res.setHeader("Content-Length", String(totalSize));
+  res.status(200);
   fs.createReadStream(ipaPath).pipe(res);
 });
 
