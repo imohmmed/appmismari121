@@ -11,6 +11,12 @@ import { signIpa, saveToken, randomHex, resolveLocalPath, downloadToTemp, SIGNED
 
 const router: IRouter = Router();
 
+const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
+function getAntiRevokeDylibPath(): string | null {
+  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
+  return fs.existsSync(p) ? p : null;
+}
+
 // ─── Rate limiters ────────────────────────────────────────────────────────────
 const validateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -222,6 +228,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
 
       const token = randomHex(16);
       const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
+      const dylibPath = getAntiRevokeDylibPath();
 
       await signIpa({
         p12Base64: group.p12Data,
@@ -231,6 +238,7 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
         outputPath,
         bundleId,
         bundleName: "Mismari+",
+        dylibPaths: dylibPath ? [dylibPath] : undefined,
       });
 
       if (tempDownloaded) {

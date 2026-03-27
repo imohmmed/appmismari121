@@ -66,6 +66,7 @@ export async function signIpa(opts: {
   outputPath: string;
   bundleId?: string;
   bundleName?: string;
+  dylibPaths?: string[];
 }): Promise<void> {
   const tmpDir = fs.mkdtempSync("/tmp/zsign-");
   try {
@@ -83,6 +84,11 @@ export async function signIpa(opts: {
     ];
     if (opts.bundleId)   { args.push("-b", opts.bundleId); }
     if (opts.bundleName) { args.push("-n", opts.bundleName); }
+    if (opts.dylibPaths) {
+      for (const dp of opts.dylibPaths) {
+        if (fs.existsSync(dp)) { args.push("-l", dp); }
+      }
+    }
     args.push(opts.inputPath);
 
     const result = await execFileAsync(ZSIGN_BIN, args, {

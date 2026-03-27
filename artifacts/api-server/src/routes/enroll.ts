@@ -290,8 +290,33 @@ router.post(
         }).onConflictDoNothing();
       }
 
-      console.info("[callback] UDID saved. Returning empty 200 (will show 'Profile Installation Failed' — normal).");
-      res.status(200).end();
+      // Return a valid signed empty configuration profile so iOS doesn't show "Profile Installation Failed"
+      const responseUuid = crypto.randomUUID();
+      const emptyProfile = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array/>
+  <key>PayloadDisplayName</key>
+  <string>تم التسجيل</string>
+  <key>PayloadDescription</key>
+  <string>تم تسجيل جهازك بنجاح في مسماري</string>
+  <key>PayloadOrganization</key>
+  <string>Mismari</string>
+  <key>PayloadRemovalDisallowed</key>
+  <false/>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadUUID</key>
+  <string>${responseUuid}</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+</dict>
+</plist>`;
+      const { buf: responseBuf } = signMobileconfig(emptyProfile);
+      res.setHeader("Content-Type", "application/x-apple-aspen-config");
+      res.send(responseBuf);
     } catch (err) {
       console.error("Profile callback error:", err);
       res.status(500).send("Server error");
