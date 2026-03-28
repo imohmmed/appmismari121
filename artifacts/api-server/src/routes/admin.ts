@@ -1123,6 +1123,30 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
     if (!fs.existsSync(tmpIpaPath) || fs.statSync(tmpIpaPath).size < 1000) {
       throw new Error("فشل تحميل ملف IPA من الرابط");
     }
+
+    // ── Strip any existing antirevoke.dylib from the source IPA ──────────────
+    // The IPA built on Mac may already contain the dylib. We must remove it
+    // before signing so the store app (Mismari+) launches without crashing.
+    try {
+      const cleanDir = fs.mkdtempSync("/tmp/ipa-clean-");
+      await execFileAsync("unzip", ["-q", tmpIpaPath, "-d", cleanDir], { timeout: 60_000 });
+      // Delete all antirevoke.dylib files recursively
+      const { execSync } = await import("child_process");
+      try {
+        execSync(`find "${cleanDir}" -name "antirevoke.dylib" -delete`, { timeout: 10_000 });
+      } catch { /* no dylib found — fine */ }
+      // Re-zip into a clean IPA
+      const cleanIpaPath = tmpIpaPath.replace(".ipa", "_clean.ipa");
+      execSync(`cd "${cleanDir}" && zip -qr "${cleanIpaPath}" .`, { timeout: 60_000 });
+      fs.rmSync(tmpIpaPath, { force: true });
+      fs.rmSync(cleanDir, { recursive: true, force: true });
+      tmpIpaPath = cleanIpaPath;
+    } catch (cleanErr: any) {
+      console.warn("[sign-all] dylib strip warning:", cleanErr.message);
+      // Non-fatal — proceed with original IPA
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
   } catch (err: any) {
     if (tmpIpaPath && fs.existsSync(tmpIpaPath)) fs.rmSync(tmpIpaPath, { force: true });
     res.status(400).json({ error: `فشل تحميل IPA: ${err.message}` });
