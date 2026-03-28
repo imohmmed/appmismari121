@@ -144,11 +144,14 @@ static BOOL msm_isRevocationHost(NSString *host) {
 /* يقبل أي شهادة SSL — يعمل الـ Ad-Blocker بسلاسة                            */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 %hookf(OSStatus, SecTrustEvaluate, SecTrustRef trust, SecTrustResultType *result) {
     %orig;
     if (result) *result = kSecTrustResultProceed;
     return errSecSuccess;
 }
+#pragma clang diagnostic pop
 
 %hookf(bool, SecTrustEvaluateWithError, SecTrustRef trust, CFErrorRef *error) {
     if (error) *error = NULL;
