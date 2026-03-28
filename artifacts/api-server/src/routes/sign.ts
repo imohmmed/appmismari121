@@ -348,6 +348,23 @@ function buildManifestPlist(opts: {
 cleanupExpiredTokens();
 setInterval(() => { cleanupExpiredTokens().catch(() => {}); }, 10 * 60 * 1000);
 
+// ─── GET /api/sign/store-files/:filename — public, no auth ───────────────────
+// iOS downloads signed store IPAs via itms-services:// which cannot send
+// auth headers. This route serves them publicly using the signed token path.
+const SIGNED_STORE_DIR_PUBLIC = path.join(process.cwd(), "uploads", "SignedStore");
+router.get("/sign/store-files/:filename", (req, res): void => {
+  const filename = req.params.filename;
+  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+  const filePath = path.join(SIGNED_STORE_DIR_PUBLIC, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
+  const stat = fs.statSync(filePath);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Length", stat.size);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  fs.createReadStream(filePath).pipe(res);
+});
+
 // ─── GET /api/sign/status — queue depth for frontend polling ────────────────
 router.get("/sign/status", (_req, res): void => {
   res.json({

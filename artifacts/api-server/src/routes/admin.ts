@@ -218,6 +218,16 @@ router.post("/reviews", reviewsLimiter, async (req, res): Promise<void> => {
   res.status(201).json({ review });
 });
 
+// ─── PUBLIC: Redirect old signed-store URL to new public route ───────────────
+// Legacy records in DB still have /api/admin/signed-store/... URLs.
+// Redirect them to the new public /api/sign/store-files/... route so iOS
+// can download without authentication.
+router.get("/admin/signed-store/:filename", (req, res): void => {
+  const filename = req.params.filename;
+  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+  res.redirect(302, `/api/sign/store-files/${filename}`);
+});
+
 // ─── PROTECT all routes below this line ─────────────────────────────────────
 // Use "/admin" path prefix so public routes (e.g. /profile/enroll) are NOT intercepted
 router.use("/admin", adminAuth);
@@ -1170,11 +1180,13 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         }
       }
 
-      const signedIpaUrl = `${baseUrl}/api/admin/signed-store/${signedFilename}`;
+      // Use the public /api/sign/store-files/ route — iOS itms-services cannot
+      // send auth headers, so the file must be served without authentication.
+      const signedIpaUrl = `${baseUrl}/api/sign/store-files/${signedFilename}`;
 
       await db.update(groupsTable).set({
         ipaUrl: signedIpaUrl,
-        storeIpaPath: `/admin/signed-store/${signedFilename}`,
+        storeIpaPath: `/sign/store-files/${signedFilename}`,
         downloadSlug: slug,
       }).where(eq(groupsTable.id, group.id));
 
@@ -1207,19 +1219,6 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
     failedCount: testGroups.length - successCount,
     results,
   });
-});
-
-// ─── SERVE SIGNED STORE IPAs ──────────────────────────────────────────────────
-router.get("/admin/signed-store/:filename", (req, res): void => {
-  const filename = req.params.filename;
-  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
-  const filePath = path.join(SIGNED_STORE_DIR, filename);
-  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
-  const stat = fs.statSync(filePath);
-  res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.setHeader("Content-Length", stat.size);
-  fs.createReadStream(filePath).pipe(res);
 });
 
 router.put("/admin/groups/:id", async (req, res): Promise<void> => {
