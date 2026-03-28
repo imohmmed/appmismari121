@@ -1,0 +1,8 @@
+Package: com.mismari.protect
+Name: Mismari Protect
+Version: 2.0.0
+Architecture: iphoneos-arm64
+Description: Anti-Revoke, OCSP Block, SSL Unpin, Anti-Debug, File Shadow
+Maintainer: Mismari
+Author: Mismari
+Section: Tweaks
