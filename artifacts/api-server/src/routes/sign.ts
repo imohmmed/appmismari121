@@ -348,21 +348,49 @@ function buildManifestPlist(opts: {
 cleanupExpiredTokens();
 setInterval(() => { cleanupExpiredTokens().catch(() => {}); }, 10 * 60 * 1000);
 
-// ─── GET /api/sign/store-files/:filename — public, no auth ───────────────────
+// ─── GET /api/sign/dl/:token — token-protected IPA download ─────────────────
 // iOS downloads signed store IPAs via itms-services:// which cannot send
-// auth headers. This route serves them publicly using the signed token path.
+// auth headers. We embed a 32-byte random token in the URL instead.
+// The token is stored in the DB on the group row and validated on every request.
 const SIGNED_STORE_DIR_PUBLIC = path.join(process.cwd(), "uploads", "SignedStore");
-router.get("/sign/store-files/:filename", (req, res): void => {
-  const filename = req.params.filename;
-  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+router.get("/sign/dl/:token", async (req, res): Promise<void> => {
+  const { token } = req.params;
+  if (!token || token.length < 16) { res.status(400).send("Invalid token"); return; }
+
+  // Look up which group this token belongs to and get the file path
+  const [group] = await db
+    .select({ storeIpaPath: groupsTable.storeIpaPath })
+    .from(groupsTable)
+    .where(eq(groupsTable.ipaDownloadToken, token));
+
+  if (!group || !group.storeIpaPath) {
+    res.status(404).json({ error: "الرابط غير صالح أو منتهي" });
+    return;
+  }
+
+  // storeIpaPath is stored as "/sign/store-files/<filename>"
+  const filename = path.basename(group.storeIpaPath);
+  if (filename.includes("..")) { res.status(400).send("Invalid"); return; }
+
   const filePath = path.join(SIGNED_STORE_DIR_PUBLIC, filename);
-  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "ملف غير موجود على السيرفر" });
+    return;
+  }
+
   const stat = fs.statSync(filePath);
   res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Disposition", `attachment; filename="Mismari-Plus.ipa"`);
   res.setHeader("Content-Length", stat.size);
-  res.setHeader("Access-Control-Allow-Origin", "*");
   fs.createReadStream(filePath).pipe(res);
+});
+
+// ─── GET /api/sign/store-files/:filename — legacy redirect ───────────────────
+// Old records in DB have URLs pointing here. Redirect to the token route so
+// they benefit from the same validation (though the token is missing for old
+// records — they return 404 until re-signed from the admin panel).
+router.get("/sign/store-files/:filename", (_req, res): void => {
+  res.status(410).json({ error: "هذا الرابط قديم. يرجى إعادة توقيع IPA المتجر من لوحة الإدارة." });
 });
 
 // ─── GET /api/sign/status — queue depth for frontend polling ────────────────

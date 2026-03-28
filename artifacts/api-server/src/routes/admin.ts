@@ -1180,13 +1180,16 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         }
       }
 
-      // Use the public /api/sign/store-files/ route — iOS itms-services cannot
-      // send auth headers, so the file must be served without authentication.
-      const signedIpaUrl = `${baseUrl}/api/sign/store-files/${signedFilename}`;
+      // Generate a secure 32-byte random token — embedded in the download URL.
+      // iOS itms-services:// cannot send auth headers, so we use a token in
+      // the URL itself. Token is stored in DB and validated on every request.
+      const ipaDownloadToken = crypto.randomBytes(32).toString("hex");
+      const signedIpaUrl = `${baseUrl}/api/sign/dl/${ipaDownloadToken}`;
 
       await db.update(groupsTable).set({
         ipaUrl: signedIpaUrl,
         storeIpaPath: `/sign/store-files/${signedFilename}`,
+        ipaDownloadToken,
         downloadSlug: slug,
       }).where(eq(groupsTable.id, group.id));
 
