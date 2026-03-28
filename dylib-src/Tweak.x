@@ -20,8 +20,11 @@
 #import <Security/Security.h>
 #import <objc/runtime.h>
 
-#include <sys/ptrace.h>
+/* ptrace غير متاح مباشرةً في iOS SDK — نعرّفه يدوياً */
+#include <sys/types.h>
 #include <sys/sysctl.h>
+#define PT_DENY_ATTACH 31
+extern int ptrace(int request, pid_t pid, caddr_t addr, int data);
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include <fcntl.h>
