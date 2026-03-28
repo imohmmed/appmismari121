@@ -322,13 +322,6 @@ static BOOL msm_isSuspiciousPath(const char *path) {
 
 %ctor {
     @autoreleasepool {
-        %init(
-            NSURLSession,
-            NSURLConnection,
-            NSBundle,
-            UIDevice,
-            UIApplication
-        );
-        %init(_ungrouped); /* SecTrust + file hooks */
+        %init; /* يفعّل جميع الـ hooks تلقائياً */
     }
 }
