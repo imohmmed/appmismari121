@@ -117,7 +117,7 @@ export function resolveLocalPath(storedPath: string): string {
     if (signedStoreMatch) return path.join(process.cwd(), "uploads", "SignedStore", signedStoreMatch[1]);
     return path.join(process.cwd(), "uploads", path.basename(p));
   }
-  if (storedPath.startsWith("/admin/signed-store/")) {
+  if (storedPath.startsWith("/admin/signed-store/") || storedPath.startsWith("/sign/store-files/")) {
     return path.join(process.cwd(), "uploads", "SignedStore", path.basename(storedPath));
   }
   if (storedPath.startsWith("/admin/FilesIPA/StoreIPA/")) {

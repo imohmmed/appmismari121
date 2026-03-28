@@ -218,14 +218,21 @@ router.post("/reviews", reviewsLimiter, async (req, res): Promise<void> => {
   res.status(201).json({ review });
 });
 
-// ─── PUBLIC: Redirect old signed-store URL to new public route ───────────────
+// ─── PUBLIC: Serve signed store IPAs — no auth required ─────────────────────
 // Legacy records in DB still have /api/admin/signed-store/... URLs.
-// Redirect them to the new public /api/sign/store-files/... route so iOS
-// can download without authentication.
+// iOS itms-services:// cannot send auth headers, so serve the file directly.
+// Note: SIGNED_STORE_DIR is defined lower in this file; use a lazy reference.
 router.get("/admin/signed-store/:filename", (req, res): void => {
   const filename = req.params.filename;
   if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
-  res.redirect(302, `/api/sign/store-files/${filename}`);
+  const dir = path.join(process.cwd(), "uploads", "SignedStore");
+  const filePath = path.join(dir, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
+  const stat = fs.statSync(filePath);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Length", stat.size);
+  fs.createReadStream(filePath).pipe(res);
 });
 
 // ─── PROTECT all routes below this line ─────────────────────────────────────

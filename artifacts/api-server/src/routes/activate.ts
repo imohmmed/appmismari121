@@ -210,19 +210,24 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
   // ── If group has signing credentials → sign the IPA and serve signed URL ──
   if (group.p12Data && group.mobileprovisionData) {
     try {
-      // Resolve local path or download from URL
+      // Resolve local path — prefer storeIpaPath (local) over ipaUrl (HTTP URL)
       let inputPath: string;
       let tempDownloaded = false;
 
-      const localPath = resolveLocalPath(effectiveIpaUrl);
-      if (fs.existsSync(localPath)) {
+      // Try storeIpaPath first (resolves to uploads/SignedStore/...)
+      const storeLocal = group.storeIpaPath ? resolveLocalPath(group.storeIpaPath) : "";
+      const ipaLocal = resolveLocalPath(effectiveIpaUrl);
+      const localPath = (storeLocal && fs.existsSync(storeLocal)) ? storeLocal
+                      : (fs.existsSync(ipaLocal) ? ipaLocal : "");
+
+      if (localPath) {
         inputPath = localPath;
       } else {
         // Might be an external URL — download first
-        const fullUrl = effectiveIpaUrl.startsWith("http")
+        const rawUrl = effectiveIpaUrl.startsWith("http")
           ? effectiveIpaUrl
           : `${base}${effectiveIpaUrl}`;
-        inputPath = await downloadToTemp(fullUrl);
+        inputPath = await downloadToTemp(rawUrl);
         tempDownloaded = true;
       }
 

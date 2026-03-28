@@ -385,12 +385,18 @@ router.get("/sign/dl/:token", async (req, res): Promise<void> => {
   fs.createReadStream(filePath).pipe(res);
 });
 
-// ─── GET /api/sign/store-files/:filename — legacy redirect ───────────────────
-// Old records in DB have URLs pointing here. Redirect to the token route so
-// they benefit from the same validation (though the token is missing for old
-// records — they return 404 until re-signed from the admin panel).
-router.get("/sign/store-files/:filename", (_req, res): void => {
-  res.status(410).json({ error: "هذا الرابط قديم. يرجى إعادة توقيع IPA المتجر من لوحة الإدارة." });
+// ─── GET /api/sign/store-files/:filename — fallback file serve ───────────────
+// Used by storeIpaPath references. Serves directly from uploads/SignedStore.
+router.get("/sign/store-files/:filename", (req, res): void => {
+  const filename = req.params.filename;
+  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+  const filePath = path.join(SIGNED_STORE_DIR_PUBLIC, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
+  const stat = fs.statSync(filePath);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="Mismari-Plus.ipa"`);
+  res.setHeader("Content-Length", stat.size);
+  fs.createReadStream(filePath).pipe(res);
 });
 
 // ─── GET /api/sign/status — queue depth for frontend polling ────────────────
