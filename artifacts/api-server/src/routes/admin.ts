@@ -1155,10 +1155,18 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
       const signedFilename = `signed_${group.id}_${crypto.randomBytes(6).toString("hex")}.ipa`;
       const outputPath = path.join(SIGNED_STORE_DIR, signedFilename);
 
+      // Remove old signed files for this group (uploads/ and data/SignedStore/)
+      const DATA_SIGNED_DIR = path.join(process.cwd(), "data", "SignedStore");
+      fs.mkdirSync(DATA_SIGNED_DIR, { recursive: true });
       const oldFiles = fs.readdirSync(SIGNED_STORE_DIR).filter(f => f.startsWith(`signed_${group.id}_`));
       for (const of2 of oldFiles) {
         fs.rmSync(path.join(SIGNED_STORE_DIR, of2), { force: true });
       }
+      // Also clean old persisted copies
+      try {
+        const oldPersisted = fs.readdirSync(DATA_SIGNED_DIR).filter(f => f.startsWith(`signed_${group.id}_`));
+        for (const of3 of oldPersisted) fs.rmSync(path.join(DATA_SIGNED_DIR, of3), { force: true });
+      } catch { /* ignore */ }
 
       const args: string[] = [
         "-k", p12Path,
@@ -1176,6 +1184,15 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
 
       if (!fs.existsSync(outputPath)) {
         throw new Error("zsign لم ينتج ملف الخرج");
+      }
+
+      // Persist the signed IPA to data/SignedStore/ so it survives redeployment.
+      // On next startup, app.ts copies data/SignedStore/ → uploads/SignedStore/.
+      try {
+        fs.copyFileSync(outputPath, path.join(DATA_SIGNED_DIR, signedFilename));
+      } catch (persistErr) {
+        // Non-fatal — log and continue; the file is still in uploads/SignedStore/
+        console.error("[sign-store] Warning: could not persist to data/SignedStore:", persistErr);
       }
 
       let slug = group.downloadSlug;

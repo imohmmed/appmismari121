@@ -27,6 +27,26 @@ if (fs.existsSync(bundledIpa) && !fs.existsSync(targetIpa)) {
   logger.info("[startup] Copied Mismari-Plus-Unsigned.ipa to uploads/ipa/");
 }
 
+// ─── Restore persisted signed store IPAs ─────────────────────────────────────
+// Signed store IPAs are saved to data/SignedStore/ for persistence across deploys.
+// On each startup we copy them back into uploads/SignedStore/ so they are serveable.
+const DATA_SIGNED_DIR = path.join(process.cwd(), "data", "SignedStore");
+const UPLOADS_SIGNED_DIR = path.join(process.cwd(), "uploads", "SignedStore");
+fs.mkdirSync(DATA_SIGNED_DIR, { recursive: true });
+fs.mkdirSync(UPLOADS_SIGNED_DIR, { recursive: true });
+try {
+  const persistedFiles = fs.readdirSync(DATA_SIGNED_DIR).filter(f => f.endsWith(".ipa"));
+  for (const file of persistedFiles) {
+    const dest = path.join(UPLOADS_SIGNED_DIR, file);
+    if (!fs.existsSync(dest)) {
+      fs.copyFileSync(path.join(DATA_SIGNED_DIR, file), dest);
+      logger.info(`[startup] Restored signed store IPA: ${file}`);
+    }
+  }
+} catch (e) {
+  logger.warn("[startup] Could not restore signed store IPAs:", e);
+}
+
 const app: Express = express();
 
 // Trust the Replit/Nginx reverse proxy so rate-limiter sees the real client IP
