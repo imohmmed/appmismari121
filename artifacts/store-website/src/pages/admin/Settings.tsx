@@ -331,6 +331,9 @@ export default function AdminSettings() {
       map[s.key] = s.value;
     }
     setSettings(map);
+    if (map["store_ipa_url"]) {
+      setSignIpaUrl(map["store_ipa_url"]);
+    }
     setDirty(false);
     setLoading(false);
   };
@@ -488,6 +491,15 @@ export default function AdminSettings() {
                   type="url"
                   value={signIpaUrl}
                   onChange={e => setSignIpaUrl(e.target.value)}
+                  onBlur={e => {
+                    const url = e.target.value.trim();
+                    if (url) {
+                      adminFetch("/admin/settings", {
+                        method: "PUT",
+                        body: JSON.stringify({ settings: [{ key: "store_ipa_url", value: url }] }),
+                      }).catch(() => {});
+                    }
+                  }}
                   placeholder="https://app.mismari.com/ipa/Mismari-Plus-Unsigned.ipa"
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white/80 placeholder:text-white/20 font-mono outline-none focus:border-white/20"
                   dir="ltr"
