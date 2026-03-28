@@ -32,6 +32,7 @@ export interface ApiApp {
   isFeatured: boolean;
   isHot: boolean;
   createdAt: string;
+  bundleId?: string | null;
 }
 
 export function useCategories() {

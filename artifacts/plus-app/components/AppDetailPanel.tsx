@@ -44,6 +44,7 @@ type AppData = {
   categoryId?: number;
   size?: string | null;
   createdAt?: string | null;
+  bundleId?: string | null;
 };
 
 type Review = {
@@ -504,6 +505,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           </View>
           <View style={st.heroInfo}>
             <Text style={[st.appName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(app.name) ? fontAr("Bold") : "Inter_700Bold" }]} numberOfLines={2}>{app.name}</Text>
+            {app.bundleId ? (
+              <Text style={[st.bundleIdText, { color: colors.textSecondary }]} numberOfLines={1} selectable>{app.bundleId}</Text>
+            ) : null}
             <Text style={[st.appSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{appDesc}</Text>
             <View style={st.heroButtons}>
               <Pressable
@@ -804,6 +808,13 @@ const st = StyleSheet.create({
   appName: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
+  },
+  bundleIdText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: -2,
+    marginBottom: 2,
+    opacity: 0.65,
   },
   appSubtitle: {
     fontSize: 13,

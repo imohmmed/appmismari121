@@ -36,6 +36,7 @@ function apiAppToDetail(app: ApiApp) {
     catKey: app.categoryName?.toLowerCase(),
     size: app.size ?? null,
     createdAt: app.createdAt ?? null,
+    bundleId: app.bundleId ?? null,
   };
 }
 

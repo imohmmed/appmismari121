@@ -49,6 +49,7 @@ export const ListAppsResponse = zod.object({
       isFeatured: zod.boolean().optional(),
       isHot: zod.boolean().optional(),
       createdAt: zod.date().optional(),
+      bundleId: zod.string().optional().nullable(),
     }),
   ),
   total: zod.number(),

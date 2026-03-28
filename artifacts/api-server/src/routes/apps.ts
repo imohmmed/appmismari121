@@ -119,6 +119,7 @@ router.get("/apps", async (req, res): Promise<void> => {
       isFeatured: appsTable.isFeatured,
       isHot: appsTable.isHot,
       createdAt: appsTable.createdAt,
+      bundleId: appsTable.bundleId,
     })
     .from(appsTable)
     .leftJoin(categoriesTable, eq(appsTable.categoryId, categoriesTable.id))
