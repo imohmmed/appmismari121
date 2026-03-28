@@ -124,7 +124,7 @@ function NotifRow({ notif, onPress, index }: { notif: ServerNotification; onPres
         {/* Content */}
         <View style={[styles.rowContent, { alignItems: isArabic ? "flex-end" : "flex-start" }]}>
           {/* Top row: title + badge */}
-          <View style={[styles.titleRow, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
+          <View style={[styles.titleRow, { flexDirection: isArabic ? "row-reverse" : "row", alignSelf: "stretch" }]}>
             <Text
               style={[styles.rowTitle, { color: colors.text, fontFamily: fontAr("SemiBold"), textAlign: isArabic ? "right" : "left" }]}
               numberOfLines={1}
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
   },
-  rowTitle: { fontSize: 15, flexShrink: 1 },
+  rowTitle: { fontSize: 15, flex: 1 },
 
   typeBadge: {
     paddingHorizontal: 7,
