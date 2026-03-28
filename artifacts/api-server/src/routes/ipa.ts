@@ -495,4 +495,50 @@ router.post("/admin/apps/:id/clone", adminAuth, async (req: any, res): Promise<v
   res.json({ success: true, app: newApp, newBundleId });
 });
 
+// ─── Unsigned IPA (Mismari+) upload & status ──────────────────────────────────
+const DATA_IPA_PATH = path.join(process.cwd(), "data", "Mismari-Plus-Unsigned.ipa");
+const SERVE_IPA_PATH = path.join(process.cwd(), "uploads", "ipa", "Mismari-Plus-Unsigned.ipa");
+
+const ipaUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      fs.mkdirSync(path.join(process.cwd(), "uploads", "ipa"), { recursive: true });
+      cb(null, path.join(process.cwd(), "uploads", "ipa"));
+    },
+    filename: (_req, _file, cb) => cb(null, "Mismari-Plus-Unsigned.ipa"),
+  }),
+  limits: { fileSize: 600 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.endsWith(".ipa") || file.mimetype === "application/octet-stream") cb(null, true);
+    else cb(new Error("يجب أن يكون الملف بصيغة .ipa"));
+  },
+});
+
+router.get("/admin/unsigned-ipa/status", adminAuth, (_req, res): void => {
+  const serveExists = fs.existsSync(SERVE_IPA_PATH);
+  const dataExists = fs.existsSync(DATA_IPA_PATH);
+  const filePath = serveExists ? SERVE_IPA_PATH : (dataExists ? DATA_IPA_PATH : null);
+  if (!filePath) {
+    res.json({ exists: false });
+    return;
+  }
+  const stat = fs.statSync(filePath);
+  res.json({ exists: true, size: stat.size, updatedAt: stat.mtime.toISOString() });
+});
+
+router.post("/admin/unsigned-ipa/upload", adminAuth, ipaUpload.single("ipa"), (req: any, res): void => {
+  if (!req.file) {
+    res.status(400).json({ error: "لم يتم استلام الملف" });
+    return;
+  }
+  // Also write to data/ for git-persistence
+  try {
+    fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
+    fs.copyFileSync(SERVE_IPA_PATH, DATA_IPA_PATH);
+  } catch { /* data/ copy is best-effort */ }
+
+  const stat = fs.statSync(SERVE_IPA_PATH);
+  res.json({ success: true, size: stat.size, updatedAt: new Date().toISOString() });
+});
+
 export default router;

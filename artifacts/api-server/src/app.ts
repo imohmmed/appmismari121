@@ -17,6 +17,16 @@ if (fs.existsSync(bundledDylib) && !fs.existsSync(targetDylib)) {
   logger.info("[startup] Copied bundled antirevoke.dylib to uploads/dylibs/");
 }
 
+// ─── Ensure unsigned IPA is in place ─────────────────────────────────────────
+const IPA_SERVE_DIR = path.join(process.cwd(), "uploads", "ipa");
+fs.mkdirSync(IPA_SERVE_DIR, { recursive: true });
+const bundledIpa = path.join(process.cwd(), "data", "Mismari-Plus-Unsigned.ipa");
+const targetIpa = path.join(IPA_SERVE_DIR, "Mismari-Plus-Unsigned.ipa");
+if (fs.existsSync(bundledIpa) && !fs.existsSync(targetIpa)) {
+  fs.copyFileSync(bundledIpa, targetIpa);
+  logger.info("[startup] Copied Mismari-Plus-Unsigned.ipa to uploads/ipa/");
+}
+
 const app: Express = express();
 
 // Trust the Replit/Nginx reverse proxy so rate-limiter sees the real client IP

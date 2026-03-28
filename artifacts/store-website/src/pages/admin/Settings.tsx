@@ -257,11 +257,56 @@ export default function AdminSettings() {
   const [signResults, setSignResults] = useState<any>(null);
   const [signIpaUrl, setSignIpaUrl] = useState("https://app.mismari.com/ipa/Mismari-Plus-Unsigned.ipa");
 
+  const ipaRef = useRef<HTMLInputElement>(null);
+  const [ipaStatus, setIpaStatus] = useState<{ exists: boolean; size?: number; updatedAt?: string } | null>(null);
+  const [uploadingIpa, setUploadingIpa] = useState(false);
+  const [ipaProgress, setIpaProgress] = useState(0);
+
   const fetchDylibStatus = async () => {
     try {
       const data = await adminFetch("/admin/dylib/status");
       setDylibStatus(data);
     } catch { setDylibStatus({ exists: false }); }
+  };
+
+  const fetchIpaStatus = async () => {
+    try {
+      const data = await adminFetch("/admin/unsigned-ipa/status");
+      setIpaStatus(data);
+    } catch { setIpaStatus({ exists: false }); }
+  };
+
+  const handleUploadIpa = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingIpa(true);
+    setIpaProgress(0);
+    try {
+      const fd = new FormData();
+      fd.append("ipa", file);
+      const token = localStorage.getItem("adminToken") || "";
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API}/api/admin/unsigned-ipa/upload`);
+        xhr.setRequestHeader("x-admin-token", token);
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setIpaProgress(Math.round((ev.loaded / ev.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status === 200) resolve();
+          else reject(new Error(xhr.responseText));
+        };
+        xhr.onerror = () => reject(new Error("فشل الاتصال"));
+        xhr.send(fd);
+      });
+      toast({ title: "تم رفع ملف IPA بنجاح", description: `${(file.size / 1024 / 1024).toFixed(1)} MB` });
+      fetchIpaStatus();
+    } catch (err: any) {
+      toast({ title: "فشل رفع IPA", description: err.message, variant: "destructive" });
+    }
+    setUploadingIpa(false);
+    setIpaProgress(0);
+    if (ipaRef.current) ipaRef.current.value = "";
   };
 
   const handleUploadDylib = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -334,7 +379,7 @@ export default function AdminSettings() {
     setDirty(false);
     setLoading(false);
   };
-  useEffect(() => { fetchSettings(); fetchDylibStatus(); }, []);
+  useEffect(() => { fetchSettings(); fetchDylibStatus(); fetchIpaStatus(); }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -477,6 +522,46 @@ export default function AdminSettings() {
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="h-px bg-white/5" />
+
+            {/* ─── IPA Upload ─── */}
+            <div className="flex items-center gap-3 bg-white/[0.03] rounded-xl px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-white/60 text-xs font-medium">ملف IPA الأصلي (Mismari+)</span>
+                  {ipaStatus?.exists ? (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#22c55e15", color: "#22c55e" }}>
+                      مرفوع ✓ ({((ipaStatus.size || 0) / 1024 / 1024).toFixed(1)} MB)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#ef444415", color: "#ef4444" }}>
+                      غير مرفوع
+                    </span>
+                  )}
+                </div>
+                {ipaStatus?.updatedAt && (
+                  <p className="text-white/20 text-xs">آخر تحديث: {new Date(ipaStatus.updatedAt).toLocaleString("ar-SA")}</p>
+                )}
+                {uploadingIpa && ipaProgress > 0 && (
+                  <div className="mt-2">
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${ipaProgress}%`, background: "#9fbcff" }} />
+                    </div>
+                    <p className="text-white/30 text-xs mt-1">{ipaProgress}%</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => ipaRef.current?.click()}
+                disabled={uploadingIpa}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors shrink-0"
+                style={{ background: "#9fbcff18", color: "#9fbcff" }}>
+                {uploadingIpa ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {uploadingIpa ? `جاري الرفع... ${ipaProgress}%` : "رفع IPA"}
+              </button>
+              <input ref={ipaRef} type="file" accept=".ipa" className="hidden" onChange={handleUploadIpa} />
             </div>
 
             <div className="h-px bg-white/5" />
