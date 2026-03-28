@@ -1244,11 +1244,13 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
   fs.rmSync(tmpIpaPath, { force: true });
 
   const successCount = results.filter(r => r.success).length;
+  const _finalDylibPath = path.join(process.cwd(), "uploads", "dylibs", "antirevoke.dylib");
   res.json({
     success: true,
     total: testGroups.length,
     successCount,
     failedCount: testGroups.length - successCount,
+    hasDylib: fs.existsSync(_finalDylibPath),
     results,
   });
 });
