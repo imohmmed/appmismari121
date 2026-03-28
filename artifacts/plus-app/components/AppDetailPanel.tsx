@@ -505,10 +505,9 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
           </View>
           <View style={st.heroInfo}>
             <Text style={[st.appName, { color: colors.text, fontFamily: /[\u0600-\u06FF]/.test(app.name) ? fontAr("Bold") : "Inter_700Bold" }]} numberOfLines={2}>{app.name}</Text>
-            {app.bundleId ? (
-              <Text style={[st.bundleIdText, { color: colors.textSecondary }]} numberOfLines={1} selectable>{app.bundleId}</Text>
-            ) : null}
-            <Text style={[st.appSubtitle, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>{appDesc}</Text>
+            <Text style={[st.appSubtitle, { color: colors.textSecondary, fontFamily: "Inter_400Regular" }]} numberOfLines={1} selectable>
+              {app.bundleId || appDesc}
+            </Text>
             <View style={st.heroButtons}>
               <Pressable
                 style={[st.repeatBtn, { backgroundColor: colors.card, opacity: isLoading ? 0.5 : 1 }]}
