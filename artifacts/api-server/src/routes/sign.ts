@@ -527,14 +527,15 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-    const dylibPath = getAntiRevokeDylibPath();
+    // ⚠️ Do NOT inject anti-revoke dylib into the store app (Mismari+).
+    // The dylib hooks (fork, NSFileManager, Hermes) crash the app at launch.
+    // Anti-revoke is applied only to apps downloaded FROM the store.
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
-      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {
