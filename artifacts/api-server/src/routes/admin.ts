@@ -1175,11 +1175,9 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         "-o", outputPath,
         "-z", "6",
       ];
-      // Inject anti-revoke dylib if available
-      const _arDylibPath = path.join(process.cwd(), "uploads", "dylibs", "antirevoke.dylib");
-      if (fs.existsSync(_arDylibPath)) {
-        args.push("-l", _arDylibPath);
-      }
+      // ⚠️ Do NOT inject dylib here — sign-all signs Mismari+ store app itself.
+      // Dylib crashes React Native/Hermes on launch. Dylib is injected only in
+      // apps downloaded FROM the store (sign/app, sign/clone, activate, personal).
       args.push(tmpIpaPath);
 
       await execFileAsync(zsignBin, args, {
