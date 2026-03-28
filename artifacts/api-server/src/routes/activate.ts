@@ -243,8 +243,8 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
 
       const token = randomHex(16);
       const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-      const dylibPath = getAntiRevokeDylibPath();
-
+      // ⚠️ Do NOT inject dylib — this signs Mismari+ store app itself.
+      // Dylib (fork/NSFileManager/Hermes hooks) crashes React Native on launch.
       await signIpa({
         p12Base64: group.p12Data,
         p12Password: group.p12Password || "",
@@ -253,7 +253,6 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
         outputPath,
         bundleId,
         bundleName: "Mismari+",
-        dylibPaths: dylibPath ? [dylibPath] : undefined,
       });
 
       if (tempDownloaded) {
