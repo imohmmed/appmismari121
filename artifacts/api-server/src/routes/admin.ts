@@ -1743,4 +1743,60 @@ router.get("/admin/subscriptions/:id/balance", async (req, res): Promise<void> =
   }
 });
 
+// ─── Anti-Revoke Dylib Upload / Status / Delete ──────────────────────────────
+const DYLIB_UPLOAD_DIR = path.join(process.cwd(), "uploads", "dylibs");
+const DYLIB_DATA_DIR   = path.join(process.cwd(), "data");
+const DYLIB_PATH       = path.join(DYLIB_UPLOAD_DIR, "antirevoke.dylib");
+const DYLIB_PERSIST    = path.join(DYLIB_DATA_DIR,   "antirevoke.dylib");
+
+fs.mkdirSync(DYLIB_UPLOAD_DIR, { recursive: true });
+fs.mkdirSync(DYLIB_DATA_DIR,   { recursive: true });
+
+const dylibStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, DYLIB_UPLOAD_DIR),
+  filename:    (_req, _file, cb) => cb(null, "antirevoke.dylib"),
+});
+const dylibUpload = multer({
+  storage: dylibStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.endsWith(".dylib")) return cb(null, true);
+    cb(new Error("يُقبل فقط ملفات .dylib"));
+  },
+});
+
+router.get("/admin/dylib/status", adminAuth, (_req, res): void => {
+  try {
+    if (fs.existsSync(DYLIB_PATH)) {
+      const stat = fs.statSync(DYLIB_PATH);
+      res.json({ exists: true, size: stat.size, updatedAt: stat.mtime.toISOString() });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch {
+    res.json({ exists: false });
+  }
+});
+
+router.post("/admin/dylib/upload", adminAuth, dylibUpload.single("file"), (req, res): void => {
+  try {
+    if (!req.file) { res.status(400).json({ error: "لم يُرسل أي ملف" }); return; }
+    fs.copyFileSync(DYLIB_PATH, DYLIB_PERSIST);
+    const stat = fs.statSync(DYLIB_PATH);
+    res.json({ success: true, size: stat.size });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الرفع" });
+  }
+});
+
+router.delete("/admin/dylib", adminAuth, (_req, res): void => {
+  try {
+    if (fs.existsSync(DYLIB_PATH))    fs.unlinkSync(DYLIB_PATH);
+    if (fs.existsSync(DYLIB_PERSIST)) fs.unlinkSync(DYLIB_PERSIST);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الحذف" });
+  }
+});
+
 export default router;
