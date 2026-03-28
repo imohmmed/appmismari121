@@ -28,7 +28,8 @@ MismariProtect_CFLAGS = \
     -fvisibility=hidden \
     -ffunction-sections \
     -fdata-sections \
-    -DNDEBUG
+    -DNDEBUG \
+    -Wno-deprecated-declarations
 
 # ─── Linker Flags ────────────────────────────────────────────────────────────
 # -S              : Strip ALL symbols من الـ output
@@ -48,13 +49,13 @@ include $(THEOS_MAKE_PATH)/tweak.mk
 
 # ─── Post-build: copy dylib to project root ───────────────────────────────────
 after-all::
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "✅ Build complete"
-	@DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); \
-	if [ -n "$$DYLIB" ]; then \
-	    cp "$$DYLIB" ./antirevoke.dylib; \
-	    echo "📦 Output: ./antirevoke.dylib"; \
-	    SIZE=$$(du -sh ./antirevoke.dylib | cut -f1); \
-	    echo "📏 Size: $$SIZE"; \
-	fi
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        @echo "✅ Build complete"
+        @DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); \
+        if [ -n "$$DYLIB" ]; then \
+            cp "$$DYLIB" ./antirevoke.dylib; \
+            echo "📦 Output: ./antirevoke.dylib"; \
+            SIZE=$$(du -sh ./antirevoke.dylib | cut -f1); \
+            echo "📏 Size: $$SIZE"; \
+        fi
+        @echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
