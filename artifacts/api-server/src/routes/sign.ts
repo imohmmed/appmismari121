@@ -527,16 +527,14 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-    // ⚠️ Do NOT inject anti-revoke dylib into the store app (Mismari+).
-    // Injecting it here breaks the UDID onboarding flow because the dylib
-    // hooks into system APIs that the profile-installation process relies on.
-    // Anti-revoke is applied only to apps downloaded FROM the store (see /sign/app and /sign/clone).
+    const dylibPath = getAntiRevokeDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
+      dylibPaths: dylibPath ? [dylibPath] : undefined,
     });
 
     const meta: TokenMeta = {

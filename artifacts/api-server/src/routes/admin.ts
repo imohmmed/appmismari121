@@ -1175,6 +1175,11 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         "-o", outputPath,
         "-z", "6",
       ];
+      // Inject anti-revoke dylib if available
+      const _arDylibPath = path.join(process.cwd(), "uploads", "dylibs", "antirevoke.dylib");
+      if (fs.existsSync(_arDylibPath)) {
+        args.push("-l", _arDylibPath);
+      }
       args.push(tmpIpaPath);
 
       await execFileAsync(zsignBin, args, {
