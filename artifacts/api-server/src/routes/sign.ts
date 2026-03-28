@@ -51,6 +51,16 @@ function randomHex(n = 16) {
   return crypto.randomBytes(n).toString("hex");
 }
 
+/** Validate that a token/filename is safe to use in path.join (hex-only, max 128 chars) */
+function isValidToken(t: string): boolean {
+  return /^[a-f0-9]{8,128}$/i.test(t);
+}
+
+/** Strip any directory traversal from a filename */
+function safeFilename(f: string): string {
+  return path.basename(f).replace(/[^a-zA-Z0-9._\-]/g, "_");
+}
+
 function getBaseUrl(req: import("express").Request): string {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
   return "https://app.mismari.com";
@@ -355,7 +365,7 @@ setInterval(() => { cleanupExpiredTokens().catch(() => {}); }, 10 * 60 * 1000);
 const SIGNED_STORE_DIR_PUBLIC = path.join(process.cwd(), "uploads", "SignedStore");
 router.get("/sign/dl/:token", async (req, res): Promise<void> => {
   const { token } = req.params;
-  if (!token || token.length < 16) { res.status(400).send("Invalid token"); return; }
+  if (!token || !/^[a-zA-Z0-9_\-]{16,128}$/.test(token)) { res.status(400).send("Invalid token"); return; }
 
   // Look up which group this token belongs to and get the file path
   const [group] = await db
@@ -368,9 +378,8 @@ router.get("/sign/dl/:token", async (req, res): Promise<void> => {
     return;
   }
 
-  // storeIpaPath is stored as "/sign/store-files/<filename>"
-  const filename = path.basename(group.storeIpaPath);
-  if (filename.includes("..")) { res.status(400).send("Invalid"); return; }
+  // storeIpaPath is stored as "/sign/store-files/<filename>" — use basename only
+  const filename = safeFilename(group.storeIpaPath);
 
   const filePath = path.join(SIGNED_STORE_DIR_PUBLIC, filename);
   if (!fs.existsSync(filePath)) {
@@ -388,8 +397,8 @@ router.get("/sign/dl/:token", async (req, res): Promise<void> => {
 // ─── GET /api/sign/store-files/:filename — fallback file serve ───────────────
 // Used by storeIpaPath references. Serves directly from uploads/SignedStore.
 router.get("/sign/store-files/:filename", (req, res): void => {
-  const filename = req.params.filename;
-  if (filename.includes("..") || filename.includes("/")) { res.status(400).send("Invalid"); return; }
+  const filename = safeFilename(req.params.filename);
+  if (!filename || filename === "_") { res.status(400).send("Invalid"); return; }
   const filePath = path.join(SIGNED_STORE_DIR_PUBLIC, filename);
   if (!fs.existsSync(filePath)) { res.status(404).json({ error: "ملف غير موجود" }); return; }
   const stat = fs.statSync(filePath);
@@ -412,6 +421,7 @@ router.get("/sign/status", (_req, res): void => {
 // ─── GET /api/sign/manifest/:token.plist ────────────────────────────────────
 router.get("/sign/manifest/:token.plist", (req, res): void => {
   const token = req.params.token;
+  if (!isValidToken(token)) { res.status(400).json({ error: "Invalid token" }); return; }
   const meta = loadToken(token);
   if (!meta) {
     res.status(404).json({ error: "الرابط منتهي الصلاحية أو غير موجود" });
@@ -432,6 +442,7 @@ router.get("/sign/manifest/:token.plist", (req, res): void => {
 // ─── HEAD /api/sign/ipa/:token.ipa ───────────────────────────────────────────
 router.head("/sign/ipa/:token.ipa", (req, res): void => {
   const token = req.params.token;
+  if (!isValidToken(token)) { res.status(400).end(); return; }
   const meta = loadToken(token);
   if (!meta) { res.status(404).end(); return; }
   const ipaPath = path.join(SIGNED_DIR, `${token}.ipa`);
@@ -448,6 +459,7 @@ router.head("/sign/ipa/:token.ipa", (req, res): void => {
 // ─── GET /api/sign/ipa/:token.ipa ────────────────────────────────────────────
 router.get("/sign/ipa/:token.ipa", (req, res): void => {
   const token = req.params.token;
+  if (!isValidToken(token)) { res.status(400).json({ error: "Invalid token" }); return; }
   const meta = loadToken(token);
   if (!meta) {
     res.status(404).json({ error: "الرابط منتهي الصلاحية أو غير موجود" });

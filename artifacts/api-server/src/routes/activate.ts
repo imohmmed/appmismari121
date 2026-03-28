@@ -11,6 +11,16 @@ import { signIpa, saveToken, randomHex, resolveLocalPath, downloadToTemp, SIGNED
 
 const router: IRouter = Router();
 
+/** Escape XML special characters to prevent XML/plist injection */
+function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
 function getAntiRevokeDylibPath(): string | null {
   const p = path.join(DYLIB_DIR, "antirevoke.dylib");
@@ -273,13 +283,13 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
           <key>kind</key>
           <string>software-package</string>
           <key>url</key>
-          <string>${ipaUrl}</string>
+          <string>${xmlEscape(ipaUrl)}</string>
         </dict>
       </array>
       <key>metadata</key>
       <dict>
         <key>bundle-identifier</key>
-        <string>${bundleId}</string>
+        <string>${xmlEscape(bundleId)}</string>
         <key>bundle-version</key>
         <string>1.0.0</string>
         <key>kind</key>
@@ -323,13 +333,13 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
           <key>kind</key>
           <string>software-package</string>
           <key>url</key>
-          <string>${ipaUrl}</string>
+          <string>${xmlEscape(ipaUrl)}</string>
         </dict>
       </array>
       <key>metadata</key>
       <dict>
         <key>bundle-identifier</key>
-        <string>${bundleId}</string>
+        <string>${xmlEscape(bundleId)}</string>
         <key>bundle-version</key>
         <string>1.0.0</string>
         <key>kind</key>
