@@ -48,6 +48,8 @@ artifacts-monorepo/
 - **subscriptions**: id (serial PK), email, planId, udid, phone, deviceType, subscriberName, groupName, status, expiresAt, createdAt
 - **featured_banners**: id (serial PK), title, description, image, link, sortOrder, isActive, createdAt
 - **settings**: id (serial PK), key (unique), value, updatedAt
+- **product_categories**: id (serial PK), name, sortOrder, createdAt
+- **products**: id (serial PK), categoryId → product_categories, name, description (HTML), price, images (JSON array of paths), isHidden, createdAt
 
 Seeded with 20 sample apps, 8 categories, 2 plans.
 
@@ -66,6 +68,11 @@ All routes prefixed with `/api`:
 - CRUD: `GET/POST/PUT/DELETE /api/admin/featured` - Featured banners
 - `GET/PUT /api/admin/settings` - Site settings (key-value pairs)
 - `GET /api/admin/plans` - List subscription plans
+- `GET /api/products` - Public product listing (filter by categoryId, excludes hidden)
+- `GET /api/products/:id` - Public product detail (related products + whatsapp number)
+- CRUD `GET/POST/PUT/DELETE /api/admin/product-categories` - Product categories
+- CRUD `GET/POST/PUT/DELETE /api/admin/products` - Products (name, category, price, description HTML, images JSON array, isHidden)
+- `POST /api/admin/products/upload-image` - Upload 4:5 product image (multer, to uploads/product-images/)
 - `POST /api/admin/plans` - Create plan
 
 ## Admin Panel Pages
@@ -84,6 +91,8 @@ All admin pages are dark-themed (#1a1a2e bg, #22223a cards, #2a2a45 borders) wit
 - `/admin/notifications` - Push notification sender + history
 - `/admin/downloads` - Download statistics and analytics
 - `/admin/settings` - Maintenance mode toggle + site settings
+- `/admin/products` - Products management (categories + products tabs, 4:5 image upload, rich text description editor, show/hide toggle)
+- `/products/:id` - Public product detail page (image carousel, WhatsApp buy button, related products)
 
 ## Mobile App (plus-app)
 

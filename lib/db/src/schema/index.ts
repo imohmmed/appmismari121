@@ -13,3 +13,4 @@ export * from "./reviews";
 export * from "./balance_transactions";
 export * from "./sign_jobs";
 export * from "./udid_tokens";
+export * from "./products";
