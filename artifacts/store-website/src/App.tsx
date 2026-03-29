@@ -31,6 +31,7 @@ import Enroll from "./pages/Enroll";
 import Activate from "./pages/Activate";
 import Download from "./pages/Download";
 import AdminProducts from "./pages/admin/Products";
+import AdminLogs from "./pages/admin/Logs";
 import ProductDetail from "./pages/ProductDetail";
 
 // Configure customFetch to send admin JWT as Bearer token
@@ -77,6 +78,7 @@ function Router() {
       <Route path="/admin/reviews">{() => <AdminRoute component={AdminReviews} />}</Route>
       <Route path="/admin/balances">{() => <AdminRoute component={AdminBalances} />}</Route>
       <Route path="/admin/products">{() => <AdminRoute component={AdminProducts} />}</Route>
+      <Route path="/admin/logs">{() => <AdminRoute component={AdminLogs} />}</Route>
 
       <Route path="/products/:id" component={ProductDetail} />
       <Route path="/d/:slug" component={Download} />

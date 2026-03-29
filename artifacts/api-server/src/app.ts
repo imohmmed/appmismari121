@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { requestLogger } from "./routes/logs";
 
 // ─── Ensure dylib is in place for IPA signing ────────────────────────────────
 const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
@@ -148,6 +149,9 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+/* تسجيل كل الطلبات في جدول site_logs */
+app.use(requestLogger);
 
 app.use("/api", router);
 

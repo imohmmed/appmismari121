@@ -10,6 +10,7 @@ import testGroupsRouter from "./test-groups";
 import activateRouter from "./activate";
 import signRouter from "./sign";
 import productsRouter from "./products";
+import logsRouter from "./logs";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(testGroupsRouter);
 router.use(activateRouter);
 router.use(signRouter);
 router.use(productsRouter);
+router.use(logsRouter);
 
 export default router;

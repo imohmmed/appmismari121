@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Smartphone, ImageIcon, Users, UsersRound, Layers, Link2,
-  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag
+  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag, ScrollText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -33,6 +33,7 @@ const navGroups = [
   {
     items: [
       { href: "/admin/admins", icon: ShieldCheck, label: "الأدمنية", labelEn: "Admins" },
+      { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
     ],
   },
 ];
