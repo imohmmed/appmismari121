@@ -40,7 +40,6 @@ const navGroups = [
       { href: "/admin/admins", icon: ShieldCheck, label: "الأدمنية", labelEn: "Admins" },
       { href: "/admin/appearance", icon: Palette, label: "المظهر", labelEn: "Appearance" },
       { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
-      { href: "/admin/settings", icon: Settings, label: "الإعدادات", labelEn: "Settings" },
     ],
   },
 ];
