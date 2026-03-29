@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const PRIMARY = "var(--ap, #9fbcff)";
 const TEXT = "var(--at, #2b283b)";
+const HEADER_TEXT = "#1a1a1a";
 const API = import.meta.env.VITE_API_URL || "";
 
 interface SocialSettings {
@@ -138,8 +139,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
               aria-label="القائمة"
             >
               {menuOpen
-                ? <X className="w-5 h-5" style={{ color: TEXT }} />
-                : <Menu className="w-5 h-5" style={{ color: TEXT }} />
+                ? <X className="w-5 h-5" style={{ color: HEADER_TEXT }} />
+                : <Menu className="w-5 h-5" style={{ color: HEADER_TEXT }} />
               }
             </button>
           </div>
@@ -162,7 +163,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
                     className="py-3 px-4 rounded-xl text-sm font-semibold transition-all hover:bg-black/5 text-start"
-                    style={{ color: TEXT }}
+                    style={{ color: HEADER_TEXT }}
                   >
                     {item.label}
                   </a>
@@ -171,7 +172,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                 {(cfg.whatsapp || cfg.telegram || cfg.instagram) && (
                   <>
                     <div className="mx-4 my-2 border-t border-black/8" />
-                    <p className="px-4 py-1 text-xs font-semibold" style={{ color: `${TEXT}55` }}>تواصل معنا</p>
+                    <p className="px-4 py-1 text-xs font-semibold" style={{ color: `${HEADER_TEXT}88` }}>تواصل معنا</p>
                     <div className="flex items-center gap-3 px-4 pb-2">
                       {cfg.whatsapp && (
                         <a href={cfg.whatsapp.startsWith("http") ? cfg.whatsapp : `https://${cfg.whatsapp}`}
@@ -218,7 +219,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
             style={{ maxHeight: "56px", width: "auto", objectFit: "contain" }}
           />
         </a>
-        <div className="flex flex-wrap justify-center gap-6 mb-5 text-sm" style={{ color: `${TEXT}88` }}>
+        <div className="flex flex-wrap justify-center gap-6 mb-5 text-sm" style={{ color: `${HEADER_TEXT}88` }}>
           <a href="#apps" className="hover:underline">تطبيقاتنا</a>
           <a href="#plans" className="hover:underline">الاشتراكات</a>
           <a href="#faq" className="hover:underline">الأسئلة الشائعة</a>
@@ -238,7 +239,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <p className="text-xs" style={{ color: `${TEXT}55` }}>
+        <p className="text-xs" style={{ color: `${HEADER_TEXT}55` }}>
           © {new Date().getFullYear()} {cfg.siteName} — جميع الحقوق محفوظة
         </p>
       </footer>
