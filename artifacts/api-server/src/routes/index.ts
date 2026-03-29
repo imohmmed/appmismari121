@@ -11,6 +11,7 @@ import activateRouter from "./activate";
 import signRouter from "./sign";
 import productsRouter from "./products";
 import logsRouter from "./logs";
+import telegramRouter from "./telegram";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(activateRouter);
 router.use(signRouter);
 router.use(productsRouter);
 router.use(logsRouter);
+router.use(telegramRouter);
 
 export default router;

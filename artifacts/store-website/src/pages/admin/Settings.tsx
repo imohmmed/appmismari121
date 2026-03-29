@@ -5,6 +5,7 @@ import {
   Settings as SettingsIcon, Link2,
   ChevronDown, ChevronUp,
   Shield, Upload, Trash2, Zap, CheckCircle, XCircle, Info,
+  Send, Bot, Image as ImageIcon, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -243,6 +244,319 @@ function SectionCard({
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   TelegramBotSection — قسم مستقل لإعدادات بوت التيليكرام
+────────────────────────────────────────────────────────────────────────── */
+function TelegramBotSection() {
+  const { toast } = useToast();
+  const TG = "#0088CC";
+  const [open, setOpen] = useState(false);
+
+  const [botToken, setBotToken] = useState("");
+  const [channelId, setChannelId] = useState("");
+  const [autoPost, setAutoPost] = useState(false);
+
+  const [checking, setChecking] = useState(false);
+  const [botInfo, setBotInfo] = useState<{ username?: string; first_name?: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const [templateInfo, setTemplateInfo] = useState<{ exists: boolean; filename?: string; url?: string } | null>(null);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
+  const templateRef = useRef<HTMLInputElement>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  /* جلب الإعدادات الحالية */
+  const loadSettings = async () => {
+    setLoading(true);
+    try {
+      const d = await adminFetch("/admin/settings");
+      const map: Record<string, string> = {};
+      for (const s of d?.settings || []) map[s.key] = s.value;
+      setBotToken(map["telegram_bot_token"] || "");
+      setChannelId(map["telegram_channel_id"] || "");
+      setAutoPost(map["telegram_auto_post"] === "true");
+    } catch { /* ignore */ }
+
+    try {
+      const t = await adminFetch("/admin/telegram/template-info");
+      setTemplateInfo(t);
+    } catch { setTemplateInfo({ exists: false }); }
+
+    setLoading(false);
+  };
+
+  useEffect(() => { if (open) loadSettings(); }, [open]);
+
+  /* فحص التوكن */
+  const handleCheck = async () => {
+    if (!botToken.trim()) { toast({ title: "أدخل توكن البوت أولاً", variant: "destructive" }); return; }
+    setChecking(true);
+    const d = await adminFetch("/admin/telegram/check", { method: "POST", body: JSON.stringify({ token: botToken.trim() }) });
+    setChecking(false);
+    if (d?.ok) { setBotInfo(d.bot); toast({ title: `✅ البوت: @${d.bot?.username}` }); }
+    else { setBotInfo(null); toast({ title: "❌ " + (d?.error || "توكن غير صحيح"), variant: "destructive" }); }
+  };
+
+  /* حفظ الإعدادات */
+  const handleSave = async () => {
+    setSaving(true);
+    await adminFetch("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: [
+          { key: "telegram_bot_token", value: botToken.trim() },
+          { key: "telegram_channel_id", value: channelId.trim() },
+          { key: "telegram_auto_post", value: autoPost ? "true" : "false" },
+        ],
+      }),
+    });
+    setSaving(false);
+    toast({ title: "✅ تم حفظ إعدادات البوت" });
+  };
+
+  /* رفع قالب الصورة */
+  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingTemplate(true);
+    const fd = new FormData();
+    fd.append("template", file);
+    const res = await adminUpload("/admin/telegram/upload-template", fd);
+    const d = await res.json();
+    setUploadingTemplate(false);
+    if (d?.ok) {
+      toast({ title: "✅ تم رفع القالب" });
+      setTemplateInfo({ exists: true, filename: d.filename, url: d.url });
+    } else {
+      toast({ title: "❌ فشل رفع القالب", variant: "destructive" });
+    }
+    if (templateRef.current) templateRef.current.value = "";
+  };
+
+  /* حذف القالب */
+  const handleTemplateDelete = async () => {
+    await adminFetch("/admin/telegram/template", { method: "DELETE" });
+    setTemplateInfo({ exists: false });
+    toast({ title: "تم حذف القالب" });
+  };
+
+  /* إرسال رسالة اختبار */
+  const handleTest = async () => {
+    if (!botToken.trim() || !channelId.trim()) {
+      toast({ title: "أدخل التوكن ومعرف القناة أولاً", variant: "destructive" });
+      return;
+    }
+    setTesting(true);
+    const d = await adminFetch("/admin/telegram/test", {
+      method: "POST",
+      body: JSON.stringify({ token: botToken.trim(), channelId: channelId.trim() }),
+    });
+    setTesting(false);
+    if (d?.ok) toast({ title: "✅ تم إرسال رسالة اختبار للقناة!" });
+    else toast({ title: "❌ " + (d?.error || "فشل الإرسال"), variant: "destructive" });
+  };
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: `${TG}25`, background: `${TG}06` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${TG}25` }}>
+          <Bot className="w-3.5 h-3.5" style={{ color: TG }} />
+        </div>
+        <div className="flex-1 text-right">
+          <span className="text-sm font-bold text-white">بوت النشر التلقائي</span>
+          <span className="text-white/30 text-xs mr-2">Telegram Auto-Post Bot</span>
+        </div>
+        {autoPost && !open && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: `${TG}20`, color: TG }}>مفعّل</span>
+        )}
+        {botInfo && !open && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: "#22c55e15", color: "#22c55e" }}>@{botInfo.username}</span>
+        )}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-white/30 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-white/30 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="px-5 py-4 space-y-5 border-t" style={{ borderColor: `${TG}15` }}>
+          {loading ? (
+            <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div>
+          ) : (
+            <>
+              {/* شرح سريع */}
+              <div className="rounded-lg px-3 py-2.5 text-xs text-white/40 leading-relaxed" style={{ background: "rgba(0,136,204,0.07)" }}>
+                <strong style={{ color: TG }}>كيف يعمل:</strong> أضف البوت أدمناً في قناتك ← أدخل التوكن ← أدخل Chat ID للقناة ← ارفع قالب الصورة (اختياري) ← فعّل النشر التلقائي
+              </div>
+
+              {/* توكن البوت */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: `${TG}bb` }}>توكن البوت <span className="text-white/25">(من @BotFather)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={botToken}
+                    onChange={e => setBotToken(e.target.value)}
+                    placeholder="123456789:AABBccDDee..."
+                    dir="ltr"
+                    className="flex-1 bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white font-mono focus:outline-none placeholder-white/20 focus:border-white/20"
+                    style={botToken ? { borderColor: `${TG}30` } : {}}
+                  />
+                  <button
+                    onClick={handleCheck}
+                    disabled={checking}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium shrink-0"
+                    style={{ background: `${TG}20`, color: TG }}
+                  >
+                    {checking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                    فحص
+                  </button>
+                </div>
+                {botInfo && (
+                  <p className="text-xs" style={{ color: "#22c55e" }}>
+                    ✅ البوت: <strong>{botInfo.first_name}</strong> — @{botInfo.username}
+                  </p>
+                )}
+              </div>
+
+              {/* معرف القناة */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: `${TG}bb` }}>Chat ID للقناة</label>
+                <input
+                  type="text"
+                  value={channelId}
+                  onChange={e => setChannelId(e.target.value)}
+                  placeholder="-100xxxxxxxxxx أو @channel_username"
+                  dir="ltr"
+                  className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white font-mono focus:outline-none placeholder-white/20 focus:border-white/20"
+                  style={channelId ? { borderColor: `${TG}30` } : {}}
+                />
+                <p className="text-[11px] text-white/25">
+                  للحصول على Chat ID: أرسل أي رسالة للقناة ← افتح @userinfobot أو @RawDataBot وأعد توجيه الرسالة إليه
+                </p>
+              </div>
+
+              {/* النشر التلقائي */}
+              <div className="flex items-center justify-between bg-white/[0.03] rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-white">النشر التلقائي</p>
+                  <p className="text-xs text-white/35 mt-0.5">ينشر تلقائياً عند إضافة أو تحديث تطبيق</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAutoPost(v => !v)}
+                  className="flex items-center gap-2 text-sm font-bold"
+                  style={{ color: autoPost ? TG : "rgba(255,255,255,0.3)" }}
+                >
+                  {autoPost
+                    ? <ToggleRight className="w-8 h-8" style={{ color: TG }} />
+                    : <ToggleLeft className="w-8 h-8 text-white/20" />
+                  }
+                </button>
+              </div>
+
+              {/* قالب الصورة */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium" style={{ color: `${TG}bb` }}>قالب الصورة (اختياري)</label>
+                <div className="bg-white/[0.03] rounded-xl px-4 py-3 flex items-center gap-3">
+                  {templateInfo?.exists ? (
+                    <>
+                      <img
+                        src={`${API}${templateInfo.url}`}
+                        alt="قالب"
+                        className="w-14 h-14 object-cover rounded-lg border border-white/10"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white/70 truncate">{templateInfo.filename}</p>
+                        <p className="text-[11px] text-white/30 mt-0.5">أيقونة التطبيق ستُوضع فوق هذا القالب</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => templateRef.current?.click()}
+                          disabled={uploadingTemplate}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+                          style={{ background: `${TG}18`, color: TG }}
+                        >
+                          <Upload className="w-3.5 h-3.5" />تغيير
+                        </button>
+                        <button
+                          onClick={handleTemplateDelete}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+                          style={{ background: "#ef444418", color: "#ef4444" }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />حذف
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full text-center space-y-2">
+                      <ImageIcon className="w-8 h-8 mx-auto text-white/15" />
+                      <p className="text-xs text-white/30">لا يوجد قالب — سترسل أيقونة التطبيق مباشرة</p>
+                      <button
+                        onClick={() => templateRef.current?.click()}
+                        disabled={uploadingTemplate}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium"
+                        style={{ background: `${TG}20`, color: TG }}
+                      >
+                        {uploadingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        {uploadingTemplate ? "جاري الرفع..." : "رفع قالب صورة"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-white/20 flex items-start gap-1">
+                  <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                  ارفع صورة خلفية (PNG/JPG) — سيتم تركيب أيقونة التطبيق في الزاوية العلوية اليمنى تلقائياً
+                </p>
+                <input ref={templateRef} type="file" accept="image/*" className="hidden" onChange={handleTemplateUpload} />
+              </div>
+
+              {/* أزرار الحفظ والاختبار */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-black"
+                  style={{ background: TG }}
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
+                </button>
+                <button
+                  onClick={handleTest}
+                  disabled={testing}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
+                  style={{ background: `${TG}18`, color: TG }}
+                >
+                  {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {testing ? "جاري الإرسال..." : "إرسال اختبار"}
+                </button>
+              </div>
+
+              {/* شرح شكل المنشور */}
+              <div className="rounded-xl border border-white/5 overflow-hidden">
+                <div className="px-4 py-2 border-b border-white/5 bg-white/[0.02]">
+                  <p className="text-xs font-bold text-white/50">شكل المنشور في القناة</p>
+                </div>
+                <div className="px-4 py-3 space-y-1 text-xs font-mono text-white/40 dir-ltr" dir="ltr">
+                  <p>[صورة القالب + أيقونة التطبيق]</p>
+                  <p>📱 <strong className="text-white/60">اسم التطبيق</strong> v1.0.0</p>
+                  <p className="mt-1">الوصف بالعربي...</p>
+                  <p>English Description...</p>
+                  <p className="mt-1">🔗 @channel_username</p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -413,6 +727,7 @@ export default function AdminSettings() {
                 onChange={handleChange}
               />
             ))}
+            <TelegramBotSection />
           </div>
         )}
 

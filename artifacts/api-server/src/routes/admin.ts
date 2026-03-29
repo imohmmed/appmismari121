@@ -24,6 +24,7 @@ import {
 } from "@workspace/api-zod";
 import { adminAuth, JWT_SECRET } from "../middleware/adminAuth";
 import { notifyAppAdded, notifyAppUpdated, sendBroadcast, sendBroadcastToGroup } from "../lib/pushNotifications";
+import { postAppToTelegram } from "./telegram";
 
 const router: IRouter = Router();
 
@@ -370,6 +371,13 @@ router.post("/admin/apps", async (req, res): Promise<void> => {
 
   // Fire-and-forget: send push notifications after responding
   notifyAppAdded(app.id).catch(() => {});
+  // Auto-post to Telegram if enabled
+  (async () => {
+    try {
+      const [autoRow] = await db.select().from(settingsTable).where(eq(settingsTable.key, "telegram_auto_post"));
+      if (autoRow?.value === "true") postAppToTelegram(app.id).catch(() => {});
+    } catch { /* ignore */ }
+  })();
 });
 
 router.put("/admin/apps/:id", async (req, res): Promise<void> => {
@@ -414,6 +422,13 @@ router.put("/admin/apps/:id", async (req, res): Promise<void> => {
 
   // Fire-and-forget: send push notifications after responding
   notifyAppUpdated(app.id).catch(() => {});
+  // Auto-post to Telegram if enabled
+  (async () => {
+    try {
+      const [autoRow] = await db.select().from(settingsTable).where(eq(settingsTable.key, "telegram_auto_post"));
+      if (autoRow?.value === "true") postAppToTelegram(app.id).catch(() => {});
+    } catch { /* ignore */ }
+  })();
 });
 
 router.patch("/admin/apps/:id", async (req, res): Promise<void> => {

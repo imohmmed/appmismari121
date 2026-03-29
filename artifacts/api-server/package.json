@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/sharp": "^0.32.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "adm-zip": "^0.5.16",
@@ -27,7 +28,8 @@
     "p-limit": "^7.3.0",
     "pino": "^9",
     "pino-http": "^10",
-    "plist": "^3.1.0"
+    "plist": "^3.1.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
