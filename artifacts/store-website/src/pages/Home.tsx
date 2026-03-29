@@ -571,8 +571,8 @@ export default function Home() {
                     {plan.nameAr || plan.name}
                   </div>
                   <div className="flex items-end justify-center gap-1 mb-1">
-                    <span className="text-4xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>
-                      {plan.price?.toLocaleString("ar-IQ")}
+                    <span className="text-4xl font-black text-white" style={{ fontFamily: "'Outfit', 'Inter', sans-serif", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                      {plan.price?.toLocaleString("en-US")}
                     </span>
                   </div>
                   <p className="text-sm mb-6" style={{ color: `${PRIMARY}aa` }}>
