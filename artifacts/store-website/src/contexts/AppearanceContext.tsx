@@ -170,3 +170,11 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 export function useAppearance() {
   return useContext(AppearanceContext);
 }
+
+const _API = import.meta.env.VITE_API_URL || "";
+const _BASE = import.meta.env.BASE_URL || "/";
+
+export function useLogoSrc(): string {
+  const { appearance_logo_url } = useAppearance();
+  return appearance_logo_url ? `${_API}${appearance_logo_url}` : `${_BASE}mismari-logo.png`;
+}

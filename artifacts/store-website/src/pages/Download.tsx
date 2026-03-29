@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { Loader2, Download, AlertCircle, Smartphone, CheckCircle2 } from "lucide-react";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 const A = "#9fbcff";
@@ -18,6 +19,7 @@ export default function DownloadPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tapped, setTapped] = useState(false);
+  const logoSrc = useLogoSrc();
 
   useEffect(() => {
     if (!slug) return;
@@ -47,7 +49,7 @@ export default function DownloadPage() {
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-3">
         <img
-          src={`${import.meta.env.BASE_URL}mismari-logo.png`}
+          src={logoSrc}
           alt="مسماري"
           className="w-20 h-20 rounded-3xl object-contain"
           style={{ boxShadow: `0 0 40px ${A}30` }}

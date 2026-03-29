@@ -27,6 +27,7 @@ interface SettingsContextType {
   setProfilePhoto: (uri: string) => void;
   loaded: boolean;
   appName: string;
+  logoUrl: string;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -48,6 +49,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [profilePhoto, setProfilePhotoState] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [appName, setAppName] = useState("مسماري");
+  const [logoUrl, setLogoUrl] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -71,13 +73,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  /* جلب اسم التطبيق من API */
+  /* جلب اسم التطبيق واللوغو من API */
   useEffect(() => {
     const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/appearance`)
       .then(r => r.json())
-      .then(d => { if (d?.appearance_app_name) setAppName(d.appearance_app_name); })
+      .then(d => {
+        if (d?.appearance_app_name) setAppName(d.appearance_app_name);
+        if (d?.appearance_logo_url) setLogoUrl(`https://${domain}${d.appearance_logo_url}`);
+      })
       .catch(() => {});
   }, []);
 
@@ -181,6 +186,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setProfilePhoto,
         loaded,
         appName,
+        logoUrl,
       }}
     >
       {children}

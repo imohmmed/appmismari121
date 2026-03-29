@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const navGroups = [
   {
@@ -43,6 +44,7 @@ const A = "var(--aa, #9fbcff)";
 
 function SidebarContent({ location, onClose }: { location: string; onClose?: () => void }) {
   const [, setLocation] = useLocation();
+  const logoSrc = useLogoSrc();
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     setLocation("/admin/login");
@@ -52,7 +54,7 @@ function SidebarContent({ location, onClose }: { location: string; onClose?: () 
   return (
     <div className="flex flex-col h-full">
       <div className="h-14 flex items-center justify-between px-4 border-b border-white/5 shrink-0">
-        <img src={`${import.meta.env.BASE_URL}mismari-logo.png`} alt="Mismari" className="h-9 w-auto object-contain" />
+        <img src={logoSrc} alt="Mismari" className="h-9 w-auto object-contain" />
         {onClose && (
           <button onClick={onClose} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5">
             <X className="w-4 h-4" />

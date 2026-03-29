@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X, Shield, Smartphone, Zap } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { Link } from "wouter";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const PRIMARY = "#9fbcff";
 const TEXT = "#2b283b";
@@ -321,6 +322,7 @@ export default function Home() {
   const { data: plansData, isLoading: plansLoading } = useListPlans();
   const plans = plansData?.plans || [];
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null);
+  const logoSrc = useLogoSrc();
 
   // ── Code activation state ──
   const [code, setCode] = useState("");
@@ -397,7 +399,7 @@ export default function Home() {
         style={{ background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${PRIMARY}22 0%, transparent 70%)` }}
       >
         <img
-          src={`${import.meta.env.BASE_URL}mismari-logo.png`}
+          src={logoSrc}
           alt="مسماري"
           className="mb-3"
           style={{

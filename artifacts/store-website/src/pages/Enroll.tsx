@@ -3,6 +3,7 @@ import {
   Loader2, CheckCircle2, Send, AlertCircle,
   Download, Shield, CheckCircle,
 } from "lucide-react";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
@@ -30,6 +31,7 @@ export default function Enroll() {
   const urlUdid = new URLSearchParams(window.location.search).get("udid") || "";
   const urlPlan = new URLSearchParams(window.location.search).get("plan") || "";
   const autoDownload = new URLSearchParams(window.location.search).get("auto") === "1";
+  const logoSrc = useLogoSrc();
 
   const [step, setStep] = useState<Step>(urlUdid ? "form" : (autoDownload ? "waiting" : "download"));
   const [token] = useState(() => getOrCreateToken());
@@ -148,7 +150,7 @@ export default function Enroll() {
 
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src={`${BASE}mismari-logo.png`} alt="مسماري"
+          <img src={logoSrc} alt="مسماري"
             className="h-10 w-auto object-contain mx-auto mb-1" />
           <p className="text-white/30 text-xs">طلب اشتراك</p>
         </div>

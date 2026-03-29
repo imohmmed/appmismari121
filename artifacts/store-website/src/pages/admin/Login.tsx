@@ -3,12 +3,14 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { User, Lock, ArrowRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const logoSrc = useLogoSrc();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -86,7 +88,7 @@ export default function AdminLogin() {
         className="w-full max-w-md p-8 bg-[#111] border border-white/10 rounded-3xl shadow-2xl relative z-10"
       >
         <div className="text-center mb-8">
-          <img src="/mismari-logo.png" alt="Mismari" className="h-16 w-auto object-contain mx-auto mb-5" />
+          <img src={logoSrc} alt="Mismari" className="h-16 w-auto object-contain mx-auto mb-5" />
           <h1 className="text-2xl font-black mb-1 text-white">تسجيل الدخول</h1>
           <p className="text-white/40 text-sm">لوحة إدارة مسماري</p>
         </div>

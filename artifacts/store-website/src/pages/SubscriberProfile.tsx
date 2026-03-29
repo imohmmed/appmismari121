@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle2, XCircle, Smartphone, Tablet, User, Key, Calendar, Package } from "lucide-react";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 
@@ -31,6 +32,7 @@ export default function SubscriberProfile({ params }: { params: { code: string }
   const [sub, setSub] = useState<Subscriber | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const logoSrc = useLogoSrc();
 
   useEffect(() => {
     fetch(`${API}/api/subscriber/${params.code}`)
@@ -51,7 +53,7 @@ export default function SubscriberProfile({ params }: { params: { code: string }
       <div className="max-w-lg mx-auto px-4 py-10">
         <div className="flex items-center gap-3 mb-8">
           <img
-            src={`${import.meta.env.BASE_URL}mismari-logo.png`}
+            src={logoSrc}
             alt="Mismari"
             className="h-12 w-auto object-contain"
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}

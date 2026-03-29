@@ -4,6 +4,7 @@ import {
   Download, Send, Smartphone,
   Key, User, Phone, Mail, Shield, CheckCircle,
 } from "lucide-react";
+import { useLogoSrc } from "@/contexts/AppearanceContext";
 
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
@@ -55,6 +56,7 @@ export default function Activate() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlCode = urlParams.get("code") || "";
   const urlUdid = urlParams.get("udid") || "";
+  const logoSrc = useLogoSrc();
 
   const [step, setStep] = useState<Step>("code");
   const [errorMsg, setErrorMsg] = useState("");
@@ -255,7 +257,7 @@ export default function Activate() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src={`${BASE}mismari-logo.png`} alt="Mismari"
+          <img src={logoSrc} alt="Mismari"
             className="h-12 w-auto object-contain mx-auto mb-2" />
           <p className="text-white/30 text-sm">تفعيل الاشتراك</p>
         </div>

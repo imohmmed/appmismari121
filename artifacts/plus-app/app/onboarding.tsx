@@ -126,7 +126,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ udid?: string }>();
-  const { setOnboardingDone, setDeviceUdid, deviceUdid, fontAr, setSubscriptionCode, language, setLanguage, themeMode, setThemeMode } = useSettings();
+  const { setOnboardingDone, setDeviceUdid, deviceUdid, fontAr, setSubscriptionCode, language, setLanguage, themeMode, setThemeMode, logoUrl } = useSettings();
 
   const [step, setStep] = useState<Step>("language");
   const [selLang, setSelLang] = useState<"ar" | "en">(language || "ar");
@@ -390,7 +390,7 @@ export default function OnboardingScreen() {
           <View style={[styles.setupStep, { paddingBottom: insets.bottom + 24 }]}>
             <View style={styles.setupHeader}>
               <Image
-                source={require("../assets/images/mismari-logo.png")}
+                source={logoUrl ? { uri: logoUrl } : require("../assets/images/mismari-logo.png")}
                 style={{ width: 140, height: 70, resizeMode: "contain", alignSelf: "center", marginBottom: 12 }}
               />
               <Text style={[styles.setupTitle, { fontFamily: fontAr("Black") }]}>اختر لغتك</Text>
