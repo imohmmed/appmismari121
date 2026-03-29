@@ -214,7 +214,7 @@ export default function SignScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const isWeb = Platform.OS === "web";
-  const { colors, t, fontAr, isArabic, subscriptionCode } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode, appName: brandName } = useSettings();
 
   const TINT = "#9fbcff";
 
@@ -536,8 +536,8 @@ export default function SignScreen() {
   const signTitle = (
     <Text style={[styles.headerTitle, { color: colors.text, textAlign: isArabic ? "right" : "left" }]}>
       {isArabic
-        ? <><Text style={{ fontFamily: fontAr("Bold") }}>مسماري </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
-        : <><Text style={{ fontFamily: "Inter_700Bold" }}>Mismari </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
+        ? <><Text style={{ fontFamily: fontAr("Bold") }}>{brandName} </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
+        : <><Text style={{ fontFamily: "Inter_700Bold" }}>{brandName} </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
       }
     </Text>
   );

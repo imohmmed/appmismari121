@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Smartphone, ImageIcon, Users, UsersRound, Layers, Link2,
-  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag, ScrollText
+  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag, ScrollText, Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -34,11 +34,12 @@ const navGroups = [
     items: [
       { href: "/admin/admins", icon: ShieldCheck, label: "الأدمنية", labelEn: "Admins" },
       { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
+      { href: "/admin/appearance", icon: Palette, label: "المظهر", labelEn: "Appearance" },
     ],
   },
 ];
 
-const A = "#9fbcff";
+const A = "var(--aa, #9fbcff)";
 
 function SidebarContent({ location, onClose }: { location: string; onClose?: () => void }) {
   const [, setLocation] = useLocation();

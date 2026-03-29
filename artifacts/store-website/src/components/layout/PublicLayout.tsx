@@ -2,8 +2,8 @@ import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const PRIMARY = "#9fbcff";
-const TEXT = "#2b283b";
+const PRIMARY = "var(--ap, #9fbcff)";
+const TEXT = "var(--at, #2b283b)";
 const API = import.meta.env.VITE_API_URL || "";
 
 interface SocialSettings {
@@ -12,19 +12,43 @@ interface SocialSettings {
   whatsapp: string;
 }
 
+interface PublicConfig extends SocialSettings {
+  logoUrl: string;
+  siteName: string;
+  announcementOn: boolean;
+  announcementText: string;
+  announcementColor: string;
+}
+
 function usePublicSettings() {
-  const [social, setSocial] = useState<SocialSettings>({ instagram: "", telegram: "", whatsapp: "" });
+  const [cfg, setCfg] = useState<PublicConfig>({
+    instagram: "", telegram: "", whatsapp: "",
+    logoUrl: "", siteName: "مسماري",
+    announcementOn: false, announcementText: "", announcementColor: "#9fbcff",
+  });
   useEffect(() => {
     fetch(`${API}/api/settings`)
       .then(r => r.json())
-      .then(d => setSocial({
+      .then(d => setCfg(prev => ({
+        ...prev,
         instagram: d.support_instagram || d.instagram || "",
         telegram:  d.support_telegram  || d.telegram  || "",
         whatsapp:  d.support_whatsapp  || d.whatsapp  || "",
-      }))
+      })))
+      .catch(() => {});
+    fetch(`${API}/api/appearance`)
+      .then(r => r.json())
+      .then(d => setCfg(prev => ({
+        ...prev,
+        logoUrl:           d.appearance_logo_url        || "",
+        siteName:          d.appearance_site_name        || "مسماري",
+        announcementOn:    d.appearance_announcement_on  === "true",
+        announcementText:  d.appearance_announcement_text || "",
+        announcementColor: d.appearance_announcement_color || "#9fbcff",
+      })))
       .catch(() => {});
   }, []);
-  return social;
+  return cfg;
 }
 
 function InstagramIcon({ size = 20 }: { size?: number }) {
@@ -69,7 +93,11 @@ function SocialIcon({ href, children, color }: { href: string; children: React.R
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const social = usePublicSettings();
+  const cfg = usePublicSettings();
+
+  const logoSrc = cfg.logoUrl
+    ? `${API}${cfg.logoUrl}`
+    : `${import.meta.env.BASE_URL}mismari-logo.png`;
 
   const navItems = [
     { label: "تطبيقاتنا", href: "#apps" },
@@ -82,12 +110,22 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#ffffff", color: TEXT, direction: "rtl", maxWidth: "100vw", overflowX: "clip" }}>
 
+      {/* شريط الإعلانات */}
+      {cfg.announcementOn && cfg.announcementText && (
+        <div
+          className="w-full py-2 px-4 text-center text-sm font-bold"
+          style={{ background: cfg.announcementColor, color: "#000" }}
+        >
+          {cfg.announcementText}
+        </div>
+      )}
+
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-black/8 shadow-sm">
         <div className="flex items-center justify-between px-5 py-2 max-w-5xl mx-auto" style={{ minHeight: "52px" }}>
           <a href="/" className="flex items-center flex-shrink-0">
             <img
-              src={`${import.meta.env.BASE_URL}mismari-logo.png`}
-              alt="مسماري"
+              src={logoSrc}
+              alt={cfg.siteName}
               style={{ height: "38px", width: "auto", objectFit: "contain", flexShrink: 0 }}
             />
           </a>
@@ -130,29 +168,29 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   </a>
                 ))}
 
-                {(social.whatsapp || social.telegram || social.instagram) && (
+                {(cfg.whatsapp || cfg.telegram || cfg.instagram) && (
                   <>
                     <div className="mx-4 my-2 border-t border-black/8" />
                     <p className="px-4 py-1 text-xs font-semibold" style={{ color: `${TEXT}55` }}>تواصل معنا</p>
                     <div className="flex items-center gap-3 px-4 pb-2">
-                      {social.whatsapp && (
-                        <a href={social.whatsapp.startsWith("http") ? social.whatsapp : `https://${social.whatsapp}`}
+                      {cfg.whatsapp && (
+                        <a href={cfg.whatsapp.startsWith("http") ? cfg.whatsapp : `https://${cfg.whatsapp}`}
                           target="_blank" rel="noopener noreferrer"
                           className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
                           style={{ background: "#25D36620", color: "#25D366" }}>
                           <WhatsAppIcon size={18} />
                         </a>
                       )}
-                      {social.telegram && (
-                        <a href={social.telegram.startsWith("http") ? social.telegram : `https://${social.telegram}`}
+                      {cfg.telegram && (
+                        <a href={cfg.telegram.startsWith("http") ? cfg.telegram : `https://${cfg.telegram}`}
                           target="_blank" rel="noopener noreferrer"
                           className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
                           style={{ background: "#0088CC20", color: "#0088CC" }}>
                           <TelegramIcon size={18} />
                         </a>
                       )}
-                      {social.instagram && (
-                        <a href={social.instagram.startsWith("http") ? social.instagram : `https://${social.instagram}`}
+                      {cfg.instagram && (
+                        <a href={cfg.instagram.startsWith("http") ? cfg.instagram : `https://${cfg.instagram}`}
                           target="_blank" rel="noopener noreferrer"
                           className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
                           style={{ background: "#E1306C20", color: "#E1306C" }}>
@@ -175,8 +213,8 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       <footer className="border-t border-black/8 py-10 px-5 text-center" style={{ background: `${PRIMARY}08` }}>
         <a href="/" className="inline-flex items-center justify-center mb-4">
           <img
-            src={`${import.meta.env.BASE_URL}mismari-logo.png`}
-            alt="مسماري"
+            src={logoSrc}
+            alt={cfg.siteName}
             style={{ maxHeight: "56px", width: "auto", objectFit: "contain" }}
           />
         </a>
@@ -186,22 +224,22 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           <a href="#faq" className="hover:underline">الأسئلة الشائعة</a>
         </div>
 
-        {(social.instagram || social.telegram || social.whatsapp) && (
+        {(cfg.instagram || cfg.telegram || cfg.whatsapp) && (
           <div className="flex items-center justify-center gap-3 mb-5">
-            <SocialIcon href={social.whatsapp} color="#25D366">
+            <SocialIcon href={cfg.whatsapp} color="#25D366">
               <WhatsAppIcon size={18} />
             </SocialIcon>
-            <SocialIcon href={social.telegram} color="#0088CC">
+            <SocialIcon href={cfg.telegram} color="#0088CC">
               <TelegramIcon size={18} />
             </SocialIcon>
-            <SocialIcon href={social.instagram} color="#E1306C">
+            <SocialIcon href={cfg.instagram} color="#E1306C">
               <InstagramIcon size={18} />
             </SocialIcon>
           </div>
         )}
 
         <p className="text-xs" style={{ color: `${TEXT}55` }}>
-          © {new Date().getFullYear()} مسماري — جميع الحقوق محفوظة
+          © {new Date().getFullYear()} {cfg.siteName} — جميع الحقوق محفوظة
         </p>
       </footer>
     </div>

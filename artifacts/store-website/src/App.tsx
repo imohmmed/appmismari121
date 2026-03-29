@@ -32,7 +32,9 @@ import Activate from "./pages/Activate";
 import Download from "./pages/Download";
 import AdminProducts from "./pages/admin/Products";
 import AdminLogs from "./pages/admin/Logs";
+import AdminAppearance from "./pages/admin/Appearance";
 import ProductDetail from "./pages/ProductDetail";
+import { AppearanceProvider } from "./contexts/AppearanceContext";
 
 // Configure customFetch to send admin JWT as Bearer token
 // (admin middleware accepts both x-admin-token and Authorization: Bearer)
@@ -79,6 +81,7 @@ function Router() {
       <Route path="/admin/balances">{() => <AdminRoute component={AdminBalances} />}</Route>
       <Route path="/admin/products">{() => <AdminRoute component={AdminProducts} />}</Route>
       <Route path="/admin/logs">{() => <AdminRoute component={AdminLogs} />}</Route>
+      <Route path="/admin/appearance">{() => <AdminRoute component={AdminAppearance} />}</Route>
 
       <Route path="/products/:id" component={ProductDetail} />
       <Route path="/d/:slug" component={Download} />
@@ -94,12 +97,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <AppearanceProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AppearanceProvider>
     </QueryClientProvider>
   );
 }

@@ -26,6 +26,7 @@ interface SettingsContextType {
   profilePhoto: string;
   setProfilePhoto: (uri: string) => void;
   loaded: boolean;
+  appName: string;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -46,6 +47,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [deviceUdid, setDeviceUdidState] = useState("");
   const [profilePhoto, setProfilePhotoState] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [appName, setAppName] = useState("مسماري");
 
   useEffect(() => {
     (async () => {
@@ -67,6 +69,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       } catch {}
       setLoaded(true);
     })();
+  }, []);
+
+  /* جلب اسم التطبيق من API */
+  useEffect(() => {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
+    if (!domain) return;
+    fetch(`https://${domain}/api/appearance`)
+      .then(r => r.json())
+      .then(d => { if (d?.appearance_app_name) setAppName(d.appearance_app_name); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -168,6 +180,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         profilePhoto,
         setProfilePhoto,
         loaded,
+        appName,
       }}
     >
       {children}
