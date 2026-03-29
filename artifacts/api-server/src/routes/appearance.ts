@@ -28,7 +28,7 @@ const ogUpload      = multer({ storage: makeStorage("og"),      limits: { fileSi
 const fontUpload    = multer({ storage: makeStorage("font"),    limits: { fileSize: 20 * 1024 * 1024 } });
 
 /* ─── Public: جلب كل إعدادات المظهر ─────────────────────────────────────── */
-router.get("/api/appearance", async (_req: Request, res: Response): Promise<void> => {
+router.get("/appearance", async (_req: Request, res: Response): Promise<void> => {
   const rows = await db.select().from(settingsTable).where(like(settingsTable.key, "appearance_%"));
   const out: Record<string, string> = {
     appearance_site_name:          "Mismari | مسماري",
@@ -61,7 +61,7 @@ router.get("/api/appearance", async (_req: Request, res: Response): Promise<void
 });
 
 /* ─── Asset serving ──────────────────────────────────────────────────────── */
-router.get("/api/appearance/assets/:type/:filename", (req: Request, res: Response): void => {
+router.get("/appearance/assets/:type/:filename", (req: Request, res: Response): void => {
   const filePath = path.join(ASSETS_DIR, req.params.type, req.params.filename);
   if (!fs.existsSync(filePath)) { res.status(404).send("Not found"); return; }
   res.sendFile(filePath);
