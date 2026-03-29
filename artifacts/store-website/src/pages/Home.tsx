@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X, Shield, Smartphone, Zap } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
-import { Link } from "react-router-dom";
+import { Link } from "wouter";
 
 const PRIMARY = "#9fbcff";
 const TEXT = "#2b283b";
