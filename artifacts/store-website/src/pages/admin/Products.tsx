@@ -4,6 +4,7 @@ import {
   Plus, Trash2, Edit2, X, Loader2, Search, Check, ShoppingBag,
   Image as ImageIcon, Tag, ChevronDown, Eye, EyeOff, Layers, Bold,
   Italic, List, ListOrdered, Heading2, Link as LinkIcon, AlignRight,
+  Underline, Strikethrough, AlignLeft, AlignCenter, Highlighter, Type,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -44,83 +45,233 @@ interface Product {
 }
 
 /* ─── Rich Text Editor ──────────────────────────────────────────────────── */
+const TEXT_COLORS = [
+  "#ffffff", "#d1d5db", "#9ca3af", "#6b7280",
+  "#ef4444", "#f97316", "#eab308", "#22c55e",
+  "#3b82f6", "#9fbcff", "#a855f7", "#ec4899",
+  "#000000", "#1e293b", "#0f172a", "#78716c",
+];
+const HIGHLIGHT_COLORS = [
+  "transparent", "#fef08a", "#bbf7d0", "#bfdbfe",
+  "#fecaca", "#e9d5ff", "#fed7aa", "#f9a8d4",
+];
+
+function ToolBtn({ title, onMouseDown, active, children }: {
+  title: string; onMouseDown: (e: React.MouseEvent) => void;
+  active?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={onMouseDown}
+      className="p-1.5 rounded-md transition-colors flex items-center justify-center text-[11px] font-bold min-w-[26px]"
+      style={{ color: active ? "#fff" : "rgba(255,255,255,0.45)", background: active ? "rgba(159,188,255,0.18)" : "transparent" }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Sep() {
+  return <div className="w-px h-4 mx-0.5 shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />;
+}
+
 function RichEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const lastValue = useRef(value);
+  const [showTextColors, setShowTextColors] = useState(false);
+  const [showHighlight, setShowHighlight] = useState(false);
+  const [activeColor, setActiveColor] = useState("#ffffff");
+  const [activeHighlight, setActiveHighlight] = useState("transparent");
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== value) {
       ref.current.innerHTML = value;
-      lastValue.current = value;
     }
   }, []);
 
   const handleInput = () => {
-    if (ref.current) {
-      const html = ref.current.innerHTML;
-      lastValue.current = html;
-      onChange(html);
-    }
+    if (ref.current) onChange(ref.current.innerHTML);
   };
 
   const exec = (cmd: string, arg?: string) => {
-    document.execCommand(cmd, false, arg);
     ref.current?.focus();
+    document.execCommand(cmd, false, arg);
     handleInput();
   };
 
-  const tools = [
-    { icon: Bold, cmd: "bold", title: "عريض" },
-    { icon: Italic, cmd: "italic", title: "مائل" },
-    { icon: Heading2, cmd: "formatBlock", arg: "h3", title: "عنوان" },
-    { icon: List, cmd: "insertUnorderedList", title: "قائمة" },
-    { icon: ListOrdered, cmd: "insertOrderedList", title: "قائمة مرقمة" },
-    { icon: AlignRight, cmd: "justifyRight", title: "محاذاة يمين" },
-  ];
+  const setTextColor = (color: string) => {
+    setActiveColor(color);
+    setShowTextColors(false);
+    exec("foreColor", color);
+  };
+
+  const setHighlight = (color: string) => {
+    setActiveHighlight(color);
+    setShowHighlight(false);
+    exec("hiliteColor", color === "transparent" ? "transparent" : color);
+  };
+
+  const setFontSize = (size: string) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    ref.current?.focus();
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) {
+      document.execCommand("fontSize", false, "7");
+      const spans = ref.current?.querySelectorAll('font[size="7"]') || [];
+      spans.forEach(el => {
+        const s = el as HTMLElement;
+        s.removeAttribute("size");
+        s.style.fontSize = size;
+      });
+    } else {
+      const span = document.createElement("span");
+      span.style.fontSize = size;
+      span.innerHTML = "&#8203;";
+      range.insertNode(span);
+      range.setStartAfter(span);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    handleInput();
+  };
 
   const insertLink = () => {
     const url = prompt("أدخل الرابط:");
     if (url) exec("createLink", url);
   };
 
+  const fontSizes = [
+    { label: "S", size: "12px", title: "صغير" },
+    { label: "M", size: "15px", title: "متوسط" },
+    { label: "L", size: "19px", title: "كبير" },
+    { label: "XL", size: "24px", title: "كبير جداً" },
+  ];
+
   return (
-    <div className="border border-white/10 rounded-xl overflow-hidden bg-black">
-      <div className="flex items-center gap-0.5 p-1.5 border-b border-white/10 bg-[#111] flex-wrap">
-        {tools.map(t => (
-          <button
-            key={t.cmd + (t.arg || "")}
-            type="button"
-            title={t.title}
-            onMouseDown={e => { e.preventDefault(); exec(t.cmd, t.arg); }}
-            className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <t.icon className="w-3.5 h-3.5" />
-          </button>
+    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "#0a0a0a" }}>
+      {/* ── Toolbar ── */}
+      <div className="flex flex-wrap items-center gap-0.5 p-1.5 pb-1" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "#111" }}>
+
+        {/* Format */}
+        <ToolBtn title="عريض" onMouseDown={e => { e.preventDefault(); exec("bold"); }}><Bold className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="مائل" onMouseDown={e => { e.preventDefault(); exec("italic"); }}><Italic className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="تسطير" onMouseDown={e => { e.preventDefault(); exec("underline"); }}><Underline className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="يتوسطه خط" onMouseDown={e => { e.preventDefault(); exec("strikeThrough"); }}><Strikethrough className="w-3.5 h-3.5" /></ToolBtn>
+
+        <Sep />
+
+        {/* Headings */}
+        <ToolBtn title="عنوان H2" onMouseDown={e => { e.preventDefault(); exec("formatBlock", "h2"); }}>H2</ToolBtn>
+        <ToolBtn title="عنوان H3" onMouseDown={e => { e.preventDefault(); exec("formatBlock", "h3"); }}>H3</ToolBtn>
+        <ToolBtn title="نص عادي" onMouseDown={e => { e.preventDefault(); exec("formatBlock", "p"); }}><Type className="w-3.5 h-3.5" /></ToolBtn>
+
+        <Sep />
+
+        {/* Font sizes */}
+        {fontSizes.map(f => (
+          <ToolBtn key={f.label} title={f.title} onMouseDown={e => { e.preventDefault(); setFontSize(f.size); }}>
+            {f.label}
+          </ToolBtn>
         ))}
-        <button
-          type="button"
-          title="رابط"
-          onMouseDown={e => { e.preventDefault(); insertLink(); }}
-          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <LinkIcon className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          title="مسح التنسيق"
-          onMouseDown={e => { e.preventDefault(); exec("removeFormat"); }}
-          className="px-2 py-1 rounded-md text-[10px] text-white/30 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          مسح
-        </button>
+
+        <Sep />
+
+        {/* Alignment */}
+        <ToolBtn title="محاذاة يمين" onMouseDown={e => { e.preventDefault(); exec("justifyRight"); }}><AlignRight className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="توسيط" onMouseDown={e => { e.preventDefault(); exec("justifyCenter"); }}><AlignCenter className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="محاذاة يسار" onMouseDown={e => { e.preventDefault(); exec("justifyLeft"); }}><AlignLeft className="w-3.5 h-3.5" /></ToolBtn>
+
+        <Sep />
+
+        {/* Lists */}
+        <ToolBtn title="قائمة نقطية" onMouseDown={e => { e.preventDefault(); exec("insertUnorderedList"); }}><List className="w-3.5 h-3.5" /></ToolBtn>
+        <ToolBtn title="قائمة مرقمة" onMouseDown={e => { e.preventDefault(); exec("insertOrderedList"); }}><ListOrdered className="w-3.5 h-3.5" /></ToolBtn>
+
+        <Sep />
+
+        {/* Link */}
+        <ToolBtn title="رابط" onMouseDown={e => { e.preventDefault(); insertLink(); }}><LinkIcon className="w-3.5 h-3.5" /></ToolBtn>
+
+        <Sep />
+
+        {/* Text Color */}
+        <div className="relative">
+          <button
+            type="button"
+            title="لون النص"
+            onMouseDown={e => { e.preventDefault(); setShowTextColors(v => !v); setShowHighlight(false); }}
+            className="flex flex-col items-center p-1.5 rounded-md hover:bg-white/10 transition-colors gap-0.5"
+          >
+            <span className="text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>A</span>
+            <div className="w-4 h-1 rounded-full" style={{ background: activeColor }} />
+          </button>
+          {showTextColors && (
+            <div className="absolute top-full mt-1 right-0 z-50 p-2 rounded-xl shadow-2xl" style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.12)", minWidth: 128 }}>
+              <p className="text-[9px] text-white/30 mb-1.5 text-right">لون النص</p>
+              <div className="grid grid-cols-4 gap-1">
+                {TEXT_COLORS.map(c => (
+                  <button key={c} type="button"
+                    onMouseDown={e => { e.preventDefault(); setTextColor(c); }}
+                    className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                    style={{ background: c, border: c === activeColor ? "2px solid #9fbcff" : "1px solid rgba(255,255,255,0.12)" }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Highlight Color */}
+        <div className="relative">
+          <button
+            type="button"
+            title="تظليل النص"
+            onMouseDown={e => { e.preventDefault(); setShowHighlight(v => !v); setShowTextColors(false); }}
+            className="flex flex-col items-center p-1.5 rounded-md hover:bg-white/10 transition-colors gap-0.5"
+          >
+            <Highlighter className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.5)" }} />
+            <div className="w-4 h-1 rounded-full" style={{ background: activeHighlight === "transparent" ? "rgba(255,255,255,0.15)" : activeHighlight }} />
+          </button>
+          {showHighlight && (
+            <div className="absolute top-full mt-1 right-0 z-50 p-2 rounded-xl shadow-2xl" style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.12)", minWidth: 120 }}>
+              <p className="text-[9px] text-white/30 mb-1.5 text-right">تظليل</p>
+              <div className="grid grid-cols-4 gap-1">
+                {HIGHLIGHT_COLORS.map(c => (
+                  <button key={c} type="button"
+                    onMouseDown={e => { e.preventDefault(); setHighlight(c); }}
+                    className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                    style={{
+                      background: c === "transparent" ? "transparent" : c,
+                      border: c === activeHighlight ? "2px solid #9fbcff" : "1px solid rgba(255,255,255,0.18)",
+                    }}
+                  >
+                    {c === "transparent" && <X className="w-3 h-3 m-auto" style={{ color: "rgba(255,255,255,0.3)" }} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Sep />
+
+        {/* Clear */}
+        <ToolBtn title="مسح التنسيق" onMouseDown={e => { e.preventDefault(); exec("removeFormat"); }}>
+          <span className="text-[10px]">مسح</span>
+        </ToolBtn>
       </div>
+
+      {/* ── Editor Area ── */}
       <div
         ref={ref}
         contentEditable
         suppressContentEditableWarning
         dir="rtl"
         onInput={handleInput}
-        className="min-h-[140px] p-3 text-sm text-white focus:outline-none leading-relaxed"
+        onClick={() => { setShowTextColors(false); setShowHighlight(false); }}
+        className="min-h-[160px] p-3 text-sm text-white focus:outline-none leading-relaxed"
         style={{ direction: "rtl" }}
       />
     </div>
@@ -541,7 +692,7 @@ export default function AdminProducts() {
 
               {/* Description */}
               <div>
-                <label className="text-xs font-medium block mb-1.5" style={{ color: `${A}99` }}>الوصف (HTML)</label>
+                <label className="text-xs font-medium block mb-1.5" style={{ color: `${A}99` }}>الوصف</label>
                 <RichEditor value={pDesc} onChange={setPDesc} />
               </div>
 
