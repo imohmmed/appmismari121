@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, X, Shield, Smartphone, Zap } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
+import { Link } from "react-router-dom";
 
 const PRIMARY = "#9fbcff";
 const TEXT = "#2b283b";
@@ -148,6 +149,81 @@ function AppsRow({ title, section, onAppClick }: { title: string; section: strin
         }
       </div>
     </div>
+  );
+}
+
+// ─── Products Section ──────────────────────────────────────────────────────
+interface ProductItem {
+  id: number;
+  name: string;
+  price?: number;
+  currency?: string;
+  imageList?: string[];
+}
+
+function useProducts() {
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch(`${API}/api/products`)
+      .then(r => r.json())
+      .then(r => setProducts(Array.isArray(r) ? r : r.products ?? []))
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, []);
+  return { products, loading };
+}
+
+function ProductCard({ product }: { product: ProductItem }) {
+  const thumb = product.imageList?.[0] || null;
+  return (
+    <Link
+      to={`/products/${product.id}`}
+      className="flex flex-col rounded-2xl overflow-hidden border transition-all hover:shadow-md hover:-translate-y-0.5 duration-200"
+      style={{ borderColor: `${TEXT}12`, background: "#fff" }}
+    >
+      <div className="w-full bg-gray-100 flex items-center justify-center overflow-hidden" style={{ aspectRatio: "4/5" }}>
+        {thumb
+          ? <img src={thumb} alt={product.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          : <span className="text-5xl">🛍️</span>
+        }
+      </div>
+      <div className="p-3 flex flex-col gap-1">
+        <span className="font-bold text-sm leading-tight line-clamp-2" style={{ color: TEXT }}>{product.name}</span>
+        {product.price != null && (
+          <span className="text-xs font-semibold" style={{ color: PRIMARY }}>
+            {product.price.toLocaleString("ar-IQ")} {product.currency === "IQD" ? "د.ع" : product.currency || ""}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function ProductsSection() {
+  const { products, loading } = useProducts();
+  if (!loading && products.length === 0) return null;
+  return (
+    <section id="products" className="py-14 w-full max-w-5xl mx-auto px-5">
+      <h2 className="text-2xl font-black text-center mb-8" style={{ color: TEXT }}>منتجاتنا</h2>
+      {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-2xl overflow-hidden">
+              <div className="w-full bg-gray-100 animate-pulse" style={{ aspectRatio: "4/5" }} />
+              <div className="p-3 space-y-2">
+                <div className="h-3 bg-gray-100 rounded animate-pulse w-3/4" />
+                <div className="h-2 bg-gray-100 rounded animate-pulse w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {products.map(p => <ProductCard key={p.id} product={p} />)}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -375,6 +451,9 @@ export default function Home() {
         <AppsRow title="الأكثر رواجاً" section="trending" onAppClick={setSelectedApp} />
         <AppsRow title="أحدث الإضافات" section="latest" onAppClick={setSelectedApp} />
       </section>
+
+      {/* ───── PRODUCTS ───── */}
+      <ProductsSection />
 
       {/* ───── ACTIVATE ───── */}
       <section id="activate" className="py-14 px-5 w-full max-w-xl mx-auto text-center">
