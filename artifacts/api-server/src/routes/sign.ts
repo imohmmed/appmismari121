@@ -187,7 +187,9 @@ async function signIpa(opts: {
 const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
 function getAntiRevokeDylibPath(): string | null {
   const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  return fs.existsSync(p) ? p : null;
+  const exists = fs.existsSync(p);
+  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND — will inject" : "❌ NOT FOUND — skipping"} (${p})`);
+  return exists ? p : null;
 }
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
