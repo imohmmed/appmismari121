@@ -234,10 +234,9 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
             <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: colors.card }]} activeOpacity={0.6}>
               <Feather name="x" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
-            <Image
-              source={require("../assets/images/mismari-logo.png")}
-              style={{ width: 90, height: 36, resizeMode: "contain" }}
-            />
+            <Text style={{ color: colors.text, fontFamily: fontAr("Bold"), fontSize: 17 }}>
+              {t("account") || "الحساب"}
+            </Text>
             <View style={{ width: 32 }} />
           </View>
         </View>
