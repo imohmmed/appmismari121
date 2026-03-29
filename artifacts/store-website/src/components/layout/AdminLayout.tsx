@@ -12,21 +12,25 @@ const navGroups = [
     items: [
       { href: "/admin", icon: LayoutDashboard, label: "الرئيسية", labelEn: "Dashboard" },
       { href: "/admin/apps", icon: Smartphone, label: "التطبيقات", labelEn: "Apps" },
-      { href: "/admin/featured", icon: ImageIcon, label: "البنرات", labelEn: "Banners" },
-      { href: "/admin/subscribers", icon: Users, label: "المشتركين", labelEn: "Subscribers" },
-      { href: "/admin/groups", icon: UsersRound, label: "المجموعات", labelEn: "Groups" },
       { href: "/admin/categories", icon: Layers, label: "الأقسام", labelEn: "Categories" },
       { href: "/admin/products", icon: ShoppingBag, label: "المنتجات", labelEn: "Products" },
+      { href: "/admin/featured", icon: ImageIcon, label: "البنرات", labelEn: "Banners" },
     ],
   },
   {
     items: [
+      { href: "/admin/subscribers", icon: Users, label: "المشتركين", labelEn: "Subscribers" },
       { href: "/admin/subcodes", icon: Link2, label: "كودات الاشتراك", labelEn: "Sub Codes" },
       { href: "/admin/requests", icon: FileText, label: "طلبات الاشتراك", labelEn: "Requests" },
+      { href: "/admin/groups", icon: UsersRound, label: "المجموعات", labelEn: "Groups" },
       { href: "/admin/packages", icon: Package, label: "الباقات", labelEn: "Packages" },
-      { href: "/admin/purchases", icon: CreditCard, label: "المدفوعات", labelEn: "Purchases" },
+    ],
+  },
+  {
+    items: [
       { href: "/admin/notifications", icon: Bell, label: "الإشعارات", labelEn: "Notifications" },
       { href: "/admin/downloads", icon: BarChart3, label: "التحميلات", labelEn: "Downloads" },
+      { href: "/admin/purchases", icon: CreditCard, label: "المدفوعات", labelEn: "Purchases" },
       { href: "/admin/reviews", icon: Star, label: "التقييمات", labelEn: "Reviews" },
       { href: "/admin/balances", icon: Wallet, label: "الأرصدة", labelEn: "Balances" },
     ],
@@ -34,8 +38,9 @@ const navGroups = [
   {
     items: [
       { href: "/admin/admins", icon: ShieldCheck, label: "الأدمنية", labelEn: "Admins" },
-      { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
       { href: "/admin/appearance", icon: Palette, label: "المظهر", labelEn: "Appearance" },
+      { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
+      { href: "/admin/settings", icon: Settings, label: "الإعدادات", labelEn: "Settings" },
     ],
   },
 ];
