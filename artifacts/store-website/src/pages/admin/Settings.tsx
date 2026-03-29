@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
-  Save, Loader2, RefreshCw, Globe, Instagram, Phone,
+  Save, Loader2, RefreshCw, Instagram, Phone,
   Settings as SettingsIcon, Link2,
   ChevronDown, ChevronUp,
   Shield, Upload, Trash2, Zap, CheckCircle, XCircle, Info,
@@ -59,18 +59,6 @@ interface SettingSection {
 }
 
 const SECTIONS: SettingSection[] = [
-  {
-    id: "store",
-    icon: <Globe className="w-3.5 h-3.5" />,
-    label: "المتجر",
-    labelEn: "Store",
-    color: A,
-    fields: [
-      { key: "store_name", label: "اسم المتجر", placeholder: "مسماري | Mismari", type: "text" },
-      { key: "store_description", label: "وصف المتجر", placeholder: "متجر التطبيقات المعدّلة والمميزة", textarea: true },
-      { key: "store_logo_url", label: "رابط الشعار", placeholder: "https://...", type: "url" },
-    ],
-  },
   {
     id: "enrollment",
     icon: <Link2 className="w-3.5 h-3.5" />,
