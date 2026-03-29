@@ -16,8 +16,15 @@ async function adminFetch(path: string, opts?: RequestInit) {
     ...opts,
     headers: { ...(opts?.headers || {}), "x-admin-token": token, "Content-Type": "application/json" },
   });
+  if (res.status === 401) {
+    localStorage.removeItem("adminToken");
+    window.location.href = "/admin/login";
+    throw new Error("غير مصرح - سيتم تحويلك لتسجيل الدخول");
+  }
   if (res.status === 204) return null;
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || `خطأ ${res.status}`);
+  return data;
 }
 
 async function adminUpload(path: string, formData: FormData) {
@@ -233,16 +240,22 @@ export default function AdminProducts() {
   const handleSaveProd = async () => {
     if (!pName.trim() || !pCatId) { toast({ title: "أدخل الاسم والتصنيف", variant: "destructive" }); return; }
     setSaving(true);
-    const imageList = pImages.filter(Boolean) as string[];
-    const body = { name: pName, categoryId: pCatId, price: pPrice, description: pDesc, images: imageList, isHidden: pHidden };
-    if (editProd) {
-      await adminFetch(`/admin/products/${editProd.id}`, { method: "PUT", body: JSON.stringify(body) });
-      toast({ title: "تم تحديث المنتج" });
-    } else {
-      await adminFetch("/admin/products", { method: "POST", body: JSON.stringify(body) });
-      toast({ title: "تمت إضافة المنتج" });
+    try {
+      const imageList = pImages.filter(Boolean) as string[];
+      const body = { name: pName, categoryId: pCatId, price: pPrice, description: pDesc, images: imageList, isHidden: pHidden };
+      if (editProd) {
+        await adminFetch(`/admin/products/${editProd.id}`, { method: "PUT", body: JSON.stringify(body) });
+        toast({ title: "تم تحديث المنتج" });
+      } else {
+        await adminFetch("/admin/products", { method: "POST", body: JSON.stringify(body) });
+        toast({ title: "تمت إضافة المنتج" });
+      }
+      setModal(null); fetchAll();
+    } catch (e: any) {
+      toast({ title: e?.message || "فشل الحفظ", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false); setModal(null); fetchAll();
   };
 
   const handleDeleteProd = async (id: number) => {
@@ -262,14 +275,20 @@ export default function AdminProducts() {
   const handleSaveCat = async () => {
     if (!catName.trim()) { toast({ title: "أدخل الاسم", variant: "destructive" }); return; }
     setCatSaving(true);
-    if (editCat) {
-      await adminFetch(`/admin/product-categories/${editCat.id}`, { method: "PUT", body: JSON.stringify({ name: catName }) });
-      toast({ title: "تم تحديث التصنيف" });
-    } else {
-      await adminFetch("/admin/product-categories", { method: "POST", body: JSON.stringify({ name: catName }) });
-      toast({ title: "تمت الإضافة" });
+    try {
+      if (editCat) {
+        await adminFetch(`/admin/product-categories/${editCat.id}`, { method: "PUT", body: JSON.stringify({ name: catName }) });
+        toast({ title: "تم تحديث التصنيف" });
+      } else {
+        await adminFetch("/admin/product-categories", { method: "POST", body: JSON.stringify({ name: catName }) });
+        toast({ title: "تمت الإضافة" });
+      }
+      setCatModal(null); fetchAll();
+    } catch (e: any) {
+      toast({ title: e?.message || "فشل الحفظ", variant: "destructive" });
+    } finally {
+      setCatSaving(false);
     }
-    setCatSaving(false); setCatModal(null); fetchAll();
   };
   const handleDeleteCat = async (id: number) => {
     if (!confirm("حذف هذا التصنيف؟")) return;
