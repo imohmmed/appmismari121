@@ -130,10 +130,12 @@ const SEARCH_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
 // ─── Main Route ──────────────────────────────────────────────────────────────
 
 router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
-  const { messages, model, deviceInfo } = req.body as {
+  const { messages, model, deviceInfo, imageBase64, imageMime } = req.body as {
     messages: Array<{ role: string; content: string }>;
     model?: string;
     deviceInfo?: { udid?: string; iosVersion?: string; deviceName?: string };
+    imageBase64?: string;
+    imageMime?: string;
   };
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -152,12 +154,31 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   const systemPrompt = buildSystemPrompt(deviceInfo);
   const contextMessages = truncateMessages(messages);
 
-  const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: "system", content: systemPrompt },
-    ...contextMessages.map(m => ({
+  // Build messages — inject vision image into last user message if provided
+  const builtMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = contextMessages.map((m, i) => {
+    const isLastUser = m.role === "user" && i === contextMessages.length - 1 && !!imageBase64;
+    if (isLastUser && imageBase64) {
+      const mime = imageMime || "image/jpeg";
+      return {
+        role: "user" as const,
+        content: [
+          {
+            type: "image_url" as const,
+            image_url: { url: `data:${mime};base64,${imageBase64}`, detail: "high" as const },
+          },
+          { type: "text" as const, text: m.content || "حلل هذه الصورة" },
+        ],
+      };
+    }
+    return {
       role: m.role as "user" | "assistant",
       content: m.content,
-    })),
+    };
+  });
+
+  const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...builtMessages,
   ];
 
   const primaryModel = model || PRIMARY_MODEL;

@@ -819,8 +819,11 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
       fullText += `\n\n📎 **${attachedFile.name}**:\n\`\`\`\n${attachedFile.content.slice(0, 8000)}\n\`\`\``;
       setAttachedFile(null);
     }
+
+    // Capture image data before clearing
+    const imageBase64 = attachedImage?.base64 || null;
     if (attachedImage) {
-      fullText += `\n\n[صورة مرفقة]`;
+      if (!fullText.trim()) fullText = isArabic ? "حلل هذه الصورة" : "Analyze this image";
       setAttachedImage(null);
     }
 
@@ -850,6 +853,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
         messages: contextMsgs,
         model: selectedModel,
         deviceInfo: { udid: deviceUdid || undefined },
+        ...(imageBase64 ? { imageBase64, imageMime: "image/jpeg" } : {}),
       },
       (chunk) => {
         setIsSearching(false);
@@ -995,7 +999,6 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           onRemoveFile={() => setAttachedFile(null)}
           onRemoveImage={() => setAttachedImage(null)}
         />
-        <View style={{ height: Math.max(insets.bottom, 8) }} />
       </KeyboardAvoidingView>
 
       {/* Sidebar */}
