@@ -365,7 +365,7 @@ function ChatSidebar({
   const slideAnim = useRef(new Animated.Value(startX)).current;
 
   useEffect(() => {
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 200 }).start();
+    Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
   }, []);
 
   const close = () => {
