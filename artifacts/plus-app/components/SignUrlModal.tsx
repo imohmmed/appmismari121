@@ -164,7 +164,7 @@ export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
           style={[
             st.header,
             { paddingTop: insets.top + 14 },
-            !isArabic && { flexDirection: "row-reverse" },
+            isArabic && { flexDirection: "row-reverse" },
           ]}
         >
           <TouchableOpacity
