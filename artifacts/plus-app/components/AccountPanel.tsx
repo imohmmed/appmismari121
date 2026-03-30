@@ -131,6 +131,7 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
     { key: "profile", label: t("myAccount"), icon: "user" as const },
     { key: "purchases", label: t("purchases"), icon: "shopping-bag" as const },
     { key: "settings", label: t("settings"), icon: "settings" as const },
+    { key: "profile-download", label: "تحميل الملف التعريفي", icon: "download-cloud" as const },
   ];
 
   React.useEffect(() => {
@@ -158,9 +159,21 @@ export default function AccountPanel({ visible, onClose }: AccountPanelProps) {
   if (!mounted) return null;
 
   const openLink = (url: string) => { if (url) Linking.openURL(url).catch(() => {}); };
+
+  const handleProfileDownload = () => {
+    const token = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    });
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
+    const url = `https://${domain}/api/profile/enroll?source=app&token=${encodeURIComponent(token)}`;
+    Linking.openURL(url).catch(() => {});
+  };
+
   const handleMenuPress = (key: string) => {
     if (key === "settings") setShowSettings(true);
     if (key === "profile") setShowMyAccount(true);
+    if (key === "profile-download") handleProfileDownload();
   };
   const activeSocial = socialLinks.filter(s => s.url);
 
