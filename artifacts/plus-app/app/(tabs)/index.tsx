@@ -285,7 +285,7 @@ export default function PlusScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const router = useRouter();
-  const { colors, t, fontAr, isArabic, subscriptionCode, appName } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode, appName, appNameEn } = useSettings();
   const [activeCat, setActiveCat] = useState<ApiCategory | null>(null);
   const [selectedApp, setSelectedApp] = useState<ApiApp | null>(null);
   const [catSelectedApp, setCatSelectedApp] = useState<ApiApp | null>(null);
@@ -397,7 +397,7 @@ export default function PlusScreen() {
         <View style={[styles.headerTitleBlock, isArabic && { alignItems: "flex-end" }]}>
           {isArabic
             ? <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>{appName}+</Text>
-            : <Text style={[styles.headerTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>{appName}+</Text>
+            : <Text style={[styles.headerTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>{appNameEn}+</Text>
           }
         </View>
         <View style={[styles.headerActions, isArabic && { flexDirection: "row-reverse" }]}>

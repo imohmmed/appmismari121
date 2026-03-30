@@ -27,6 +27,7 @@ interface SettingsContextType {
   setProfilePhoto: (uri: string) => void;
   loaded: boolean;
   appName: string;
+  appNameEn: string;
   logoUrl: string;
 }
 
@@ -49,6 +50,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [profilePhoto, setProfilePhotoState] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [appName, setAppName] = useState("مسماري");
+  const [appNameEn, setAppNameEn] = useState("Mismari");
   const [logoUrl, setLogoUrl] = useState("");
 
   useEffect(() => {
@@ -81,6 +83,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then(d => {
         if (d?.appearance_app_name) setAppName(d.appearance_app_name);
+        if (d?.appearance_app_name_en) {
+          setAppNameEn(d.appearance_app_name_en);
+        } else if (d?.appearance_site_name) {
+          const enPart = d.appearance_site_name.split("|")[0]?.trim();
+          if (enPart) setAppNameEn(enPart);
+        }
         if (d?.appearance_logo_url) setLogoUrl(`https://${domain}${d.appearance_logo_url}`);
       })
       .catch(() => {});
@@ -186,6 +194,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setProfilePhoto,
         loaded,
         appName,
+        appNameEn,
         logoUrl,
       }}
     >
