@@ -360,7 +360,7 @@ function ChatSidebar({
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
   const [search, setSearch] = useState("");
-  const startX = isArabic ? 320 : -320;
+  const startX = -320;
   const slideAnim = useRef(new Animated.Value(startX)).current;
 
   useEffect(() => {
@@ -387,7 +387,7 @@ function ChatSidebar({
           {
             backgroundColor: bg,
             transform: [{ translateX: slideAnim }],
-            [isArabic ? "right" : "left"]: 0,
+            left: 0,
           },
         ]}
       >
