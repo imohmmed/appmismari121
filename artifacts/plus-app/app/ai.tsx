@@ -14,6 +14,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   FlatList,
   Image,
@@ -28,6 +29,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -226,6 +228,15 @@ function MessageView({
   const segments = parseMarkdown(msg.content);
   const resolvedAvatar = avatarSrc || LOCAL_AVATAR;
 
+  const handleCopy = async () => {
+    if (!msg.content) return;
+    await Clipboard.setStringAsync(msg.content);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS === "android") {
+      ToastAndroid.show(isArabic ? "تم النسخ" : "Copied!", ToastAndroid.SHORT);
+    }
+  };
+
   if (isUser) {
     return (
       <View style={[styles.msgRow, styles.msgRowRight]}>
@@ -234,11 +245,13 @@ function MessageView({
             <Image source={{ uri: msg.imageUri }} style={styles.msgImage} resizeMode="cover" />
           ) : null}
           {msg.content ? (
-            <View style={[styles.userBubble, { backgroundColor: userBg }]}>
-              <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
-                {msg.content}
-              </Text>
-            </View>
+            <Pressable onLongPress={handleCopy} delayLongPress={500}>
+              <View style={[styles.userBubble, { backgroundColor: userBg }]}>
+                <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
+                  {msg.content}
+                </Text>
+              </View>
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -250,29 +263,31 @@ function MessageView({
       <View style={styles.aiAvatarSmall}>
         <Image source={resolvedAvatar} style={styles.aiAvatarSmallImg} resizeMode="contain" />
       </View>
-      <View style={[styles.aiBubble, { backgroundColor: aiBg, maxWidth: "88%" }]}>
-        {msg.isStreaming && msg.content === "" ? (
-          <View style={styles.typingDots}>
-            <TypingDot delay={0} isDark={isDark} />
-            <TypingDot delay={150} isDark={isDark} />
-            <TypingDot delay={300} isDark={isDark} />
-          </View>
-        ) : (
-          segments.map((seg, i) => {
-            if (seg.type === "code") {
-              return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
-            }
-            return (
-              <Text key={i} style={[styles.aiText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
-                {renderInlineText(seg.content, { color: textColor, fontFamily: fontAr("Regular") })}
-              </Text>
-            );
-          })
-        )}
-        {msg.isStreaming && msg.content !== "" && (
-          <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
-        )}
-      </View>
+      <Pressable onLongPress={handleCopy} delayLongPress={500}>
+        <View style={[styles.aiBubble, { backgroundColor: aiBg, maxWidth: "88%" }]}>
+          {msg.isStreaming && msg.content === "" ? (
+            <View style={styles.typingDots}>
+              <TypingDot delay={0} isDark={isDark} />
+              <TypingDot delay={150} isDark={isDark} />
+              <TypingDot delay={300} isDark={isDark} />
+            </View>
+          ) : (
+            segments.map((seg, i) => {
+              if (seg.type === "code") {
+                return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
+              }
+              return (
+                <Text key={i} style={[styles.aiText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
+                  {renderInlineText(seg.content, { color: textColor, fontFamily: fontAr("Regular") })}
+                </Text>
+              );
+            })
+          )}
+          {msg.isStreaming && msg.content !== "" && (
+            <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
+          )}
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -366,17 +381,18 @@ function WelcomeScreen({
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 function ChatSidebar({
-  conversations, currentId, onSelect, onNew, onClose, isDark, isArabic, fontAr,
+  conversations, currentId, onSelect, onNew, onClose, onRename, isDark, isArabic, fontAr,
 }: {
   conversations: Conversation[];
   currentId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
   onClose: () => void;
+  onRename: (id: string, newTitle: string) => void;
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
   const [search, setSearch] = useState("");
-  const startX = -320;
+  const startX = isArabic ? 320 : -320;
   const slideAnim = useRef(new Animated.Value(startX)).current;
 
   useEffect(() => {
@@ -387,12 +403,30 @@ function ChatSidebar({
     Animated.timing(slideAnim, { toValue: startX, duration: 200, useNativeDriver: true }).start(onClose);
   };
 
+  const handleRename = (id: string, currentTitle: string) => {
+    Alert.prompt(
+      isArabic ? "تغيير اسم المحادثة" : "Rename Chat",
+      isArabic ? "أدخل الاسم الجديد" : "Enter new name",
+      [
+        { text: isArabic ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: isArabic ? "حفظ" : "Save",
+          onPress: (text) => { if (text && text.trim()) onRename(id, text.trim()); },
+        },
+      ],
+      "plain-text",
+      currentTitle
+    );
+  };
+
   const bg = isDark ? "#111" : "#fafafa";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#888" : "#666";
   const inputBg = isDark ? "#1c1c1e" : "#f0f0f0";
   const activeBg = isDark ? "#1a2a4a" : "#e8f0ff";
   const filtered = conversations.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+
+  const sidebarPosition = isArabic ? { right: 0 } : { left: 0 };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -403,12 +437,12 @@ function ChatSidebar({
           {
             backgroundColor: bg,
             transform: [{ translateX: slideAnim }],
-            left: 0,
+            ...sidebarPosition,
           },
         ]}
       >
         <SafeAreaView style={{ flex: 1 }}>
-          <View style={styles.sidebarHeader}>
+          <View style={[styles.sidebarHeader, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
             <View style={[styles.sidebarSearchBar, { backgroundColor: inputBg }]}>
               <Feather name="search" size={15} color={subColor} />
               <TextInput
@@ -432,6 +466,8 @@ function ChatSidebar({
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => { onSelect(item.id); close(); }}
+                onLongPress={() => handleRename(item.id, item.title)}
+                delayLongPress={500}
                 style={({ pressed }) => [
                   styles.sidebarItem,
                   { backgroundColor: item.id === currentId ? activeBg : "transparent", opacity: pressed ? 0.7 : 1 },
@@ -956,6 +992,11 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
     setAttachedFile({ name, content });
   };
 
+  const handleRenameConversation = useCallback((id: string, newTitle: string) => {
+    const updated = conversations.map(c => c.id === id ? { ...c, title: newTitle } : c);
+    saveConversations(updated);
+  }, [conversations, saveConversations]);
+
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
     <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} avatarSrc={customAvatarSrc ?? undefined} />
   ), [isDark, isArabic, fontAr, customAvatarSrc]);
@@ -977,7 +1018,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
         )}
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: textColor, fontFamily: fontAr("SemiBold") }]}>
-            Mismari AI
+            {isArabic ? "مسماري AI" : "Mismari AI"}
           </Text>
         </View>
         {isArabic ? (
@@ -1055,6 +1096,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           onSelect={loadConversation}
           onNew={() => { newConversation(); setShowSidebar(false); }}
           onClose={() => setShowSidebar(false)}
+          onRename={handleRenameConversation}
           isDark={isDark}
           isArabic={isArabic}
           fontAr={fontAr}
