@@ -35,6 +35,7 @@ function RootLayoutNav() {
       <Stack.Screen name="notifications" options={{ headerShown: false, presentation: "card", gestureEnabled: true, fullScreenGestureEnabled: true }} />
       <Stack.Screen name="category/[id]" options={{ headerShown: false, presentation: "card", gestureEnabled: true, fullScreenGestureEnabled: true }} />
       <Stack.Screen name="section/[type]" options={{ headerShown: false, presentation: "card", gestureEnabled: true, fullScreenGestureEnabled: true }} />
+      <Stack.Screen name="ai" options={{ headerShown: false, gestureEnabled: false, animation: "fade" }} />
     </Stack>
   );
 }

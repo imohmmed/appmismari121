@@ -28,6 +28,7 @@ const translations = {
 
     tabPlus: "بلس+",
     tabTV: "توقيع",
+    tabAi: "ذكاء اصطناعي",
     tabSMM: "رشق",
     tabNumbers: "أرقام",
 
@@ -182,6 +183,7 @@ const translations = {
 
     tabPlus: "PLUS+",
     tabTV: "Sign",
+    tabAi: "AI",
     tabSMM: "SMM",
     tabNumbers: "Numbers",
 

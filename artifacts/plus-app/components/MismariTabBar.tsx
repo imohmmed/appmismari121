@@ -14,9 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettings } from "@/contexts/SettingsContext";
 
 const TAB_KEYS = [
-  { name: "index",   translationKey: "tabPlus"    as const, icon: "plus-square"  },
-  { name: "sign",    translationKey: "tabTV"       as const, icon: "pen-tool"    },
-  { name: "search",  translationKey: "headerSearch" as const, icon: "search"      },
+  { name: "index",   translationKey: "tabPlus"      as const, icon: "plus-square" },
+  { name: "sign",    translationKey: "tabTV"         as const, icon: "pen-tool"   },
+  { name: "search",  translationKey: "headerSearch"  as const, icon: "search"     },
+  { name: "ai",      translationKey: "tabAi"         as const, icon: "cpu"        },
 ];
 
 export default function MismariTabBar({ state, navigation }: BottomTabBarProps) {
@@ -29,13 +30,18 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
 
   const isIOS = Platform.OS === "ios";
 
+  const aiAccent = isDark ? "#0A84FF" : "#007AFF";
+
   const tabsRow = (
     <View style={s.tabsRow}>
       {tabsForRender.map((tab) => {
         const isActive = activeRoute === tab.name;
+        const isAiTab = tab.name === "ai";
+
         const tintColor = isActive
           ? (isDark ? "#0A84FF" : "#007AFF")
           : (isDark ? "#8E8E93" : "#999");
+
         return (
           <Pressable
             key={tab.name}
@@ -46,18 +52,24 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
               }
               navigation.navigate(tab.name);
             }}
-            style={s.tabItem}
+            style={[s.tabItem, isAiTab && s.aiTabItem]}
           >
-            <Feather
-              name={tab.icon as any}
-              size={22}
-              color={tintColor}
-            />
+            {isAiTab ? (
+              <View style={[s.aiIconWrapper, { backgroundColor: isActive ? aiAccent : (isDark ? "#1c1c1e" : "#e8e8e8") }]}>
+                <Feather name="cpu" size={18} color={isActive ? "#fff" : (isDark ? "#8E8E93" : "#888")} />
+              </View>
+            ) : (
+              <Feather
+                name={tab.icon as any}
+                size={22}
+                color={tintColor}
+              />
+            )}
             <Text
               style={[
                 s.tabLabel,
                 {
-                  color: tintColor,
+                  color: isAiTab ? (isActive ? aiAccent : (isDark ? "#8E8E93" : "#999")) : tintColor,
                   fontFamily: fontAr("Medium"),
                 },
               ]}
@@ -131,6 +143,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 4,
     gap: 3,
+  },
+  aiTabItem: {
+    gap: 4,
+  },
+  aiIconWrapper: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabLabel: {
     fontSize: 10,

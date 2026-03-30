@@ -13,6 +13,7 @@ import productsRouter from "./products";
 import logsRouter from "./logs";
 import telegramRouter from "./telegram";
 import appearanceRouter from "./appearance";
+import aiRouter from "./ai";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(productsRouter);
 router.use(logsRouter);
 router.use(telegramRouter);
 router.use(appearanceRouter);
+router.use(aiRouter);
 
 export default router;

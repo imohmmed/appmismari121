@@ -31,6 +31,10 @@ function NativeTabLayout() {
       <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
       <Label>{t("headerSearch")}</Label>
     </NativeTabs.Trigger>,
+    <NativeTabs.Trigger key="ai" name="ai">
+      <Icon sf={{ default: "sparkles", selected: "sparkles" }} />
+      <Label>{t("tabAi")}</Label>
+    </NativeTabs.Trigger>,
   ];
 
   const orderedChildren = isArabic
@@ -55,6 +59,7 @@ function ClassicTabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="sign" />
       <Tabs.Screen name="search" />
+      <Tabs.Screen name="ai" />
     </Tabs>
   );
 }
