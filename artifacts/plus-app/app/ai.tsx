@@ -381,10 +381,11 @@ function WelcomeScreen({
 }) {
   const allSuggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
   const suggestions = useMemo(() => shuffle(allSuggestions).slice(0, 4), [isArabic]);
-  const greetLine = isArabic ? "مرحباً" : "Hello";
-  const subtitle = userName
-    ? (isArabic ? `${userName}، من أين نبدأ اليوم؟` : `${userName}, where should we start?`)
-    : (isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?");
+  const firstName = userName ? userName.split(" ")[0] : undefined;
+  const greetLine = firstName
+    ? (isArabic ? `مرحباً، ${firstName}` : `Hi, ${firstName}`)
+    : (isArabic ? "مرحباً" : "Hello");
+  const subtitle = isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#aaa" : "#777";
   const chipBg = isDark ? "#1c1c1e" : "#fff";
