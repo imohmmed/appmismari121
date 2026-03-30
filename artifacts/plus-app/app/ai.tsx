@@ -1173,9 +1173,16 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           </Pressable>
         )}
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: textColor, fontFamily: fontAr("SemiBold") }]}>
-            {isArabic ? "مسماري AI" : "Mismari AI"}
-          </Text>
+          {isArabic ? (
+            <Text style={[styles.headerTitle, { color: textColor }]}>
+              <Text style={{ fontFamily: fontAr("SemiBold") }}>{"مسماري "}</Text>
+              <Text style={{ fontFamily: "Inter_700Bold" }}>{"AI"}</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.headerTitle, { color: textColor, fontFamily: "Inter_600SemiBold" }]}>
+              {"Mismari AI"}
+            </Text>
+          )}
         </View>
         {isArabic ? (
           <Pressable onPress={handleBack} style={styles.headerBtn} hitSlop={12}>
