@@ -158,7 +158,7 @@ function HtmlPreviewModal({ html, onClose, isDark }: { html: string; onClose: ()
   const fullHtml = html.includes("<html") ? html : `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;padding:16px;margin:0;background:${isDark ? "#1a1a1a" : "#fff"};color:${isDark ? "#fff" : "#111"}}</style></head><body>${html}</body></html>`;
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.previewModal, { backgroundColor: isDark ? "#000" : "#f5f5f5", paddingTop: insets.top }]}>
+      <View style={[styles.previewModal, { backgroundColor: isDark ? "#000" : "#f5f5f5" }]}>
         <View style={styles.previewHeader}>
           <Text style={[styles.previewTitle, { color: isDark ? "#fff" : "#111" }]}>Preview</Text>
           <Pressable onPress={onClose} hitSlop={12} style={styles.previewCloseBtn}>
@@ -1127,6 +1127,9 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
         if (status === "searching") {
           setIsSearching(true);
           setSearchQuery(query || "");
+        } else if (status === "fetching_url") {
+          setIsSearching(true);
+          setSearchQuery("__url__:" + (query || ""));
         }
       }
     );
@@ -1221,14 +1224,25 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           />
         )}
 
-        {/* Web Search Indicator */}
+        {/* Web Search / URL Fetch Indicator */}
         {isSearching && (
           <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#0f1628" : "#e8eeff" }]}>
             <ActivityIndicator size="small" color="#9fbcff" style={{ marginRight: 8 }} />
-            <Feather name="search" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
-            <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
-              {isArabic ? `جاري البحث: "${searchQuery}"` : `Searching: "${searchQuery}"`}
-            </Text>
+            {searchQuery.startsWith("__url__:") ? (
+              <>
+                <Feather name="globe" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
+                <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
+                  {isArabic ? "جاري قراءة الرابط..." : "Fetching URL..."}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Feather name="search" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
+                <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
+                  {isArabic ? `جاري البحث: "${searchQuery}"` : `Searching: "${searchQuery}"`}
+                </Text>
+              </>
+            )}
           </View>
         )}
 

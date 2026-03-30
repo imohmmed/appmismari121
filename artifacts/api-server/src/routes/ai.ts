@@ -121,6 +121,40 @@ async function braveSearch(query: string, key: string): Promise<string> {
   }
 }
 
+// ─── URL Content Fetcher ─────────────────────────────────────────────────────
+
+function extractUrls(text: string): string[] {
+  const regex = /https?:\/\/[^\s\u0600-\u06FF"'،,،]+/g;
+  return (text.match(regex) || []).slice(0, 3); // max 3 URLs
+}
+
+async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MismariBot/1.0; +https://app.mismari.com)",
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+      },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return `[فشل جلب الرابط: HTTP ${res.status}]`;
+    const html = await res.text();
+    // Strip scripts, styles, and tags
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return text.substring(0, 8000);
+  } catch (err: any) {
+    return `[لم يتمكن من جلب الرابط: ${err?.message || "خطأ غير معروف"}]`;
+  }
+}
+
 // ─── OpenAI Tool Definition ──────────────────────────────────────────────────
 
 const SEARCH_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
@@ -174,6 +208,20 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   const systemPrompt = buildSystemPrompt(deviceInfo);
   const contextMessages = truncateMessages(messages);
 
+  // ── URL Auto-Fetch: extract URLs from last user message and fetch content ──
+  let urlContextBlock = "";
+  const lastMsg = messages[messages.length - 1];
+  if (lastMsg?.role === "user" && !imageBase64) {
+    const urls = extractUrls(lastMsg.content || "");
+    if (urls.length > 0) {
+      send({ status: "fetching_url", query: urls[0] });
+      const contents = await Promise.all(urls.map(fetchUrlContent));
+      urlContextBlock = urls
+        .map((u, i) => `=== محتوى الصفحة: ${u} ===\n${contents[i]}`)
+        .join("\n\n");
+    }
+  }
+
   // Build messages — inject vision image into last user message if provided
   const builtMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = contextMessages.map((m, i) => {
     const isLastUser = m.role === "user" && i === contextMessages.length - 1 && !!imageBase64;
@@ -198,6 +246,9 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
 
   const baseMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
+    ...(urlContextBlock
+      ? [{ role: "system" as const, content: `معلومات مجلوبة تلقائياً من الروابط في رسالة المستخدم — استخدمها للإجابة:\n\n${urlContextBlock}` }]
+      : []),
     ...builtMessages,
   ];
 
