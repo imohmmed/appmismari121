@@ -333,12 +333,13 @@ function WelcomeScreen({
 }) {
   const allSuggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
   const suggestions = useMemo(() => shuffle(allSuggestions).slice(0, 4), [isArabic]);
-  const greetName = userName ? (isArabic ? `مرحباً ${userName}` : `Hi ${userName}`) : (isArabic ? "مرحباً" : "Hello");
+  const greetName = userName
+    ? (isArabic ? `مرحباً، ${userName}` : `Hi, ${userName}`)
+    : (isArabic ? "مرحباً" : "Hello");
   const subtitle = isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?";
-  const textColor = isDark ? "#fff" : "#1a1a1a";
-  const subColor = isDark ? "#aaa" : "#555";
+  const textColor = isDark ? "#fff" : "#111";
+  const subColor = isDark ? "#bbb" : "#444";
   const chipBg = isDark ? "#1c1c1e" : "#fff";
-  const chipBorder = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)";
 
   return (
     <ScrollView
@@ -346,7 +347,8 @@ function WelcomeScreen({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.welcomeTop}>
+      {/* Avatar + greeting */}
+      <View style={[styles.welcomeTop, { alignItems: isArabic ? "flex-end" : "flex-start" }]}>
         <View style={styles.aiAvatarLarge}>
           <Image source={avatarSrc || LOCAL_AVATAR} style={styles.aiAvatarLargeImg} resizeMode="contain" />
         </View>
@@ -357,6 +359,8 @@ function WelcomeScreen({
           {subtitle}
         </Text>
       </View>
+
+      {/* Vertical full-width suggestion pills */}
       <View style={styles.chipsContainer}>
         {suggestions.map((s, i) => (
           <Pressable
@@ -364,7 +368,7 @@ function WelcomeScreen({
             onPress={() => onSuggestion(s.text)}
             style={({ pressed }) => [
               styles.chip,
-              { backgroundColor: chipBg, borderColor: chipBorder, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: chipBg, opacity: pressed ? 0.75 : 1, flexDirection: isArabic ? "row-reverse" : "row" },
             ]}
           >
             <Text style={styles.chipIcon}>{s.icon}</Text>
@@ -671,9 +675,13 @@ function InputBar({
   const modelLabel = isArabic ? currentModel?.labelAr : currentModel?.labelEn;
   const hasAttachment = !!(attachedFile || attachedImage);
 
+  const cardBg = isDark ? "#1c1c1e" : "#fff";
+  const dividerColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
+  const canSend = !isStreaming && (value.trim() !== "" || !!attachedFile || !!attachedImage);
+
   return (
-    <View style={[styles.inputBar, { backgroundColor: bg, borderTopColor: border, paddingBottom: (bottomInset ?? 0) + 4 }]}>
-      {/* Attachment previews above text field */}
+    <View style={[styles.inputBar, { paddingBottom: (bottomInset ?? 0) + 8 }]}>
+      {/* Attachment previews */}
       {hasAttachment && (
         <View style={styles.attachPreviewRow}>
           {attachedImage && (
@@ -697,10 +705,14 @@ function InputBar({
           )}
         </View>
       )}
-      <View style={[styles.inputRow, { backgroundColor: isDark ? "#2a2a2a" : "#f0f0f0", borderRadius: 22 }]}>
-        <Pressable onPress={onAttach} style={styles.inputIconBtn} hitSlop={8}>
-          <Feather name="plus" size={20} color={subColor} />
-        </Pressable>
+
+      {/* Gemini-style floating card */}
+      <View style={[styles.inputCard, {
+        backgroundColor: cardBg,
+        shadowColor: isDark ? "#000" : "#000",
+        shadowOpacity: isDark ? 0.4 : 0.08,
+      }]}>
+        {/* Text field */}
         <TextInput
           value={value}
           onChangeText={onChange}
@@ -713,33 +725,44 @@ function InputBar({
           ]}
           editable={!isStreaming}
         />
-        <Pressable
-          onPress={() => { Keyboard.dismiss(); setTimeout(onModelPress, 100); }}
-          style={styles.modelBadge}
-          hitSlop={8}
-        >
-          <Text style={[styles.modelBadgeText, { color: subColor }]}>{modelLabel}</Text>
-        </Pressable>
-        <Pressable
-          onPress={onSend}
-          disabled={isStreaming || (value.trim() === "" && !attachedFile && !attachedImage)}
-          style={({ pressed }) => [
-            styles.sendBtn,
-            {
-              backgroundColor: (isStreaming || (value.trim() === "" && !attachedFile && !attachedImage))
-                ? (isDark ? "#333" : "#ddd")
-                : sendActive,
-              opacity: pressed ? 0.8 : 1,
-            },
-          ]}
-          hitSlop={4}
-        >
-          {isStreaming ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Feather name="arrow-up" size={16} color="#fff" />
-          )}
-        </Pressable>
+
+        {/* Divider */}
+        <View style={[styles.inputDivider, { backgroundColor: dividerColor }]} />
+
+        {/* Action row */}
+        <View style={[styles.inputActionRow, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
+          {/* Left: attach */}
+          <Pressable onPress={onAttach} style={styles.inputActionBtn} hitSlop={10}>
+            <Feather name="plus" size={20} color={subColor} />
+          </Pressable>
+
+          <View style={{ flex: 1 }} />
+
+          {/* Model badge */}
+          <Pressable
+            onPress={() => { Keyboard.dismiss(); setTimeout(onModelPress, 100); }}
+            style={[styles.modelBadge, { backgroundColor: isDark ? "#2a2a2a" : "#f0f0f0" }]}
+            hitSlop={8}
+          >
+            <Text style={[styles.modelBadgeText, { color: subColor, fontFamily: fontAr("Regular") }]}>{modelLabel}</Text>
+          </Pressable>
+
+          {/* Send button */}
+          <Pressable
+            onPress={onSend}
+            disabled={!canSend}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              { backgroundColor: canSend ? sendActive : (isDark ? "#2a2a2a" : "#e5e5ea"), opacity: pressed ? 0.8 : 1 },
+            ]}
+          >
+            {isStreaming ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Feather name="arrow-up" size={16} color={canSend ? "#fff" : (isDark ? "#555" : "#aaa")} />
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -1160,39 +1183,37 @@ const styles = StyleSheet.create({
   headerBtn: { width: 40, alignItems: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { fontSize: 17, letterSpacing: -0.3 },
-  welcomeContainer: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 40 },
-  welcomeTop: { marginBottom: 32 },
+  welcomeContainer: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 44, paddingBottom: 20 },
+  welcomeTop: { marginBottom: 36 },
   aiAvatarLarge: {
-    width: 56, height: 56, borderRadius: 18,
+    width: 54, height: 54, borderRadius: 16,
     backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  aiAvatarLargeImg: { width: 36, height: 36 },
-  greetSmall: { fontSize: 15, marginBottom: 4 },
-  greetBig: { fontSize: 24, lineHeight: 32 },
-  chipsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
+  aiAvatarLargeImg: { width: 34, height: 34 },
+  greetSmall: { fontSize: 16, marginBottom: 6 },
+  greetBig: { fontSize: 28, lineHeight: 36, letterSpacing: -0.5 },
+  chipsContainer: { gap: 10 },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    gap: 8,
-    width: "47%",
+    borderRadius: 100,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    gap: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOpacity: 0.07,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  chipIcon: { fontSize: 17 },
-  chipText: { fontSize: 13, flex: 1, lineHeight: 18 },
+  chipIcon: { fontSize: 18 },
+  chipText: { fontSize: 14, flex: 1, lineHeight: 20 },
   messageList: { paddingVertical: 16, paddingHorizontal: 12, gap: 12 },
   msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   msgRowLeft: { justifyContent: "flex-start" },
@@ -1283,13 +1304,22 @@ const styles = StyleSheet.create({
     maxWidth: 200,
   },
   attachFileChipText: { fontSize: 12, flex: 1 },
-  inputBar: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  inputRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
-  inputIconBtn: { padding: 6 },
-  textInput: { flex: 1, fontSize: 15, maxHeight: 120, paddingVertical: 4 },
-  modelBadge: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(0,0,0,0.1)", borderRadius: 10 },
-  modelBadgeText: { fontSize: 11 },
-  sendBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  inputBar: { paddingHorizontal: 14, paddingTop: 8 },
+  inputCard: {
+    borderRadius: 24,
+    paddingTop: 14,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 12,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  textInput: { fontSize: 15, maxHeight: 120, paddingVertical: 2, paddingHorizontal: 16, lineHeight: 22 },
+  inputDivider: { height: 1, marginTop: 10 },
+  inputActionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  inputActionBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17 },
+  modelBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  modelBadgeText: { fontSize: 12 },
+  sendBtn: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   sidebarOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
   sidebar: {
     position: "absolute",
