@@ -13,147 +13,207 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
 
-const TAB_KEYS = [
-  { name: "index",   translationKey: "tabPlus"      as const, icon: "plus-square" },
-  { name: "sign",    translationKey: "tabTV"         as const, icon: "pen-tool"   },
-  { name: "search",  translationKey: "headerSearch"  as const, icon: "search"     },
-  { name: "ai",      translationKey: "tabAi"         as const, icon: "cpu"        },
+const MAIN_TABS = [
+  { name: "index",  translationKey: "tabPlus"     as const, icon: "plus-square" },
+  { name: "sign",   translationKey: "tabTV"        as const, icon: "pen-tool"   },
+  { name: "search", translationKey: "headerSearch" as const, icon: "search"     },
 ];
+
+const AI_TAB = { name: "ai", translationKey: "tabAi" as const, icon: "cpu" };
+
+const isIOS = Platform.OS === "ios";
+
+function Pill({
+  children,
+  isDark,
+  style,
+}: {
+  children: React.ReactNode;
+  isDark: boolean;
+  style?: object;
+}) {
+  if (isIOS) {
+    return (
+      <BlurView
+        intensity={90}
+        tint={isDark ? "systemUltraThinMaterialDark" : "systemUltraThinMaterial"}
+        style={[s.pill, style]}
+      >
+        {children}
+      </BlurView>
+    );
+  }
+  return (
+    <View
+      style={[
+        s.pill,
+        { backgroundColor: isDark ? "rgba(28,28,30,0.96)" : "rgba(255,255,255,0.97)" },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
 
 export default function MismariTabBar({ state, navigation }: BottomTabBarProps) {
   const { colors, t, fontAr, isDark, isArabic } = useSettings();
   const insets = useSafeAreaInsets();
 
   const activeRoute = state.routes[state.index]?.name;
+  const bottomPadding = Math.max(insets.bottom, 10);
 
-  const tabsForRender = isArabic ? [...TAB_KEYS].reverse() : TAB_KEYS;
+  const activeColor  = isDark ? "#0A84FF" : "#007AFF";
+  const inactiveColor = isDark ? "#8E8E93" : "#8E8E93";
 
-  const isIOS = Platform.OS === "ios";
+  const navigate = (name: string) => {
+    const route = state.routes.find(r => r.name === name);
+    if (route) {
+      navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+    }
+    navigation.navigate(name);
+  };
 
-  const aiAccent = isDark ? "#0A84FF" : "#007AFF";
+  /* ── main tabs ordered by language ─────────────────────────────────────── */
+  const mainTabs = isArabic ? [...MAIN_TABS].reverse() : MAIN_TABS;
 
-  const tabsRow = (
-    <View style={s.tabsRow}>
-      {tabsForRender.map((tab) => {
-        const isActive = activeRoute === tab.name;
-        const isAiTab = tab.name === "ai";
+  /* ── AI tab ─────────────────────────────────────────────────────────────── */
+  const isAiActive = activeRoute === AI_TAB.name;
+  const aiColor    = isAiActive ? activeColor : inactiveColor;
+  const aiIconBg   = isAiActive
+    ? activeColor
+    : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+  const aiIconColor = isAiActive ? "#fff" : inactiveColor;
 
-        const tintColor = isActive
-          ? (isDark ? "#0A84FF" : "#007AFF")
-          : (isDark ? "#8E8E93" : "#999");
-
-        return (
-          <Pressable
-            key={tab.name}
-            onPress={() => {
-              const route = state.routes.find(r => r.name === tab.name);
-              if (route) {
-                navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-              }
-              navigation.navigate(tab.name);
-            }}
-            style={[s.tabItem, isAiTab && s.aiTabItem]}
-          >
-            {isAiTab ? (
-              <View style={[s.aiIconWrapper, { backgroundColor: isActive ? aiAccent : (isDark ? "#1c1c1e" : "#e8e8e8") }]}>
-                <Feather name="cpu" size={18} color={isActive ? "#fff" : (isDark ? "#8E8E93" : "#888")} />
-              </View>
-            ) : (
-              <Feather
-                name={tab.icon as any}
-                size={22}
-                color={tintColor}
-              />
-            )}
-            <Text
-              style={[
-                s.tabLabel,
-                {
-                  color: isAiTab ? (isActive ? aiAccent : (isDark ? "#8E8E93" : "#999")) : tintColor,
-                  fontFamily: fontAr("Medium"),
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {t(tab.translationKey)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
+  const aiTab = (
+    <Pressable
+      onPress={() => navigate(AI_TAB.name)}
+      style={s.tabItem}
+    >
+      <View style={[s.aiIconWrapper, { backgroundColor: aiIconBg }]}>
+        <Feather name="cpu" size={17} color={aiIconColor} />
+      </View>
+      <Text style={[s.tabLabel, { color: aiColor, fontFamily: fontAr("Medium") }]} numberOfLines={1}>
+        {t(AI_TAB.translationKey)}
+      </Text>
+    </Pressable>
   );
 
-  const bottomPadding = Math.max(insets.bottom, 8);
-
-  if (isIOS) {
+  /* ── main tab items ─────────────────────────────────────────────────────── */
+  const mainTabItems = mainTabs.map(tab => {
+    const isActive = activeRoute === tab.name;
+    const tint = isActive ? activeColor : inactiveColor;
     return (
-      <View style={[s.wrapper, { paddingBottom: bottomPadding }]}>
-        <View style={s.separator} />
-        <BlurView
-          intensity={98}
-          tint={isDark ? "systemChromeMaterialDark" : "systemChromeMaterial"}
-          style={[s.blurContainer, { paddingBottom: bottomPadding }]}
-        >
-          {tabsRow}
-        </BlurView>
-      </View>
+      <Pressable
+        key={tab.name}
+        onPress={() => navigate(tab.name)}
+        style={s.tabItem}
+      >
+        <Feather name={tab.icon as any} size={22} color={tint} />
+        <Text style={[s.tabLabel, { color: tint, fontFamily: fontAr("Medium") }]} numberOfLines={1}>
+          {t(tab.translationKey)}
+        </Text>
+      </Pressable>
     );
-  }
+  });
 
   return (
-    <View style={[s.wrapper, { paddingBottom: bottomPadding }]}>
-      <View style={s.separator} />
-      <View style={[s.fallbackContainer, {
-        backgroundColor: isDark ? "#1C1C1E" : "#F8F8F8",
-        paddingBottom: bottomPadding,
-      }]}>
-        {tabsRow}
+    <View style={[s.outerWrapper, { paddingBottom: bottomPadding }]}>
+      {/*
+        Row direction flips for Arabic so:
+          LTR (English): [AI pill] — spacer — [Main pill]  → AI on left
+          RTL (Arabic) : [Main pill] — spacer — [AI pill]  → AI on right
+      */}
+      <View style={[s.row, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
+
+        {/* ── AI pill (separate, smaller) ─────────────────────────────────── */}
+        <Pill isDark={isDark} style={s.aiPill}>
+          {aiTab}
+        </Pill>
+
+        {/* ── flex spacer pushes the two pills to opposite ends ───────────── */}
+        <View style={s.spacer} />
+
+        {/* ── Main tabs pill ───────────────────────────────────────────────── */}
+        <Pill isDark={isDark} style={s.mainPill}>
+          {mainTabItems}
+        </Pill>
+
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrapper: {
+  outerWrapper: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    /* no background — pills float above content */
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: "rgba(0,0,0,0.12)",
+  row: {
+    alignItems: "center",
   },
-  blurContainer: {
-    overflow: "hidden",
-  },
-  fallbackContainer: {
-    overflow: "hidden",
-  },
-  tabsRow: {
+
+  /* ── shared pill ─────────────────────────────────────────────────────────── */
+  pill: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
-    paddingTop: 6,
-    paddingHorizontal: 16,
+    borderRadius: 22,
+    overflow: "hidden",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    // subtle shadow for floating effect
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  tabItem: {
+
+  /* ── AI pill is narrower ─────────────────────────────────────────────────── */
+  aiPill: {
+    paddingHorizontal: 12,
+  },
+
+  /* ── Main pill ───────────────────────────────────────────────────────────── */
+  mainPill: {
+    paddingHorizontal: 4,
+  },
+
+  spacer: {
     flex: 1,
+    minWidth: 12,
+  },
+
+  /* ── tab item inside a pill ─────────────────────────────────────────────── */
+  tabItem: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 4,
+    paddingHorizontal: 10,
     gap: 3,
+    minWidth: 52,
   },
-  aiTabItem: {
-    gap: 4,
-  },
+
+  /* ── AI icon circular badge ─────────────────────────────────────────────── */
   aiIconWrapper: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
+
   tabLabel: {
     fontSize: 10,
   },
