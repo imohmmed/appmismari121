@@ -160,27 +160,30 @@ export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
         style={[st.panel, { backgroundColor: colors.background, transform: [{ translateX }] }]}
       >
         {/* ── Header ── */}
-        <View
-          style={[
-            st.header,
-            { paddingTop: insets.top + 14 },
-            isArabic && { flexDirection: "row-reverse" },
-          ]}
-        >
-          <TouchableOpacity
-            style={[st.backBtn, { backgroundColor: colors.card }]}
-            onPress={closeModal}
-            activeOpacity={0.7}
-          >
-            <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }} />
-          <Text style={[st.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-            {isArabic
-              ? <><Text style={{ fontFamily: fontAr("Bold") }}>{appName} </Text><Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text></>
-              : <><Text style={{ fontFamily: "Inter_700Bold" }}>{appName} </Text><Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text></>
-            }
-          </Text>
+        <View style={[st.header, { paddingTop: insets.top + 14, flexDirection: "row", alignItems: "center" }]}>
+          {isArabic ? (
+            <>
+              <View style={{ flex: 1 }} />
+              <Text style={[st.headerTitle, { color: colors.text, marginRight: 10 }]}>
+                <Text style={{ fontFamily: fontAr("Bold") }}>{appName} </Text>
+                <Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text>
+              </Text>
+              <TouchableOpacity style={[st.backBtn, { backgroundColor: colors.card }]} onPress={closeModal} activeOpacity={0.7}>
+                <Feather name="arrow-right" size={16} color={colors.text} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={[st.backBtn, { backgroundColor: colors.card }]} onPress={closeModal} activeOpacity={0.7}>
+                <Feather name="arrow-left" size={16} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={[st.headerTitle, { color: colors.text, marginLeft: 10 }]}>
+                <Text style={{ fontFamily: "Inter_700Bold" }}>{appName} </Text>
+                <Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text>
+              </Text>
+              <View style={{ flex: 1 }} />
+            </>
+          )}
         </View>
 
         {/* ── Content ── */}
