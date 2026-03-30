@@ -20,8 +20,7 @@ export default function AiTab() {
   );
 
   const handleClose = useCallback(() => {
-    setVisible(false);
-    router.replace("/");
+    router.navigate("/");
   }, [router]);
 
   return (

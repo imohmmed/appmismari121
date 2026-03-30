@@ -252,6 +252,8 @@ function MessageView({
   const textIsArabic = isArabic || /[\u0600-\u06FF]/.test(msg.content);
   const textAlign = textIsArabic ? "right" : "left";
 
+  const [showSelectModal, setShowSelectModal] = useState(false);
+
   const handleCopyAll = async () => {
     if (!msg.content) return;
     await Clipboard.setStringAsync(msg.content);
@@ -280,6 +282,9 @@ function MessageView({
       </View>
     );
   }
+
+  const modalBg = isDark ? "#111" : "#fff";
+  const modalBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
   return (
     <View style={styles.aiMsgContainer}>
@@ -320,9 +325,10 @@ function MessageView({
         <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
       )}
 
-      {/* Copy actions row — only shown when response is complete */}
+      {/* Actions row — shown when response is complete */}
       {!msg.isStreaming && msg.content !== "" && (
         <View style={[styles.msgActionsRow, { flexDirection: textIsArabic ? "row-reverse" : "row" }]}>
+          {/* Copy all */}
           <Pressable
             onPress={handleCopyAll}
             style={({ pressed }) => [styles.msgActionBtn, { opacity: pressed ? 0.6 : 1 }]}
@@ -330,13 +336,60 @@ function MessageView({
           >
             <Feather name={copied ? "check" : "copy"} size={14} color={copied ? "#4ade80" : subColor} />
             <Text style={[styles.msgActionText, { color: copied ? "#4ade80" : subColor, fontFamily: aiMsgFont(msg.content, "Regular") }]}>
-              {copied
-                ? (isArabic ? "تم النسخ" : "Copied!")
-                : (isArabic ? "نسخ الكل" : "Copy all")}
+              {copied ? (isArabic ? "تم النسخ" : "Copied!") : (isArabic ? "نسخ الكل" : "Copy all")}
+            </Text>
+          </Pressable>
+
+          <View style={{ width: 12 }} />
+
+          {/* Select text */}
+          <Pressable
+            onPress={() => setShowSelectModal(true)}
+            style={({ pressed }) => [styles.msgActionBtn, { opacity: pressed ? 0.6 : 1 }]}
+            hitSlop={8}
+          >
+            <Feather name="type" size={14} color={subColor} />
+            <Text style={[styles.msgActionText, { color: subColor, fontFamily: aiMsgFont(msg.content, "Regular") }]}>
+              {isArabic ? "تحديد" : "Select"}
             </Text>
           </Pressable>
         </View>
       )}
+
+      {/* Text Selection Modal */}
+      <Modal
+        visible={showSelectModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSelectModal(false)}
+      >
+        <SafeAreaView style={[styles.selectModalContainer, { backgroundColor: modalBg }]}>
+          {/* Header */}
+          <View style={[styles.selectModalHeader, { borderBottomColor: modalBorder }]}>
+            <Text style={[styles.selectModalTitle, { color: textColor, fontFamily: aiMsgFont(msg.content, "SemiBold") }]}>
+              {isArabic ? "تحديد النص" : "Select Text"}
+            </Text>
+            <Pressable onPress={() => setShowSelectModal(false)} style={styles.selectModalClose} hitSlop={12}>
+              <Feather name="x" size={20} color={textColor} />
+            </Pressable>
+          </View>
+          {/* Selectable TextInput */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+            <TextInput
+              value={msg.content}
+              editable={false}
+              multiline
+              scrollEnabled={false}
+              selectTextOnFocus={false}
+              style={[styles.selectModalText, {
+                color: textColor,
+                fontFamily: aiMsgFont(msg.content, "Regular"),
+                textAlign: textIsArabic ? "right" : "left",
+              }]}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -1281,6 +1334,14 @@ const styles = StyleSheet.create({
   msgActionsRow: { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 4 },
   msgActionBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingHorizontal: 2 },
   msgActionText: { fontSize: 12 },
+  selectModalContainer: { flex: 1 },
+  selectModalHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  selectModalTitle: { fontSize: 16 },
+  selectModalClose: { padding: 4 },
+  selectModalText: { fontSize: 15, lineHeight: 26 },
   typingDots: { flexDirection: "row", gap: 4, paddingVertical: 4 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   streamCursor: { width: 2, height: 16, borderRadius: 1, marginTop: 2, marginLeft: 2 },
