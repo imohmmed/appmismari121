@@ -87,13 +87,12 @@ function AiLockedScreen() {
   const hasWhatsApp  = !!contactWhatsapp;
   const hasTelegram  = !!contactTelegram;
   const hasInstagram = !!contactInstagram;
-  const hasAny = hasWhatsApp || hasTelegram || hasInstagram;
 
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
       {/* ── Brain icon with slash ── */}
       <View style={[styles.iconCard, { backgroundColor: card, borderColor: border }]}>
-        <MaterialCommunityIcons name="brain" size={42} color={isDark ? "#9fbcff" : "#6B7FD4"} />
+        <MaterialCommunityIcons name="brain" size={62} color={isDark ? "#9fbcff" : "#6B7FD4"} />
         {/* Diagonal "not available" slash */}
         <View style={styles.slashWrap} pointerEvents="none">
           <View style={[styles.slashLine, { backgroundColor: isDark ? "rgba(255,100,100,0.85)" : "rgba(200,50,50,0.75)" }]} />
@@ -104,12 +103,11 @@ function AiLockedScreen() {
         الذكاء الاصطناعي غير متاح
       </Text>
       <Text style={[styles.subtitle, { color: subCol, fontFamily: "Mestika-Regular" }]}>
-        هذه الميزة غير مفعّلة لاشتراكك حالياً.
+        هذه الميزة غير مفعّلة لاشتراكك حالياً.{"\n"}إذا كنت ترغب بشراءها تواصل معنا.
       </Text>
 
       {/* ── Contact button area ── */}
-      {hasAny && (
-        <View style={styles.contactArea}>
+      <View style={styles.contactArea}>
           {/* Main "تواصل معنا" button */}
           <Animated.View
             style={{
@@ -171,8 +169,7 @@ function AiLockedScreen() {
               </Animated.View>
             )}
           </View>
-        </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -185,9 +182,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   iconCard: {
-    width: 100,
-    height: 100,
-    borderRadius: 28,
+    width: 128,
+    height: 128,
+    borderRadius: 34,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -205,8 +202,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   slashLine: {
-    width: 120,
-    height: 3.5,
+    width: 160,
+    height: 4,
     borderRadius: 2,
     transform: [{ rotate: "-45deg" }],
   },
