@@ -14,6 +14,7 @@ import {
   Animated,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -25,6 +26,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
 
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -119,8 +121,36 @@ function renderInlineText(text: string, baseStyle: any) {
 
 // ─── Code Block ─────────────────────────────────────────────────────────────
 
+function HtmlPreviewModal({ html, onClose, isDark }: { html: string; onClose: () => void; isDark: boolean }) {
+  const insets = useSafeAreaInsets();
+  const fullHtml = html.includes("<html") ? html : `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;padding:16px;margin:0;background:${isDark ? "#1a1a1a" : "#fff"};color:${isDark ? "#fff" : "#111"}}</style></head><body>${html}</body></html>`;
+  return (
+    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[styles.previewModal, { backgroundColor: isDark ? "#000" : "#f5f5f5", paddingTop: insets.top }]}>
+        <View style={styles.previewHeader}>
+          <Text style={[styles.previewTitle, { color: isDark ? "#fff" : "#111" }]}>Preview</Text>
+          <Pressable onPress={onClose} hitSlop={12} style={styles.previewCloseBtn}>
+            <Feather name="x" size={20} color={isDark ? "#fff" : "#111"} />
+          </Pressable>
+        </View>
+        <View style={styles.previewWebViewContainer}>
+          <WebView
+            source={{ html: fullHtml }}
+            style={{ flex: 1, backgroundColor: "transparent" }}
+            scrollEnabled
+            originWhitelist={["*"]}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function CodeBlock({ code, lang, isDark }: { code: string; lang: string; isDark: boolean }) {
   const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const isHtml = ["html", "css", "htm", "svg"].includes((lang || "").toLowerCase());
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(code);
@@ -133,16 +163,25 @@ function CodeBlock({ code, lang, isDark }: { code: string; lang: string; isDark:
     <View style={[styles.codeWrapper, { backgroundColor: isDark ? "#0d0d0d" : "#1e1e1e" }]}>
       <View style={styles.codeHeader}>
         <Text style={styles.codeLang}>{lang || "code"}</Text>
-        <Pressable onPress={handleCopy} style={styles.copyBtn} hitSlop={8}>
-          <Feather name={copied ? "check" : "copy"} size={13} color={copied ? "#4ade80" : "#aaa"} />
-          <Text style={[styles.copyText, { color: copied ? "#4ade80" : "#aaa" }]}>
-            {copied ? "تم النسخ" : "نسخ"}
-          </Text>
-        </Pressable>
+        <View style={styles.codeActions}>
+          {isHtml && (
+            <Pressable onPress={() => setShowPreview(true)} style={styles.copyBtn} hitSlop={8}>
+              <Feather name="eye" size={13} color="#7dd3fc" />
+              <Text style={[styles.copyText, { color: "#7dd3fc" }]}>Preview</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={handleCopy} style={styles.copyBtn} hitSlop={8}>
+            <Feather name={copied ? "check" : "copy"} size={13} color={copied ? "#4ade80" : "#aaa"} />
+            <Text style={[styles.copyText, { color: copied ? "#4ade80" : "#aaa" }]}>
+              {copied ? "تم النسخ" : "نسخ"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <Text style={styles.codeText}>{code}</Text>
       </ScrollView>
+      {showPreview && <HtmlPreviewModal html={code} onClose={() => setShowPreview(false)} isDark={isDark} />}
     </View>
   );
 }
@@ -553,7 +592,8 @@ function streamChat(
   body: object,
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (msg: string) => void
+  onError: (msg: string) => void,
+  onStatus?: (status: string, query?: string) => void
 ): XMLHttpRequest {
   const xhr = new XMLHttpRequest();
   xhr.open("POST", url, true);
@@ -572,6 +612,7 @@ function streamChat(
         if (!raw) continue;
         try {
           const data = JSON.parse(raw);
+          if (data.status && onStatus) onStatus(data.status, data.query);
           if (data.content) onChunk(data.content);
           if (data.done) onDone();
           if (data.error) onError(data.error);
@@ -603,6 +644,8 @@ export default function AiScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showSidebar, setShowSidebar] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
@@ -709,6 +752,7 @@ export default function AiScreen() {
         deviceInfo: { udid: deviceUdid || undefined },
       },
       (chunk) => {
+        setIsSearching(false);
         accumulated += chunk;
         setMessages(prev =>
           prev.map(m =>
@@ -718,6 +762,7 @@ export default function AiScreen() {
       },
       () => {
         setIsStreaming(false);
+        setIsSearching(false);
         const finalMsgs = newMessages.map(m =>
           m.id === aiMsgId ? { ...m, content: accumulated, isStreaming: false } : m
         );
@@ -731,11 +776,18 @@ export default function AiScreen() {
       },
       (err) => {
         setIsStreaming(false);
+        setIsSearching(false);
         const errMsg = isArabic ? `❌ ${err}` : `❌ Error: ${err}`;
         setMessages(prev =>
           prev.map(m => m.id === aiMsgId ? { ...m, content: errMsg, isStreaming: false } : m)
         );
         streamingIdRef.current = null;
+      },
+      (status, query) => {
+        if (status === "searching") {
+          setIsSearching(true);
+          setSearchQuery(query || "");
+        }
       }
     );
     xhrRef.current = xhr;
@@ -837,6 +889,17 @@ export default function AiScreen() {
               </Pressable>
             ))}
           </ScrollView>
+        )}
+
+        {/* Web Search Indicator */}
+        {isSearching && (
+          <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#0f1628" : "#e8eeff" }]}>
+            <ActivityIndicator size="small" color="#9fbcff" style={{ marginRight: 8 }} />
+            <Feather name="search" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
+            <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
+              {isArabic ? `جاري البحث: "${searchQuery}"` : `Searching: "${searchQuery}"`}
+            </Text>
+          </View>
         )}
 
         <InputBar
@@ -984,6 +1047,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
   },
   codeLang: { color: "#888", fontSize: 11, fontFamily: "Courier" },
+  codeActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   copyBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   copyText: { fontSize: 11 },
   codeText: {
@@ -1064,4 +1128,42 @@ const styles = StyleSheet.create({
   },
   attachItem: { flexDirection: "row", alignItems: "center", paddingVertical: 16, gap: 14 },
   attachLabel: { fontSize: 15 },
+
+  // Web Search Indicator
+  searchIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
+  searchIndicatorText: {
+    fontSize: 13,
+    color: "#9fbcff",
+    flexShrink: 1,
+  },
+
+  // HTML Preview Modal
+  previewModal: { flex: 1 },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.12)",
+  },
+  previewTitle: { fontSize: 16, fontWeight: "600" },
+  previewCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  previewWebViewContainer: { flex: 1 },
 });
