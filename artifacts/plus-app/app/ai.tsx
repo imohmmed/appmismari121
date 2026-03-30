@@ -155,10 +155,10 @@ function renderInlineText(text: string, baseStyle: any) {
 
 function HtmlPreviewModal({ html, onClose, isDark }: { html: string; onClose: () => void; isDark: boolean }) {
   const insets = useSafeAreaInsets();
-  const fullHtml = html.includes("<html") ? html : `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;padding:16px;margin:0;background:${isDark ? "#1a1a1a" : "#fff"};color:${isDark ? "#fff" : "#111"}}</style></head><body>${html}</body></html>`;
+  const fullHtml = html.includes("<html") ? html : `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,sans-serif;padding:16px;margin:0;background:${isDark ? "#2B283B" : "#fff"};color:${isDark ? "#fff" : "#111"}}</style></head><body>${html}</body></html>`;
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.previewModal, { backgroundColor: isDark ? "#000" : "#f5f5f5" }]}>
+      <View style={[styles.previewModal, { backgroundColor: isDark ? "#2B283B" : "#f5f5f5" }]}>
         <View style={styles.previewHeader}>
           <Text style={[styles.previewTitle, { color: isDark ? "#fff" : "#111" }]}>Preview</Text>
           <Pressable onPress={onClose} hitSlop={12} style={styles.previewCloseBtn}>
@@ -283,7 +283,7 @@ function MessageView({
     );
   }
 
-  const modalBg = isDark ? "#111" : "#fff";
+  const modalBg = isDark ? "#2B283B" : "#fff";
   const modalBorder = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
 
   return (
@@ -441,7 +441,7 @@ function WelcomeScreen({
   const subtitle = isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#aaa" : "#777";
-  const chipBg = isDark ? "#1c1c1e" : "#fff";
+  const chipBg = isDark ? "#36334A" : "#fff";
 
   return (
     <ScrollView
@@ -522,10 +522,10 @@ function ChatSidebar({
     );
   };
 
-  const bg = isDark ? "#111" : "#fafafa";
+  const bg = isDark ? "#2B283B" : "#fafafa";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#888" : "#666";
-  const inputBg = isDark ? "#1c1c1e" : "#f0f0f0";
+  const inputBg = isDark ? "#36334A" : "#f0f0f0";
   const activeBg = isDark ? "#1a2a4a" : "#e8f0ff";
   const filtered = conversations.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
 
@@ -607,7 +607,7 @@ function ModelPicker({
   const close = () => {
     Animated.timing(slideAnim, { toValue: 300, duration: 180, useNativeDriver: true }).start(onClose);
   };
-  const bg = isDark ? "#1c1c1e" : "#fff";
+  const bg = isDark ? "#36334A" : "#fff";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#aaa" : "#666";
   const activeBorder = isDark ? "#0A84FF" : "#007AFF";
@@ -624,7 +624,7 @@ function ModelPicker({
           <Pressable
             key={m.id}
             onPress={() => { onChange(m.id); close(); }}
-            style={[styles.modelItem, { borderColor: m.id === current ? activeBorder : "transparent", borderWidth: 2, backgroundColor: isDark ? "#2a2a2a" : "#f5f5f5" }]}
+            style={[styles.modelItem, { borderColor: m.id === current ? activeBorder : "transparent", borderWidth: 2, backgroundColor: isDark ? "#36334A" : "#f5f5f5" }]}
           >
             <View style={{ flex: 1 }}>
               <Text style={[styles.modelName, { color: textColor, fontFamily: fontAr("SemiBold") }]}>
@@ -711,7 +711,7 @@ function AttachPicker({
     onImagePick(asset.uri, asset.base64 || undefined);
   };
 
-  const bg = isDark ? "#1c1c1e" : "#fff";
+  const bg = isDark ? "#36334A" : "#fff";
   const textColor = isDark ? "#fff" : "#111";
 
   const ATTACH_OPTIONS = [
@@ -755,7 +755,7 @@ function InputBar({
   onRemoveImage?: () => void;
   bottomInset?: number;
 }) {
-  const bg = isDark ? "#1c1c1e" : "#fff";
+  const bg = isDark ? "#36334A" : "#fff";
   const border = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
   const textColor = isDark ? "#fff" : "#111";
   const subColor = isDark ? "#888" : "#999";
@@ -764,7 +764,7 @@ function InputBar({
   const modelLabel = isArabic ? currentModel?.labelAr : currentModel?.labelEn;
   const hasAttachment = !!(attachedFile || attachedImage);
 
-  const cardBg = isDark ? "#1c1c1e" : "#fff";
+  const cardBg = isDark ? "#36334A" : "#fff";
   const dividerColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
   const canSend = !isStreaming && (value.trim() !== "" || !!attachedFile || !!attachedImage);
 
@@ -782,7 +782,7 @@ function InputBar({
             </View>
           )}
           {attachedFile && (
-            <View style={[styles.attachFileChip, { backgroundColor: isDark ? "#2a2a3a" : "#e8f0ff" }]}>
+            <View style={[styles.attachFileChip, { backgroundColor: isDark ? "#4A4760" : "#e8f0ff" }]}>
               <Feather name="file-text" size={13} color="#007AFF" />
               <Text style={[styles.attachFileChipText, { color: isDark ? "#aac4ff" : "#007AFF" }]} numberOfLines={1}>
                 {attachedFile.name}
@@ -830,7 +830,7 @@ function InputBar({
           {/* Model badge */}
           <Pressable
             onPress={() => { Keyboard.dismiss(); setTimeout(onModelPress, 100); }}
-            style={[styles.modelBadge, { backgroundColor: isDark ? "#2a2a2a" : "#f0f0f0" }]}
+            style={[styles.modelBadge, { backgroundColor: isDark ? "#36334A" : "#f0f0f0" }]}
             hitSlop={8}
           >
             <Text style={[styles.modelBadgeText, { color: subColor, fontFamily: fontAr("Regular") }]}>{modelLabel}</Text>
@@ -842,7 +842,7 @@ function InputBar({
             disabled={!canSend}
             style={({ pressed }) => [
               styles.sendBtn,
-              { backgroundColor: canSend ? sendActive : (isDark ? "#2a2a2a" : "#e5e5ea"), opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: canSend ? sendActive : (isDark ? "#36334A" : "#e5e5ea"), opacity: pressed ? 0.8 : 1 },
             ]}
           >
             {isStreaming ? (
@@ -939,8 +939,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const streamingIdRef = useRef<string | null>(null);
 
-  const bg = isDark ? "#000" : "#F0F2F5";
-  const headerBg = isDark ? "#000" : "#F0F2F5";
+  const bg = isDark ? "#2B283B" : "#F0F2F5";
+  const headerBg = isDark ? "#2B283B" : "#F0F2F5";
   const textColor = isDark ? "#fff" : "#1a1a1a";
   const subColor = isDark ? "#aaa" : "#666";
   const headerBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -1226,7 +1226,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
 
         {/* Web Search / URL Fetch Indicator */}
         {isSearching && (
-          <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#0f1628" : "#e8eeff" }]}>
+          <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#36334A" : "#e8eeff" }]}>
             <ActivityIndicator size="small" color="#9fbcff" style={{ marginRight: 8 }} />
             {searchQuery.startsWith("__url__:") ? (
               <>
