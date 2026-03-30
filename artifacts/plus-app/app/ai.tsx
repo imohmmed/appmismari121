@@ -1,6 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
+import { useFonts } from "expo-font";
+import {
+  NotoSansArabic_400Regular,
+  NotoSansArabic_500Medium,
+  NotoSansArabic_600SemiBold,
+  NotoSansArabic_700Bold,
+} from "@expo-google-fonts/noto-sans-arabic";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -211,22 +218,46 @@ function CodeBlock({ code, lang, isDark }: { code: string; lang: string; isDark:
   );
 }
 
+// ─── AI Message Fonts ─────────────────────────────────────────────────────────
+// Only used inside the AI chat area for message text
+
+function aiMsgFont(text: string, weight: "Regular" | "Medium" | "SemiBold" | "Bold" = "Regular"): string {
+  const isAr = /[\u0600-\u06FF]/.test(text);
+  if (isAr) {
+    if (weight === "Bold") return "NotoSansArabic_700Bold";
+    if (weight === "SemiBold") return "NotoSansArabic_600SemiBold";
+    if (weight === "Medium") return "NotoSansArabic_500Medium";
+    return "NotoSansArabic_400Regular";
+  }
+  if (weight === "Bold") return "Inter_700Bold";
+  if (weight === "SemiBold") return "Inter_600SemiBold";
+  if (weight === "Medium") return "Inter_500Medium";
+  return "Inter_400Regular";
+}
+
 // ─── Message View ────────────────────────────────────────────────────────────
 
 function MessageView({
-  msg, isDark, isArabic, fontAr,
+  msg, isDark, isArabic,
 }: {
-  msg: ChatMessage; isDark: boolean; isArabic: boolean; fontAr: FontArFn;
+  msg: ChatMessage; isDark: boolean; isArabic: boolean;
 }) {
   const isUser = msg.role === "user";
   const textColor = isDark ? "#fff" : "#1a1a1a";
   const userTextColor = isDark ? "#e0e0e0" : "#444";
+  const subColor = isDark ? "#888" : "#aaa";
   const segments = parseMarkdown(msg.content);
+  const [copied, setCopied] = useState(false);
 
-  const handleCopy = async () => {
+  const textIsArabic = isArabic || /[\u0600-\u06FF]/.test(msg.content);
+  const textAlign = textIsArabic ? "right" : "left";
+
+  const handleCopyAll = async () => {
     if (!msg.content) return;
     await Clipboard.setStringAsync(msg.content);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
     if (Platform.OS === "android") {
       ToastAndroid.show(isArabic ? "تم النسخ" : "Copied!", ToastAndroid.SHORT);
     }
@@ -234,50 +265,79 @@ function MessageView({
 
   if (isUser) {
     return (
-      <Pressable onLongPress={handleCopy} delayLongPress={500}>
-        <View style={styles.userMsgContainer}>
-          {msg.imageUri ? (
-            <Image source={{ uri: msg.imageUri }} style={styles.msgImage} resizeMode="cover" />
-          ) : null}
-          {msg.content ? (
-            <Text style={[styles.userMsgText, { color: userTextColor, fontFamily: fontAr("Medium"), textAlign: isArabic ? "right" : "left" }]}>
-              {msg.content}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
+      <View style={styles.userMsgContainer}>
+        {msg.imageUri ? (
+          <Image source={{ uri: msg.imageUri }} style={styles.msgImage} resizeMode="cover" />
+        ) : null}
+        {msg.content ? (
+          <Text
+            selectable
+            style={[styles.userMsgText, { color: userTextColor, fontFamily: aiMsgFont(msg.content, "Medium"), textAlign }]}
+          >
+            {msg.content}
+          </Text>
+        ) : null}
+      </View>
     );
   }
 
   return (
-    <Pressable onLongPress={handleCopy} delayLongPress={500}>
-      <View style={styles.aiMsgContainer}>
-        {/* Sparkle indicator */}
-        <Text style={[styles.aiSparkle, { color: isDark ? "#9fbcff" : "#4a80f0" }]}>✦</Text>
+    <View style={styles.aiMsgContainer}>
+      {/* Sparkle indicator */}
+      <Text style={[styles.aiSparkle, { color: isDark ? "#9fbcff" : "#4a80f0" }]}>✦</Text>
 
-        {msg.isStreaming && msg.content === "" ? (
-          <View style={styles.typingDots}>
-            <TypingDot delay={0} isDark={isDark} />
-            <TypingDot delay={150} isDark={isDark} />
-            <TypingDot delay={300} isDark={isDark} />
-          </View>
-        ) : (
-          segments.map((seg, i) => {
-            if (seg.type === "code") {
-              return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
-            }
-            return (
-              <Text key={i} style={[styles.aiText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
-                {renderInlineText(seg.content, { color: textColor, fontFamily: fontAr("Regular") })}
-              </Text>
-            );
-          })
-        )}
-        {msg.isStreaming && msg.content !== "" && (
-          <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
-        )}
-      </View>
-    </Pressable>
+      {msg.isStreaming && msg.content === "" ? (
+        <View style={styles.typingDots}>
+          <TypingDot delay={0} isDark={isDark} />
+          <TypingDot delay={150} isDark={isDark} />
+          <TypingDot delay={300} isDark={isDark} />
+        </View>
+      ) : (
+        segments.map((seg, i) => {
+          if (seg.type === "code") {
+            return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
+          }
+          const segIsAr = /[\u0600-\u06FF]/.test(seg.content) || isArabic;
+          return (
+            <Text
+              key={i}
+              selectable
+              style={[styles.aiText, {
+                color: textColor,
+                fontFamily: aiMsgFont(seg.content, "Regular"),
+                textAlign: segIsAr ? "right" : "left",
+              }]}
+            >
+              {renderInlineText(seg.content, {
+                color: textColor,
+                fontFamily: aiMsgFont(seg.content, "Regular"),
+              })}
+            </Text>
+          );
+        })
+      )}
+      {msg.isStreaming && msg.content !== "" && (
+        <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
+      )}
+
+      {/* Copy actions row — only shown when response is complete */}
+      {!msg.isStreaming && msg.content !== "" && (
+        <View style={[styles.msgActionsRow, { flexDirection: textIsArabic ? "row-reverse" : "row" }]}>
+          <Pressable
+            onPress={handleCopyAll}
+            style={({ pressed }) => [styles.msgActionBtn, { opacity: pressed ? 0.6 : 1 }]}
+            hitSlop={8}
+          >
+            <Feather name={copied ? "check" : "copy"} size={14} color={copied ? "#4ade80" : subColor} />
+            <Text style={[styles.msgActionText, { color: copied ? "#4ade80" : subColor, fontFamily: aiMsgFont(msg.content, "Regular") }]}>
+              {copied
+                ? (isArabic ? "تم النسخ" : "Copied!")
+                : (isArabic ? "نسخ الكل" : "Copy all")}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -797,6 +857,13 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const insets = useSafeAreaInsets();
   const { colors, t, fontAr, isDark, isArabic, deviceUdid } = useSettings();
 
+  useFonts({
+    NotoSansArabic_400Regular,
+    NotoSansArabic_500Medium,
+    NotoSansArabic_600SemiBold,
+    NotoSansArabic_700Bold,
+  });
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConvId, setCurrentConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -1033,8 +1100,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   }, [conversations, saveConversations]);
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
-    <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} />
-  ), [isDark, isArabic, fontAr]);
+    <MessageView msg={item} isDark={isDark} isArabic={isArabic} />
+  ), [isDark, isArabic]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
@@ -1210,6 +1277,9 @@ const styles = StyleSheet.create({
   aiSparkle: { fontSize: 16, marginBottom: 2 },
   msgImage: { width: 220, height: 220, borderRadius: 16, marginBottom: 4 },
   aiText: { fontSize: 15, lineHeight: 26 },
+  msgActionsRow: { flexDirection: "row", alignItems: "center", marginTop: 6, gap: 4 },
+  msgActionBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingHorizontal: 2 },
+  msgActionText: { fontSize: 12 },
   typingDots: { flexDirection: "row", gap: 4, paddingVertical: 4 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   streamCursor: { width: 2, height: 16, borderRadius: 1, marginTop: 2, marginLeft: 2 },
