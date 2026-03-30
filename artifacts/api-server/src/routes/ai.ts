@@ -185,10 +185,11 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   const modelsToTry = [primaryModel, FALLBACK_MODEL].filter((v, i, a) => a.indexOf(v) === i);
 
   // ── Phase 1: Check if web search is needed (non-streaming, with tools) ──
+  // Skip Phase 1 when an image is attached — tool check would send base64 twice
   let finalMessages = [...baseMessages];
   const braveKey = process.env.BRAVE_SEARCH_API_KEY;
 
-  if (braveKey) {
+  if (braveKey && !imageBase64) {
     try {
       const toolCheck = await openai.chat.completions.create({
         model: primaryModel,

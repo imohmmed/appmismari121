@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, {
@@ -45,6 +46,7 @@ interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  imageUri?: string;
   isStreaming?: boolean;
 }
 
@@ -222,10 +224,17 @@ function MessageView({
   if (isUser) {
     return (
       <View style={[styles.msgRow, styles.msgRowRight]}>
-        <View style={[styles.userBubble, { backgroundColor: userBg, maxWidth: "80%" }]}>
-          <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
-            {msg.content}
-          </Text>
+        <View style={{ maxWidth: "80%", alignItems: "flex-end", gap: 6 }}>
+          {msg.imageUri ? (
+            <Image source={{ uri: msg.imageUri }} style={styles.msgImage} resizeMode="cover" />
+          ) : null}
+          {msg.content ? (
+            <View style={[styles.userBubble, { backgroundColor: userBg }]}>
+              <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
+                {msg.content}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -810,7 +819,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
     });
   }, []);
 
-  const sendMessage = useCallback((text: string) => {
+  const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed && !attachedFile && !attachedImage) return;
     if (isStreaming) return;
@@ -821,14 +830,26 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
       setAttachedFile(null);
     }
 
-    // Capture image data before clearing
-    const imageBase64 = attachedImage?.base64 || null;
+    // Capture and compress image before clearing
+    let imageBase64: string | null = null;
+    let capturedImageUri: string | undefined;
     if (attachedImage) {
+      capturedImageUri = attachedImage.uri;
       if (!fullText.trim()) fullText = isArabic ? "حلل هذه الصورة" : "Analyze this image";
       setAttachedImage(null);
+      try {
+        const compressed = await ImageManipulator.manipulateAsync(
+          attachedImage.uri,
+          [{ resize: { width: 1024 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        imageBase64 = compressed.base64 || null;
+      } catch {
+        imageBase64 = attachedImage.base64 || null;
+      }
     }
 
-    const userMsg: ChatMessage = { id: genId(), role: "user", content: fullText };
+    const userMsg: ChatMessage = { id: genId(), role: "user", content: fullText, imageUri: capturedImageUri };
     const aiMsgId = genId();
     const aiMsg: ChatMessage = { id: aiMsgId, role: "assistant", content: "", isStreaming: true };
 
@@ -1105,6 +1126,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   userText: { color: "#fff", fontSize: 15, lineHeight: 22 },
+  msgImage: { width: 220, height: 220, borderRadius: 16, borderBottomRightRadius: 4 },
   aiAvatarSmall: {
     width: 28, height: 28, borderRadius: 9,
     backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
