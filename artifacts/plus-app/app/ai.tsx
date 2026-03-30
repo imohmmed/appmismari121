@@ -392,7 +392,7 @@ function ChatSidebar({
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
   const [search, setSearch] = useState("");
-  const startX = isArabic ? 320 : -320;
+  const startX = isArabic ? -320 : 320;
   const slideAnim = useRef(new Animated.Value(startX)).current;
 
   useEffect(() => {
@@ -426,7 +426,7 @@ function ChatSidebar({
   const activeBg = isDark ? "#1a2a4a" : "#e8f0ff";
   const filtered = conversations.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
 
-  const sidebarPosition = isArabic ? { right: 0 } : { left: 0 };
+  const sidebarPosition = isArabic ? { left: 0 } : { right: 0 };
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
