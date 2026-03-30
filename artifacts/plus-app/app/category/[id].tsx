@@ -58,7 +58,6 @@ export default function CategoryDetailScreen() {
 
   const renderAppRow = (app: ApiApp, index: number, list: ApiApp[]) => {
     const tc = getTagColor(app.tag);
-    const desc = isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
     const textAlign = isArabic ? ("right" as const) : ("left" as const);
     return (
       <View key={app.id}>
@@ -73,7 +72,6 @@ export default function CategoryDetailScreen() {
               </View>
               <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
-                <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
             </>
@@ -82,7 +80,6 @@ export default function CategoryDetailScreen() {
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
               <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
-                <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <View style={[styles.getButton, { backgroundColor: colors.card }]}>
                 <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
