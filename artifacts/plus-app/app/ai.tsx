@@ -550,9 +550,22 @@ function AttachPicker({
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
   const slideAnim = useRef(new Animated.Value(200)).current;
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
   useEffect(() => {
     Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start();
   }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (e: { endCoordinates: { height: number } }) => setKeyboardOffset(e.endCoordinates.height);
+    const onHide = () => setKeyboardOffset(0);
+    const sub1 = Keyboard.addListener(showEvent, onShow);
+    const sub2 = Keyboard.addListener(hideEvent, onHide);
+    return () => { sub1.remove(); sub2.remove(); };
+  }, []);
+
   const close = () => {
     Animated.timing(slideAnim, { toValue: 200, duration: 150, useNativeDriver: true }).start(onClose);
   };
@@ -617,7 +630,7 @@ function AttachPicker({
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Pressable style={styles.sidebarOverlay} onPress={close} />
-      <Animated.View style={[styles.attachSheet, { backgroundColor: bg, transform: [{ translateY: slideAnim }] }]}>
+      <Animated.View style={[styles.attachSheet, { backgroundColor: bg, bottom: keyboardOffset, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modelHandle} />
         {ATTACH_OPTIONS.map((opt, i) => (
           <Pressable

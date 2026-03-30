@@ -21,7 +21,7 @@ export default function AiTab() {
 
   const handleClose = useCallback(() => {
     setVisible(false);
-    router.replace("/(tabs)");
+    router.replace("/");
   }, [router]);
 
   return (
