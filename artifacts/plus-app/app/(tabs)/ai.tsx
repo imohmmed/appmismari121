@@ -121,7 +121,10 @@ function AiLockedScreen() {
             <TouchableOpacity
               style={[styles.mainBtn, { backgroundColor: accent }]}
               activeOpacity={0.85}
-              onPress={expand}
+              onPress={() => {
+                if (!hasWhatsApp && !hasTelegram && !hasInstagram) return;
+                expand();
+              }}
             >
               <Feather name="message-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
               <Text style={[styles.mainBtnText, { fontFamily: "Mestika-Bold" }]}>تواصل معنا</Text>
