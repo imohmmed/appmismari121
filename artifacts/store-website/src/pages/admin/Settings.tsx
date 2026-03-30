@@ -5,7 +5,7 @@ import {
   Settings as SettingsIcon, Link2,
   ChevronDown, ChevronUp,
   Shield, Upload, Trash2, Zap, CheckCircle, XCircle, Info,
-  Send, Bot, Image as ImageIcon, ToggleLeft, ToggleRight,
+  Send, Bot, Image as ImageIcon, ToggleLeft, ToggleRight, Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -226,6 +226,143 @@ function SectionCard({
               )}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   AIKeysSection — مفاتيح API الخاصة بالذكاء الاصطناعي
+────────────────────────────────────────────────────────────────────────── */
+function AIKeysSection() {
+  const { toast } = useToast();
+  const AI = "#9fbcff";
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [openrouterKey, setOpenrouterKey] = useState("");
+  const [braveKey, setBraveKey] = useState("");
+  const [showOR, setShowOR] = useState(false);
+  const [showBrave, setShowBrave] = useState(false);
+
+  const loadKeys = async () => {
+    setLoading(true);
+    try {
+      const d = await adminFetch("/admin/settings");
+      const map: Record<string, string> = {};
+      for (const s of d?.settings || []) map[s.key] = s.value;
+      setOpenrouterKey(map["ai_openrouter_key"] || "");
+      setBraveKey(map["ai_brave_key"] || "");
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { if (open) loadKeys(); }, [open]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await adminFetch("/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: [
+            { key: "ai_openrouter_key", value: openrouterKey.trim() },
+            { key: "ai_brave_key",       value: braveKey.trim() },
+          ],
+        }),
+      });
+      toast({ title: "✅ تم حفظ مفاتيح AI" });
+    } catch {
+      toast({ title: "❌ فشل الحفظ", variant: "destructive" });
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="bg-[#111111] rounded-xl border overflow-hidden" style={{ borderColor: `${AI}20` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+        style={{ borderBottomColor: open ? `${AI}10` : "transparent" }}
+      >
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${AI}20` }}>
+          <Zap className="w-3.5 h-3.5" style={{ color: AI }} />
+        </div>
+        <div className="flex-1 text-right">
+          <span className="text-sm font-bold text-white">مفاتيح الذكاء الاصطناعي</span>
+          <span className="text-white/30 text-xs mr-2">AI API Keys</span>
+        </div>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-white/30 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-white/30 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div>
+          ) : (
+            <>
+              <div className="p-3 rounded-lg text-xs text-white/50 space-y-0.5" style={{ background: `${AI}08`, border: `1px solid ${AI}15` }}>
+                <p>عند إضافة مفتاح جديد، يتم تطبيقه فوراً على كل الذكاء الاصطناعي في المتجر.</p>
+                <p className="text-white/30">المفتاح المحفوظ يتجاوز قيمة متغير البيئة (Environment Variable).</p>
+              </div>
+
+              {/* OpenRouter Key */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: `${AI}bb` }}>OpenRouter API Key</label>
+                <div className="relative">
+                  <input
+                    type={showOR ? "text" : "password"}
+                    value={openrouterKey}
+                    onChange={e => setOpenrouterKey(e.target.value)}
+                    placeholder="sk-or-v1-..."
+                    dir="ltr"
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 pl-10 pr-3 text-sm text-white font-mono focus:outline-none placeholder-white/20 focus:border-white/20"
+                    style={openrouterKey ? { borderColor: `${AI}30` } : {}}
+                  />
+                  <button type="button" onClick={() => setShowOR(v => !v)} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                    {showOR ? <Eye className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-white/25">
+                  مفتاح OpenRouter — يبدأ بـ sk-or-v1- · <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: AI }}>احصل على مفتاح</a>
+                </p>
+              </div>
+
+              {/* Brave Key */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: `${AI}bb` }}>Brave Search API Key</label>
+                <div className="relative">
+                  <input
+                    type={showBrave ? "text" : "password"}
+                    value={braveKey}
+                    onChange={e => setBraveKey(e.target.value)}
+                    placeholder="BSA..."
+                    dir="ltr"
+                    className="w-full bg-black border border-white/10 rounded-lg py-2 pl-10 pr-3 text-sm text-white font-mono focus:outline-none placeholder-white/20 focus:border-white/20"
+                    style={braveKey ? { borderColor: `${AI}30` } : {}}
+                  />
+                  <button type="button" onClick={() => setShowBrave(v => !v)} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                    {showBrave ? <Eye className="w-4 h-4" /> : <Eye className="w-4 h-4 opacity-40" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-white/25">
+                  يُستخدم للبحث في الإنترنت داخل مسماري AI · <a href="https://brave.com/search/api/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: AI }}>احصل على مفتاح</a>
+                </p>
+              </div>
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-black disabled:opacity-40 w-full justify-center"
+                style={{ background: AI }}
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {saving ? "جاري الحفظ..." : "حفظ المفاتيح"}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -715,6 +852,7 @@ export default function AdminSettings() {
                 onChange={handleChange}
               />
             ))}
+            <AIKeysSection />
             <TelegramBotSection />
           </div>
         )}

@@ -22,10 +22,12 @@ function makeStorage(subdir: string) {
   });
 }
 
-const logoUpload    = multer({ storage: makeStorage("logo"),    limits: { fileSize: 5 * 1024 * 1024 } });
-const faviconUpload = multer({ storage: makeStorage("favicon"), limits: { fileSize: 2 * 1024 * 1024 } });
-const ogUpload      = multer({ storage: makeStorage("og"),      limits: { fileSize: 5 * 1024 * 1024 } });
-const fontUpload    = multer({ storage: makeStorage("font"),    limits: { fileSize: 20 * 1024 * 1024 } });
+const logoUpload       = multer({ storage: makeStorage("logo"),         limits: { fileSize: 5 * 1024 * 1024 } });
+const faviconUpload    = multer({ storage: makeStorage("favicon"),      limits: { fileSize: 2 * 1024 * 1024 } });
+const ogUpload         = multer({ storage: makeStorage("og"),           limits: { fileSize: 5 * 1024 * 1024 } });
+const fontUpload       = multer({ storage: makeStorage("font"),         limits: { fileSize: 20 * 1024 * 1024 } });
+const aiAvatarLightUp  = multer({ storage: makeStorage("ai-avatar-light"), limits: { fileSize: 5 * 1024 * 1024 } });
+const aiAvatarDarkUp   = multer({ storage: makeStorage("ai-avatar-dark"),  limits: { fileSize: 5 * 1024 * 1024 } });
 
 /* ─── Public: جلب كل إعدادات المظهر ─────────────────────────────────────── */
 router.get("/appearance", async (_req: Request, res: Response): Promise<void> => {
@@ -54,7 +56,9 @@ router.get("/appearance", async (_req: Request, res: Response): Promise<void> =>
     appearance_announcement_on:    "false",
     appearance_announcement_text:  "",
     appearance_announcement_color: "#9fbcff",
-    appearance_seo_keywords:       "",
+    appearance_seo_keywords:           "",
+    appearance_ai_avatar_light_url:    "",
+    appearance_ai_avatar_dark_url:     "",
   };
   for (const r of rows) out[r.key] = r.value;
   res.json(out);
@@ -103,6 +107,22 @@ router.post("/admin/appearance/upload-font", adminAuth, fontUpload.single("file"
   if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
   const url = `/api/appearance/assets/font/${req.file.filename}`;
   await saveSettingUrl("appearance_font_file_url", url);
+  res.json({ ok: true, url });
+});
+
+/* ─── رفع صورة AI (وضع نهاري) ────────────────────────────────────────────── */
+router.post("/admin/appearance/upload-ai-avatar-light", adminAuth, aiAvatarLightUp.single("file"), async (req: Request, res: Response): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
+  const url = `/api/appearance/assets/ai-avatar-light/${req.file.filename}`;
+  await saveSettingUrl("appearance_ai_avatar_light_url", url);
+  res.json({ ok: true, url });
+});
+
+/* ─── رفع صورة AI (وضع ليلي) ─────────────────────────────────────────────── */
+router.post("/admin/appearance/upload-ai-avatar-dark", adminAuth, aiAvatarDarkUp.single("file"), async (req: Request, res: Response): Promise<void> => {
+  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
+  const url = `/api/appearance/assets/ai-avatar-dark/${req.file.filename}`;
+  await saveSettingUrl("appearance_ai_avatar_dark_url", url);
   res.json({ ok: true, url });
 });
 

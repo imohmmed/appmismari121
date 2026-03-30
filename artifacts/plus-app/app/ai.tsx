@@ -17,6 +17,7 @@ import {
   Animated,
   FlatList,
   Image,
+  type ImageSourcePropType,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -210,16 +211,20 @@ function CodeBlock({ code, lang, isDark }: { code: string; lang: string; isDark:
 
 // ─── Message View ────────────────────────────────────────────────────────────
 
+const LOCAL_AVATAR = require("../assets/images/mismari-avatar.png");
+
 function MessageView({
-  msg, isDark, isArabic, fontAr,
+  msg, isDark, isArabic, fontAr, avatarSrc,
 }: {
   msg: ChatMessage; isDark: boolean; isArabic: boolean; fontAr: FontArFn;
+  avatarSrc?: ImageSourcePropType;
 }) {
   const isUser = msg.role === "user";
   const textColor = isDark ? "#fff" : "#1a1a1a";
   const userBg = isDark ? "#0A84FF" : "#007AFF";
   const aiBg = isDark ? "#2a2a2a" : "#f0f0f0";
   const segments = parseMarkdown(msg.content);
+  const resolvedAvatar = avatarSrc || LOCAL_AVATAR;
 
   if (isUser) {
     return (
@@ -243,7 +248,7 @@ function MessageView({
   return (
     <View style={[styles.msgRow, styles.msgRowLeft]}>
       <View style={styles.aiAvatarSmall}>
-        <Image source={require("../assets/images/mismari-avatar.png")} style={styles.aiAvatarSmallImg} resizeMode="contain" />
+        <Image source={resolvedAvatar} style={styles.aiAvatarSmallImg} resizeMode="contain" />
       </View>
       <View style={[styles.aiBubble, { backgroundColor: aiBg, maxWidth: "88%" }]}>
         {msg.isStreaming && msg.content === "" ? (
@@ -304,11 +309,12 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function WelcomeScreen({
-  onSuggestion, isArabic, isDark, fontAr, userName,
+  onSuggestion, isArabic, isDark, fontAr, userName, avatarSrc,
 }: {
   onSuggestion: (t: string) => void;
   isArabic: boolean; isDark: boolean; fontAr: FontArFn;
   userName?: string;
+  avatarSrc?: ImageSourcePropType;
 }) {
   const allSuggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
   const suggestions = useMemo(() => shuffle(allSuggestions).slice(0, 4), [isArabic]);
@@ -327,7 +333,7 @@ function WelcomeScreen({
     >
       <View style={styles.welcomeTop}>
         <View style={styles.aiAvatarLarge}>
-          <Image source={require("../assets/images/mismari-avatar.png")} style={styles.aiAvatarLargeImg} resizeMode="contain" />
+          <Image source={avatarSrc || LOCAL_AVATAR} style={styles.aiAvatarLargeImg} resizeMode="contain" />
         </View>
         <Text style={[styles.greetSmall, { color: subColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
           {greetName}
@@ -757,6 +763,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ uri: string; base64?: string } | null>(null);
+  const [customAvatarSrc, setCustomAvatarSrc] = useState<ImageSourcePropType | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -770,6 +777,21 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
 
   const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
   const apiUrl = `https://${domain}/api/ai/chat`;
+
+  // Fetch custom AI avatar from appearance settings
+  useEffect(() => {
+    fetch(`https://${domain}/api/appearance`)
+      .then(r => r.json())
+      .then((data: Record<string, string>) => {
+        const url = isDark
+          ? data.appearance_ai_avatar_dark_url
+          : data.appearance_ai_avatar_light_url;
+        if (url) {
+          setCustomAvatarSrc({ uri: `https://${domain}${url}` });
+        }
+      })
+      .catch(() => { /* use local fallback */ });
+  }, [domain, isDark]);
 
   // Load conversations
   useEffect(() => {
@@ -935,8 +957,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   };
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
-    <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} />
-  ), [isDark, isArabic, fontAr]);
+    <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} avatarSrc={customAvatarSrc ?? undefined} />
+  ), [isDark, isArabic, fontAr, customAvatarSrc]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
@@ -981,6 +1003,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
             isArabic={isArabic}
             isDark={isDark}
             fontAr={fontAr}
+            avatarSrc={customAvatarSrc ?? undefined}
           />
         ) : (
           <FlatList

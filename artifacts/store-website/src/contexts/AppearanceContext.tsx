@@ -27,6 +27,8 @@ export interface AppearanceSettings {
   appearance_announcement_text: string;
   appearance_announcement_color: string;
   appearance_seo_keywords: string;
+  appearance_ai_avatar_light_url: string;
+  appearance_ai_avatar_dark_url: string;
 }
 
 const DEFAULTS: AppearanceSettings = {
@@ -54,6 +56,8 @@ const DEFAULTS: AppearanceSettings = {
   appearance_announcement_text:  "",
   appearance_announcement_color: "#9fbcff",
   appearance_seo_keywords:       "",
+  appearance_ai_avatar_light_url: "",
+  appearance_ai_avatar_dark_url:  "",
 };
 
 const AppearanceContext = createContext<AppearanceSettings>(DEFAULTS);

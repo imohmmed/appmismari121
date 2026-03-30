@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Save, Loader2, Upload, Trash2, RefreshCw,
   Globe, Palette, Type, Image as ImageIcon, Megaphone,
-  ChevronDown, ChevronUp, Moon, Sun, Monitor, Eye,
+  ChevronDown, ChevronUp, Moon, Sun, Monitor, Eye, Bot,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { applyAppearanceToDom, type AppearanceSettings } from "@/contexts/AppearanceContext";
@@ -192,6 +192,8 @@ export default function AdminAppearance() {
     appearance_announcement_text: "",
     appearance_announcement_color: "#9fbcff",
     appearance_seo_keywords: "",
+    appearance_ai_avatar_light_url: "",
+    appearance_ai_avatar_dark_url: "",
   });
 
   /* تحديث CSS مباشرة عند تغيير أي لون */
@@ -336,6 +338,31 @@ export default function AdminAppearance() {
                 settingKey="appearance_og_image_url"
                 accent="#22c55e"
                 onUploaded={url => set("appearance_og_image_url", url)}
+              />
+            </Section>
+
+            {/* ════ صورة المساعد الذكي ════ */}
+            <Section icon={<Bot className="w-3.5 h-3.5" />} title="صورة مسماري الذكي" subtitle="AI Avatar" color="#9fbcff">
+              <p className="text-xs text-white/35">
+                ارفع صورة مخصصة تظهر كأفاتار للمساعد الذكي "مسماري AI" في التطبيق. يمكنك رفع صورة للوضع النهاري وأخرى للوضع الليلي.
+              </p>
+              <ImageUploader
+                label="صورة AI — الوضع النهاري"
+                hint="تظهر عندما يكون التطبيق في الوضع الفاتح (Light Mode)"
+                url={s.appearance_ai_avatar_light_url}
+                uploadPath="/admin/appearance/upload-ai-avatar-light"
+                settingKey="appearance_ai_avatar_light_url"
+                accent="#9fbcff"
+                onUploaded={url => set("appearance_ai_avatar_light_url", url)}
+              />
+              <ImageUploader
+                label="صورة AI — الوضع الليلي"
+                hint="تظهر عندما يكون التطبيق في الوضع الداكن (Dark Mode)"
+                url={s.appearance_ai_avatar_dark_url}
+                uploadPath="/admin/appearance/upload-ai-avatar-dark"
+                settingKey="appearance_ai_avatar_dark_url"
+                accent="#9fbcff"
+                onUploaded={url => set("appearance_ai_avatar_dark_url", url)}
               />
             </Section>
 

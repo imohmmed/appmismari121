@@ -1,20 +1,41 @@
 import { Router, type Request, type Response } from "express";
 import OpenAI from "openai";
+import { db, settingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: Router = Router();
 
-const apiKey = process.env.OPENAI_API_KEY || "";
-const isOpenRouter = apiKey.startsWith("sk-or-") || apiKey.startsWith("sk_or_");
-const openai = new OpenAI({
-  apiKey,
-  ...(isOpenRouter ? {
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "https://app.mismari.com",
-      "X-Title": "Mismari AI",
-    },
-  } : {}),
-});
+/* ─── Runtime key lookup (DB first, env fallback) ──────────────────────────── */
+async function getSettingValue(key: string): Promise<string | null> {
+  try {
+    const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, key)).limit(1);
+    return rows[0]?.value || null;
+  } catch {
+    return null;
+  }
+}
+
+async function buildOpenAIClient(): Promise<{ client: OpenAI; braveKey: string | null }> {
+  const dbOpenRouterKey = await getSettingValue("ai_openrouter_key");
+  const dbBraveKey = await getSettingValue("ai_brave_key");
+
+  const apiKey = dbOpenRouterKey || process.env.OPENAI_API_KEY || "";
+  const braveKey = dbBraveKey || process.env.BRAVE_SEARCH_API_KEY || null;
+  const isOpenRouter = apiKey.startsWith("sk-or-") || apiKey.startsWith("sk_or_");
+
+  const client = new OpenAI({
+    apiKey,
+    ...(isOpenRouter ? {
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": "https://app.mismari.com",
+        "X-Title": "Mismari AI",
+      },
+    } : {}),
+  });
+
+  return { client, braveKey };
+}
 
 const PRIMARY_MODEL = "gpt-4o";
 const FALLBACK_MODEL = "gpt-4o-mini";
@@ -69,8 +90,7 @@ function truncateMessages(messages: Array<{ role: string; content: string }>): A
 
 // ─── Brave Web Search ────────────────────────────────────────────────────────
 
-async function braveSearch(query: string): Promise<string> {
-  const key = process.env.BRAVE_SEARCH_API_KEY;
+async function braveSearch(query: string, key: string): Promise<string> {
   if (!key) return "خدمة البحث غير متاحة حالياً (مفتاح API مفقود).";
 
   try {
@@ -184,10 +204,12 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   const primaryModel = model || PRIMARY_MODEL;
   const modelsToTry = [primaryModel, FALLBACK_MODEL].filter((v, i, a) => a.indexOf(v) === i);
 
+  // Resolve API keys (DB overrides env vars)
+  const { client: openai, braveKey } = await buildOpenAIClient();
+
   // ── Phase 1: Check if web search is needed (non-streaming, with tools) ──
   // Skip Phase 1 when an image is attached — tool check would send base64 twice
   let finalMessages = [...baseMessages];
-  const braveKey = process.env.BRAVE_SEARCH_API_KEY;
 
   if (braveKey && !imageBase64) {
     try {
@@ -212,7 +234,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
         send({ status: "searching", query });
 
         // Execute Brave search
-        const searchResults = await braveSearch(query);
+        const searchResults = await braveSearch(query, braveKey!);
 
         // Add tool call + result to messages
         finalMessages = [
