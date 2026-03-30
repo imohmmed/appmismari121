@@ -24,7 +24,7 @@ export default function AiTab() {
   }, [router]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? "#000" : "#F0F2F5" }}>
+    <View style={{ flex: 1, backgroundColor: isDark ? "#2B283B" : "#F0F2F5" }}>
       <Modal
         visible={visible}
         animationType="fade"

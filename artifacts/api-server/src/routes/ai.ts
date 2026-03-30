@@ -207,6 +207,12 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
 
   const send = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
+  // Flush headers immediately so the client knows the connection is alive
+  res.write(": connected\n\n");
+
+  // Send periodic keepalive pings so the proxy doesn't kill the connection during processing
+  const keepalive = setInterval(() => { try { res.write(": ping\n\n"); } catch {} }, 5000);
+
   const systemPrompt = buildSystemPrompt(deviceInfo);
   const contextMessages = truncateMessages(messages);
 
@@ -328,11 +334,13 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
       }
 
       send({ done: true, model: tryModel });
+      clearInterval(keepalive);
       res.end();
       return;
     } catch (err: any) {
       if (tryModel === modelsToTry[modelsToTry.length - 1]) {
         send({ error: err?.message || "فشل الاتصال بالذكاء الاصطناعي" });
+        clearInterval(keepalive);
         res.end();
         return;
       }
