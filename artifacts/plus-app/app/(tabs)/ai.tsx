@@ -1,26 +1,19 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useRef } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect } from "react";
 import { View } from "react-native";
 
 import { useSettings } from "@/contexts/SettingsContext";
 
-export default function AiTabRedirect() {
+export default function AiTab() {
   const router = useRouter();
   const { isDark } = useSettings();
-  const isPushingRef = useRef(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!isPushingRef.current) {
-        isPushingRef.current = true;
-        const timer = setTimeout(() => {
-          router.push("/ai");
-          setTimeout(() => { isPushingRef.current = false; }, 800);
-        }, 50);
-        return () => clearTimeout(timer);
-      }
-    }, [])
-  );
+  useEffect(() => {
+    const t = setTimeout(() => {
+      router.replace("/ai");
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   return <View style={{ flex: 1, backgroundColor: isDark ? "#000" : "#F0F2F5" }} />;
 }
