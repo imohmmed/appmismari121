@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -233,7 +234,7 @@ function MessageView({
   return (
     <View style={[styles.msgRow, styles.msgRowLeft]}>
       <View style={styles.aiAvatarSmall}>
-        <Text style={styles.aiAvatarSmallText}>م</Text>
+        <Image source={require("../assets/images/mismari-avatar.png")} style={styles.aiAvatarSmallImg} resizeMode="contain" />
       </View>
       <View style={[styles.aiBubble, { backgroundColor: aiBg, maxWidth: "88%" }]}>
         {msg.isStreaming && msg.content === "" ? (
@@ -317,7 +318,7 @@ function WelcomeScreen({
     >
       <View style={styles.welcomeTop}>
         <View style={styles.aiAvatarLarge}>
-          <Text style={styles.aiAvatarLargeText}>م</Text>
+          <Image source={require("../assets/images/mismari-avatar.png")} style={styles.aiAvatarLargeImg} resizeMode="contain" />
         </View>
         <Text style={[styles.greetSmall, { color: subColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
           {greetName}
@@ -337,7 +338,7 @@ function WelcomeScreen({
             ]}
           >
             <Text style={styles.chipIcon}>{s.icon}</Text>
-            <Text style={[styles.chipText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
+            <Text style={[styles.chipText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]} numberOfLines={2}>
               {s.text}
             </Text>
           </Pressable>
@@ -586,10 +587,15 @@ function AttachPicker({
 
 function InputBar({
   value, onChange, onSend, onAttach, onModelPress, isStreaming, isDark, isArabic, fontAr, model,
+  attachedFile, attachedImage, onRemoveFile, onRemoveImage,
 }: {
   value: string; onChange: (t: string) => void; onSend: () => void; onAttach: () => void;
   onModelPress: () => void; isStreaming: boolean; isDark: boolean; isArabic: boolean;
   fontAr: FontArFn; model: string;
+  attachedFile?: { name: string; content: string } | null;
+  attachedImage?: { uri: string; base64?: string } | null;
+  onRemoveFile?: () => void;
+  onRemoveImage?: () => void;
 }) {
   const bg = isDark ? "#1c1c1e" : "#fff";
   const border = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
@@ -598,9 +604,34 @@ function InputBar({
   const sendActive = isDark ? "#0A84FF" : "#007AFF";
   const currentModel = MODELS.find(m => m.id === model);
   const modelLabel = isArabic ? currentModel?.labelAr : currentModel?.labelEn;
+  const hasAttachment = !!(attachedFile || attachedImage);
 
   return (
     <View style={[styles.inputBar, { backgroundColor: bg, borderTopColor: border }]}>
+      {/* Attachment previews above text field */}
+      {hasAttachment && (
+        <View style={styles.attachPreviewRow}>
+          {attachedImage && (
+            <View style={styles.attachThumbWrapper}>
+              <Image source={{ uri: attachedImage.uri }} style={styles.attachThumb} />
+              <Pressable style={styles.attachThumbX} onPress={onRemoveImage} hitSlop={4}>
+                <Feather name="x" size={10} color="#fff" />
+              </Pressable>
+            </View>
+          )}
+          {attachedFile && (
+            <View style={[styles.attachFileChip, { backgroundColor: isDark ? "#2a2a3a" : "#e8f0ff" }]}>
+              <Feather name="file-text" size={13} color="#007AFF" />
+              <Text style={[styles.attachFileChipText, { color: isDark ? "#aac4ff" : "#007AFF" }]} numberOfLines={1}>
+                {attachedFile.name}
+              </Text>
+              <Pressable onPress={onRemoveFile} hitSlop={6}>
+                <Feather name="x" size={12} color={isDark ? "#888" : "#666"} />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
       <View style={[styles.inputRow, { backgroundColor: isDark ? "#2a2a2a" : "#f0f0f0", borderRadius: 22 }]}>
         <Pressable onPress={onAttach} style={styles.inputIconBtn} hitSlop={8}>
           <Feather name="plus" size={20} color={subColor} />
@@ -626,11 +657,13 @@ function InputBar({
         </Pressable>
         <Pressable
           onPress={onSend}
-          disabled={isStreaming || value.trim() === ""}
+          disabled={isStreaming || (value.trim() === "" && !attachedFile && !attachedImage)}
           style={({ pressed }) => [
             styles.sendBtn,
             {
-              backgroundColor: isStreaming || value.trim() === "" ? (isDark ? "#333" : "#ddd") : sendActive,
+              backgroundColor: (isStreaming || (value.trim() === "" && !attachedFile && !attachedImage))
+                ? (isDark ? "#333" : "#ddd")
+                : sendActive,
               opacity: pressed ? 0.8 : 1,
             },
           ]}
@@ -714,8 +747,6 @@ export default function AiScreen() {
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ uri: string; base64?: string } | null>(null);
-
-  const shortcutSuggestions = useMemo(() => shuffle(isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN).slice(0, 6), [isArabic]);
 
   const flatListRef = useRef<FlatList>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -896,30 +927,6 @@ export default function AiScreen() {
         </Pressable>
       </View>
 
-      {/* Attached file indicator */}
-      {attachedFile && (
-        <View style={[styles.attachedBanner, { backgroundColor: isDark ? "#1a2a3a" : "#e8f0ff" }]}>
-          <Feather name="file-text" size={14} color={isDark ? "#0A84FF" : "#007AFF"} />
-          <Text style={[styles.attachedName, { color: isDark ? "#0A84FF" : "#007AFF", fontFamily: fontAr("Regular") }]} numberOfLines={1}>
-            {attachedFile.name}
-          </Text>
-          <Pressable onPress={() => setAttachedFile(null)} hitSlop={8}>
-            <Feather name="x" size={14} color={isDark ? "#888" : "#666"} />
-          </Pressable>
-        </View>
-      )}
-      {attachedImage && (
-        <View style={[styles.attachedBanner, { backgroundColor: isDark ? "#1a2a3a" : "#e8f0ff" }]}>
-          <Feather name="image" size={14} color={isDark ? "#0A84FF" : "#007AFF"} />
-          <Text style={[styles.attachedName, { color: isDark ? "#0A84FF" : "#007AFF", fontFamily: fontAr("Regular") }]} numberOfLines={1}>
-            {isArabic ? "صورة مرفقة ✓" : "Image attached ✓"}
-          </Text>
-          <Pressable onPress={() => setAttachedImage(null)} hitSlop={8}>
-            <Feather name="x" size={14} color={isDark ? "#888" : "#666"} />
-          </Pressable>
-        </View>
-      )}
-
       {/* Content */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -945,32 +952,6 @@ export default function AiScreen() {
           />
         )}
 
-        {/* Quick shortcuts above input (only when messages exist) */}
-        {messages.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.shortcutsBar}
-            style={{ flexShrink: 0 }}
-          >
-            {shortcutSuggestions.map((s, i) => (
-              <Pressable
-                key={i}
-                onPress={() => { Haptics.selectionAsync(); sendMessage(s.text); }}
-                style={({ pressed }) => [
-                  styles.shortcutChip,
-                  { backgroundColor: isDark ? "#1c1c1e" : "#fff", opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <Text style={styles.shortcutIcon}>{s.icon}</Text>
-                <Text style={[styles.shortcutText, { color: textColor, fontFamily: fontAr("Regular") }]} numberOfLines={1}>
-                  {s.text}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        )}
-
         {/* Web Search Indicator */}
         {isSearching && (
           <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#0f1628" : "#e8eeff" }]}>
@@ -993,6 +974,10 @@ export default function AiScreen() {
           isArabic={isArabic}
           fontAr={fontAr}
           model={selectedModel}
+          attachedFile={attachedFile}
+          attachedImage={attachedImage}
+          onRemoveFile={() => setAttachedFile(null)}
+          onRemoveImage={() => setAttachedImage(null)}
         />
         <View style={{ height: Math.max(insets.bottom, 8) }} />
       </KeyboardAvoidingView>
@@ -1055,44 +1040,39 @@ const styles = StyleSheet.create({
   headerBtn: { width: 40, alignItems: "center" },
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { fontSize: 17, letterSpacing: -0.3 },
-  attachedBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 8,
-  },
-  attachedName: { flex: 1, fontSize: 13 },
   welcomeContainer: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 40 },
   welcomeTop: { marginBottom: 32 },
   aiAvatarLarge: {
-    width: 60, height: 60, borderRadius: 20,
-    backgroundColor: "#0A84FF", alignItems: "center", justifyContent: "center",
-    marginBottom: 20,
+    width: 56, height: 56, borderRadius: 18,
+    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  aiAvatarLargeText: { color: "#fff", fontSize: 26, fontWeight: "700" },
-  greetSmall: { fontSize: 16, marginBottom: 6 },
-  greetBig: { fontSize: 28, lineHeight: 36 },
-  chipsContainer: { gap: 10 },
+  aiAvatarLargeImg: { width: 36, height: 36 },
+  greetSmall: { fontSize: 15, marginBottom: 4 },
+  greetBig: { fontSize: 24, lineHeight: 32 },
+  chipsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    gap: 12,
+    gap: 8,
+    width: "47%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 1,
   },
-  chipIcon: { fontSize: 20 },
-  chipText: { fontSize: 15, flex: 1 },
+  chipIcon: { fontSize: 17 },
+  chipText: { fontSize: 13, flex: 1, lineHeight: 18 },
   messageList: { paddingVertical: 16, paddingHorizontal: 12, gap: 12 },
   msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   msgRowLeft: { justifyContent: "flex-start" },
@@ -1106,10 +1086,15 @@ const styles = StyleSheet.create({
   userText: { color: "#fff", fontSize: 15, lineHeight: 22 },
   aiAvatarSmall: {
     width: 28, height: 28, borderRadius: 9,
-    backgroundColor: "#0A84FF", alignItems: "center", justifyContent: "center",
+    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
     flexShrink: 0, marginBottom: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  aiAvatarSmallText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  aiAvatarSmallImg: { width: 18, height: 18 },
   aiBubble: {
     borderRadius: 18,
     borderBottomLeftRadius: 4,
@@ -1162,6 +1147,21 @@ const styles = StyleSheet.create({
   },
   shortcutIcon: { fontSize: 14 },
   shortcutText: { fontSize: 12, maxWidth: 130 },
+  attachPreviewRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 4, paddingBottom: 8 },
+  attachThumbWrapper: { width: 64, height: 64, borderRadius: 10, overflow: "visible" },
+  attachThumb: { width: 64, height: 64, borderRadius: 10 },
+  attachThumbX: {
+    position: "absolute", top: -6, right: -6,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: "#333",
+    alignItems: "center", justifyContent: "center",
+  },
+  attachFileChip: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12,
+    maxWidth: 200,
+  },
+  attachFileChipText: { fontSize: 12, flex: 1 },
   inputBar: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, borderTopWidth: StyleSheet.hairlineWidth },
   inputRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
   inputIconBtn: { padding: 6 },
