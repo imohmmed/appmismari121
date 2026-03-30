@@ -128,10 +128,10 @@ function extractUrls(text: string): string[] {
   return (text.match(regex) || []).slice(0, 3); // max 3 URLs
 }
 
-async function fetchUrlContent(url: string): Promise<string> {
+async function fetchUrlContent(url: string): Promise<string | null> {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -140,7 +140,7 @@ async function fetchUrlContent(url: string): Promise<string> {
       },
     });
     clearTimeout(timer);
-    if (!res.ok) return `[فشل جلب الرابط: HTTP ${res.status}]`;
+    if (!res.ok) return null;
     const html = await res.text();
     // Strip scripts, styles, and tags
     const text = html
@@ -149,9 +149,11 @@ async function fetchUrlContent(url: string): Promise<string> {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s{2,}/g, " ")
       .trim();
-    return text.substring(0, 8000);
-  } catch (err: any) {
-    return `[لم يتمكن من جلب الرابط: ${err?.message || "خطأ غير معروف"}]`;
+    // If very little content extracted, page is probably an SPA shell — skip
+    if (text.length < 200) return null;
+    return text.substring(0, 4000);
+  } catch {
+    return null;
   }
 }
 
@@ -210,15 +212,22 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
 
   // ── URL Auto-Fetch: extract URLs from last user message and fetch content ──
   let urlContextBlock = "";
+  let hasUrlContext = false;
   const lastMsg = messages[messages.length - 1];
   if (lastMsg?.role === "user" && !imageBase64) {
     const urls = extractUrls(lastMsg.content || "");
     if (urls.length > 0) {
       send({ status: "fetching_url", query: urls[0] });
       const contents = await Promise.all(urls.map(fetchUrlContent));
-      urlContextBlock = urls
-        .map((u, i) => `=== محتوى الصفحة: ${u} ===\n${contents[i]}`)
-        .join("\n\n");
+      const validPairs = urls
+        .map((u, i) => ({ url: u, content: contents[i] }))
+        .filter(p => p.content !== null);
+      if (validPairs.length > 0) {
+        urlContextBlock = validPairs
+          .map(p => `=== محتوى الصفحة: ${p.url} ===\n${p.content}`)
+          .join("\n\n");
+        hasUrlContext = true;
+      }
     }
   }
 
@@ -262,7 +271,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   // Skip Phase 1 when an image is attached — tool check would send base64 twice
   let finalMessages = [...baseMessages];
 
-  if (braveKey && !imageBase64) {
+  if (braveKey && !imageBase64 && !hasUrlContext) {
     try {
       const toolCheck = await openai.chat.completions.create({
         model: primaryModel,
