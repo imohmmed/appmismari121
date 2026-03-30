@@ -3,7 +3,18 @@ import OpenAI from "openai";
 
 const router: Router = Router();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const apiKey = process.env.OPENAI_API_KEY || "";
+const isOpenRouter = apiKey.startsWith("sk-or-") || apiKey.startsWith("sk_or_");
+const openai = new OpenAI({
+  apiKey,
+  ...(isOpenRouter ? {
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": "https://app.mismari.com",
+      "X-Title": "Mismari AI",
+    },
+  } : {}),
+});
 
 const PRIMARY_MODEL = "gpt-4o";
 const FALLBACK_MODEL = "gpt-4o-mini";

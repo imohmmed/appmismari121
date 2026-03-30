@@ -2,10 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,6 +15,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -72,6 +75,14 @@ const SUGGESTIONS_AR = [
   { icon: "🔍", text: "ابحث عن ثغرة في iOS" },
   { icon: "📱", text: "مساعدة في TrollStore" },
   { icon: "⚡", text: "حوّل هذا الكود لـ Python" },
+  { icon: "🔐", text: "كيف أتجاوز SSL Pinning؟" },
+  { icon: "📦", text: "كيف أوقع IPA بـ Zsign؟" },
+  { icon: "🛠️", text: "اكتب لي Tweak بـ Theos" },
+  { icon: "🔬", text: "حلل هذا الملف IPA" },
+  { icon: "🤖", text: "اكتب سكريبت Python لي" },
+  { icon: "💉", text: "كيف أعمل Dylib Injection؟" },
+  { icon: "🧩", text: "اشرح لي SwiftUI" },
+  { icon: "🗝️", text: "مساعدة في AltSign" },
 ];
 
 const SUGGESTIONS_EN = [
@@ -79,6 +90,14 @@ const SUGGESTIONS_EN = [
   { icon: "🔍", text: "Find an iOS vulnerability" },
   { icon: "📱", text: "Help me with TrollStore" },
   { icon: "⚡", text: "Convert this code to Python" },
+  { icon: "🔐", text: "How to bypass SSL Pinning?" },
+  { icon: "📦", text: "How to sign IPA with Zsign?" },
+  { icon: "🛠️", text: "Write me a Theos tweak" },
+  { icon: "🔬", text: "Analyze this IPA file" },
+  { icon: "🤖", text: "Write me a Python script" },
+  { icon: "💉", text: "How to do Dylib Injection?" },
+  { icon: "🧩", text: "Explain SwiftUI to me" },
+  { icon: "🗝️", text: "Help with AltSign" },
 ];
 
 // ─── Markdown Parser ────────────────────────────────────────────────────────
@@ -201,9 +220,9 @@ function MessageView({
 
   if (isUser) {
     return (
-      <View style={[styles.msgRow, isArabic ? styles.msgRowLeft : styles.msgRowRight]}>
+      <View style={[styles.msgRow, styles.msgRowRight]}>
         <View style={[styles.userBubble, { backgroundColor: userBg, maxWidth: "80%" }]}>
-          <Text style={[styles.userText, { fontFamily: fontAr("Regular") }]}>
+          <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
             {msg.content}
           </Text>
         </View>
@@ -212,7 +231,7 @@ function MessageView({
   }
 
   return (
-    <View style={[styles.msgRow, isArabic ? styles.msgRowRight : styles.msgRowLeft]}>
+    <View style={[styles.msgRow, styles.msgRowLeft]}>
       <View style={styles.aiAvatarSmall}>
         <Text style={styles.aiAvatarSmallText}>م</Text>
       </View>
@@ -265,6 +284,15 @@ function TypingDot({ delay, isDark }: { delay: number; isDark: boolean }) {
 
 // ─── Welcome Screen ──────────────────────────────────────────────────────────
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function WelcomeScreen({
   onSuggestion, isArabic, isDark, fontAr, userName,
 }: {
@@ -272,7 +300,8 @@ function WelcomeScreen({
   isArabic: boolean; isDark: boolean; fontAr: FontArFn;
   userName?: string;
 }) {
-  const suggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
+  const allSuggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
+  const suggestions = useMemo(() => shuffle(allSuggestions).slice(0, 4), [isArabic]);
   const greetName = userName ? (isArabic ? `مرحباً ${userName}` : `Hi ${userName}`) : (isArabic ? "مرحباً" : "Hello");
   const subtitle = isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?";
   const textColor = isDark ? "#fff" : "#1a1a1a";
@@ -331,14 +360,15 @@ function ChatSidebar({
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
   const [search, setSearch] = useState("");
-  const slideAnim = useRef(new Animated.Value(-320)).current;
+  const startX = isArabic ? 320 : -320;
+  const slideAnim = useRef(new Animated.Value(startX)).current;
 
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 200 }).start();
   }, []);
 
   const close = () => {
-    Animated.timing(slideAnim, { toValue: -320, duration: 200, useNativeDriver: true }).start(onClose);
+    Animated.timing(slideAnim, { toValue: startX, duration: 200, useNativeDriver: true }).start(onClose);
   };
 
   const bg = isDark ? "#111" : "#fafafa";
@@ -460,9 +490,10 @@ function ModelPicker({
 // ─── Attach Picker ───────────────────────────────────────────────────────────
 
 function AttachPicker({
-  onFilePick, onClose, isDark, isArabic, fontAr,
+  onFilePick, onImagePick, onClose, isDark, isArabic, fontAr,
 }: {
   onFilePick: (name: string, content: string) => void;
+  onImagePick: (uri: string, base64?: string) => void;
   onClose: () => void;
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
 }) {
@@ -475,32 +506,59 @@ function AttachPicker({
   };
 
   const pickFile = async () => {
+    close();
+    await new Promise(r => setTimeout(r, 200));
     const result = await DocumentPicker.getDocumentAsync({ type: "*/*", copyToCacheDirectory: true });
-    if (result.canceled || !result.assets?.[0]) { close(); return; }
+    if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     const name = asset.name;
     let content = "";
     const textTypes = [".swift", ".py", ".js", ".ts", ".x", ".m", ".h", ".c", ".cpp", ".txt", ".json", ".md", ".xml", ".plist"];
     const isText = textTypes.some(ext => name.toLowerCase().endsWith(ext));
     if (isText && asset.uri) {
-      try {
-        const resp = await fetch(asset.uri);
-        content = await resp.text();
-      } catch {
-        content = "[تعذّر قراءة الملف]";
-      }
+      try { content = await (await fetch(asset.uri)).text(); }
+      catch { content = "[تعذّر قراءة الملف]"; }
     } else {
       content = `[ملف: ${name}, الحجم: ${Math.round((asset.size ?? 0) / 1024)} KB]`;
     }
     onFilePick(name, content);
+  };
+
+  const pickFromLibrary = async () => {
     close();
+    await new Promise(r => setTimeout(r, 200));
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      base64: true,
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    onImagePick(asset.uri, asset.base64 || undefined);
+  };
+
+  const pickFromCamera = async () => {
+    close();
+    await new Promise(r => setTimeout(r, 200));
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    onImagePick(asset.uri, asset.base64 || undefined);
   };
 
   const bg = isDark ? "#1c1c1e" : "#fff";
   const textColor = isDark ? "#fff" : "#111";
-  const subColor = isDark ? "#aaa" : "#666";
 
   const ATTACH_OPTIONS = [
+    { icon: "camera" as const, label: isArabic ? "الكاميرا" : "Camera", onPress: pickFromCamera },
+    { icon: "image" as const, label: isArabic ? "اختر صورة" : "Photo Library", onPress: pickFromLibrary },
     { icon: "file-text" as const, label: isArabic ? "ملف برمجي (.swift, .py, ...)" : "Code File (.swift, .py, ...)", onPress: pickFile },
   ];
 
@@ -559,7 +617,11 @@ function InputBar({
           ]}
           editable={!isStreaming}
         />
-        <Pressable onPress={onModelPress} style={styles.modelBadge} hitSlop={8}>
+        <Pressable
+          onPress={() => { Keyboard.dismiss(); setTimeout(onModelPress, 100); }}
+          style={styles.modelBadge}
+          hitSlop={8}
+        >
           <Text style={[styles.modelBadgeText, { color: subColor }]}>{modelLabel}</Text>
         </Pressable>
         <Pressable
@@ -651,6 +713,9 @@ export default function AiScreen() {
   const [showAttach, setShowAttach] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ uri: string; base64?: string } | null>(null);
+
+  const shortcutSuggestions = useMemo(() => shuffle(isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN).slice(0, 6), [isArabic]);
 
   const flatListRef = useRef<FlatList>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -715,13 +780,17 @@ export default function AiScreen() {
 
   const sendMessage = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed && !attachedFile) return;
+    if (!trimmed && !attachedFile && !attachedImage) return;
     if (isStreaming) return;
 
     let fullText = trimmed;
     if (attachedFile) {
       fullText += `\n\n📎 **${attachedFile.name}**:\n\`\`\`\n${attachedFile.content.slice(0, 8000)}\n\`\`\``;
       setAttachedFile(null);
+    }
+    if (attachedImage) {
+      fullText += `\n\n[صورة مرفقة]`;
+      setAttachedImage(null);
     }
 
     const userMsg: ChatMessage = { id: genId(), role: "user", content: fullText };
@@ -791,7 +860,7 @@ export default function AiScreen() {
       }
     );
     xhrRef.current = xhr;
-  }, [messages, currentConvId, selectedModel, deviceUdid, isArabic, isStreaming, attachedFile, apiUrl, persistMessages]);
+  }, [messages, currentConvId, selectedModel, deviceUdid, isArabic, isStreaming, attachedFile, attachedImage, apiUrl, persistMessages]);
 
   useEffect(() => { scrollToBottom(); }, [messages.length]);
 
@@ -839,6 +908,17 @@ export default function AiScreen() {
           </Pressable>
         </View>
       )}
+      {attachedImage && (
+        <View style={[styles.attachedBanner, { backgroundColor: isDark ? "#1a2a3a" : "#e8f0ff" }]}>
+          <Feather name="image" size={14} color={isDark ? "#0A84FF" : "#007AFF"} />
+          <Text style={[styles.attachedName, { color: isDark ? "#0A84FF" : "#007AFF", fontFamily: fontAr("Regular") }]} numberOfLines={1}>
+            {isArabic ? "صورة مرفقة ✓" : "Image attached ✓"}
+          </Text>
+          <Pressable onPress={() => setAttachedImage(null)} hitSlop={8}>
+            <Feather name="x" size={14} color={isDark ? "#888" : "#666"} />
+          </Pressable>
+        </View>
+      )}
 
       {/* Content */}
       <KeyboardAvoidingView
@@ -873,7 +953,7 @@ export default function AiScreen() {
             contentContainerStyle={styles.shortcutsBar}
             style={{ flexShrink: 0 }}
           >
-            {(isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN).map((s, i) => (
+            {shortcutSuggestions.map((s, i) => (
               <Pressable
                 key={i}
                 onPress={() => { Haptics.selectionAsync(); sendMessage(s.text); }}
@@ -947,6 +1027,10 @@ export default function AiScreen() {
       {showAttach && (
         <AttachPicker
           onFilePick={handleFilePick}
+          onImagePick={(uri, base64) => {
+            setAttachedImage({ uri, base64 });
+            setShowAttach(false);
+          }}
           onClose={() => setShowAttach(false)}
           isDark={isDark}
           isArabic={isArabic}
@@ -1069,6 +1153,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     gap: 6,
+    flexShrink: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
