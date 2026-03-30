@@ -23,6 +23,13 @@ const AI_TAB = { name: "ai", translationKey: "tabAi" as const, icon: "cpu" };
 
 const isIOS = Platform.OS === "ios";
 
+/**
+ * A pill-shaped container that uses BlurView on iOS and a solid bg on Android.
+ *
+ * KEY FIX: BlurView doesn't support borderRadius on its own on iOS.
+ * Solution: Wrap BlurView (or View) inside a clipping View that carries
+ * the borderRadius + overflow:"hidden", so corners are properly rounded.
+ */
 function Pill({
   children,
   isDark,
@@ -34,20 +41,34 @@ function Pill({
 }) {
   if (isIOS) {
     return (
-      <BlurView
-        intensity={90}
-        tint={isDark ? "systemUltraThinMaterialDark" : "systemUltraThinMaterial"}
-        style={[s.pill, style]}
-      >
-        {children}
-      </BlurView>
+      /*
+       * iOS: Two-layer trick for rounded blur + visible shadow:
+       *   1. shadowWrap  — carries the shadow (NO overflow:hidden, so shadow isn't clipped)
+       *   2. clipWrap    — carries borderRadius + overflow:hidden so blur is rounded
+       *   3. BlurView    — fills clipWrap
+       */
+      <View style={[s.shadowWrap, style]}>
+        <View style={s.clipWrap}>
+          <BlurView
+            intensity={80}
+            tint={isDark ? "systemUltraThinMaterialDark" : "systemUltraThinMaterial"}
+            style={s.pillInner}
+          >
+            {children}
+          </BlurView>
+        </View>
+      </View>
     );
   }
+
+  // Android / other: single View with solid semi-transparent bg + elevation
   return (
     <View
       style={[
-        s.pill,
-        { backgroundColor: isDark ? "rgba(28,28,30,0.96)" : "rgba(255,255,255,0.97)" },
+        s.shadowWrap,
+        s.clipWrap,
+        s.pillInner,
+        { backgroundColor: isDark ? "rgba(36,36,40,0.96)" : "rgba(255,255,255,0.96)" },
         style,
       ]}
     >
@@ -57,13 +78,13 @@ function Pill({
 }
 
 export default function MismariTabBar({ state, navigation }: BottomTabBarProps) {
-  const { colors, t, fontAr, isDark, isArabic } = useSettings();
+  const { t, fontAr, isDark, isArabic } = useSettings();
   const insets = useSafeAreaInsets();
 
-  const activeRoute = state.routes[state.index]?.name;
+  const activeRoute   = state.routes[state.index]?.name;
   const bottomPadding = Math.max(insets.bottom, 10);
 
-  const activeColor  = isDark ? "#0A84FF" : "#007AFF";
+  const activeColor   = isDark ? "#0A84FF" : "#007AFF";
   const inactiveColor = isDark ? "#8E8E93" : "#8E8E93";
 
   const navigate = (name: string) => {
@@ -74,75 +95,83 @@ export default function MismariTabBar({ state, navigation }: BottomTabBarProps) 
     navigation.navigate(name);
   };
 
+  /* ── The row direction is always LTR (row):
+       Layout: [AI pill] — spacer — [Main pill]
+         • English: AI on LEFT,  main tabs on RIGHT  ✓
+         • Arabic:  AI on LEFT,  main tabs on RIGHT  ✓
+       What DOES change for Arabic is the ORDER of tabs INSIDE the main pill
+       (reversed, so Plus+ is on the rightmost position).
+  ──────────────────────────────────────────────────────────────────────────── */
+
   /* ── main tabs ordered by language ─────────────────────────────────────── */
   const mainTabs = isArabic ? [...MAIN_TABS].reverse() : MAIN_TABS;
 
   /* ── AI tab ─────────────────────────────────────────────────────────────── */
-  const isAiActive = activeRoute === AI_TAB.name;
-  const aiColor    = isAiActive ? activeColor : inactiveColor;
-  const aiIconBg   = isAiActive
+  const isAiActive  = activeRoute === AI_TAB.name;
+  const aiColor     = isAiActive ? activeColor : inactiveColor;
+  const aiIconBg    = isAiActive
     ? activeColor
-    : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+    : isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
   const aiIconColor = isAiActive ? "#fff" : inactiveColor;
-
-  const aiTab = (
-    <Pressable
-      onPress={() => navigate(AI_TAB.name)}
-      style={s.tabItem}
-    >
-      <View style={[s.aiIconWrapper, { backgroundColor: aiIconBg }]}>
-        <Feather name="cpu" size={17} color={aiIconColor} />
-      </View>
-      <Text style={[s.tabLabel, { color: aiColor, fontFamily: fontAr("Medium") }]} numberOfLines={1}>
-        {t(AI_TAB.translationKey)}
-      </Text>
-    </Pressable>
-  );
-
-  /* ── main tab items ─────────────────────────────────────────────────────── */
-  const mainTabItems = mainTabs.map(tab => {
-    const isActive = activeRoute === tab.name;
-    const tint = isActive ? activeColor : inactiveColor;
-    return (
-      <Pressable
-        key={tab.name}
-        onPress={() => navigate(tab.name)}
-        style={s.tabItem}
-      >
-        <Feather name={tab.icon as any} size={22} color={tint} />
-        <Text style={[s.tabLabel, { color: tint, fontFamily: fontAr("Medium") }]} numberOfLines={1}>
-          {t(tab.translationKey)}
-        </Text>
-      </Pressable>
-    );
-  });
 
   return (
     <View style={[s.outerWrapper, { paddingBottom: bottomPadding }]}>
-      {/*
-        Row direction flips for Arabic so:
-          LTR (English): [AI pill] — spacer — [Main pill]  → AI on left
-          RTL (Arabic) : [Main pill] — spacer — [AI pill]  → AI on right
-      */}
-      <View style={[s.row, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
 
-        {/* ── AI pill (separate, smaller) ─────────────────────────────────── */}
-        <Pill isDark={isDark} style={s.aiPill}>
-          {aiTab}
+      {/* Single horizontal row — always left-to-right */}
+      <View style={s.row}>
+
+        {/* ── AI pill ──────────────────────────────────────────────────────── */}
+        <Pill isDark={isDark}>
+          <Pressable
+            onPress={() => navigate(AI_TAB.name)}
+            style={s.tabItem}
+            android_ripple={{ color: "transparent" }}
+          >
+            <View style={[s.aiIconWrapper, { backgroundColor: aiIconBg }]}>
+              <Feather name="cpu" size={17} color={aiIconColor} />
+            </View>
+            <Text
+              style={[s.tabLabel, { color: aiColor, fontFamily: fontAr("Medium") }]}
+              numberOfLines={1}
+            >
+              {t(AI_TAB.translationKey)}
+            </Text>
+          </Pressable>
         </Pill>
 
-        {/* ── flex spacer pushes the two pills to opposite ends ───────────── */}
+        {/* ── Spacer pushes the two pills to opposite ends ─────────────────── */}
         <View style={s.spacer} />
 
         {/* ── Main tabs pill ───────────────────────────────────────────────── */}
-        <Pill isDark={isDark} style={s.mainPill}>
-          {mainTabItems}
+        <Pill isDark={isDark} style={s.mainPillExtra}>
+          {mainTabs.map(tab => {
+            const isActive = activeRoute === tab.name;
+            const tint = isActive ? activeColor : inactiveColor;
+            return (
+              <Pressable
+                key={tab.name}
+                onPress={() => navigate(tab.name)}
+                style={s.tabItem}
+                android_ripple={{ color: "transparent" }}
+              >
+                <Feather name={tab.icon as any} size={22} color={tint} />
+                <Text
+                  style={[s.tabLabel, { color: tint, fontFamily: fontAr("Medium") }]}
+                  numberOfLines={1}
+                >
+                  {t(tab.translationKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </Pill>
 
       </View>
     </View>
   );
 }
+
+const RADIUS = 24;
 
 const s = StyleSheet.create({
   outerWrapper: {
@@ -152,60 +181,64 @@ const s = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 8,
-    /* no background — pills float above content */
-  },
-  row: {
-    alignItems: "center",
   },
 
-  /* ── shared pill ─────────────────────────────────────────────────────────── */
-  pill: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 22,
-    overflow: "hidden",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    // subtle shadow for floating effect
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  /* ── AI pill is narrower ─────────────────────────────────────────────────── */
-  aiPill: {
-    paddingHorizontal: 12,
-  },
-
-  /* ── Main pill ───────────────────────────────────────────────────────────── */
-  mainPill: {
-    paddingHorizontal: 4,
   },
 
   spacer: {
     flex: 1,
-    minWidth: 12,
+    minWidth: 10,
   },
 
-  /* ── tab item inside a pill ─────────────────────────────────────────────── */
+  /* ── shadowWrap: carries shadow only (no overflow:hidden so shadow shows) ── */
+  shadowWrap: {
+    borderRadius: RADIUS,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.10,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+
+  /* ── clipWrap: clips children to borderRadius (no shadow here) ───────────── */
+  clipWrap: {
+    borderRadius: RADIUS,
+    overflow: "hidden",
+  },
+
+  /* ── inner content row of the pill ─────────────────────────────────────── */
+  pillInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+  },
+
+  /* ── a bit more horizontal padding for the main (wider) pill ────────────── */
+  mainPillExtra: {
+    paddingHorizontal: 2,
+  },
+
+  /* ── single tab item inside a pill ─────────────────────────────────────── */
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
     gap: 3,
-    minWidth: 52,
+    minWidth: 54,
   },
 
-  /* ── AI icon circular badge ─────────────────────────────────────────────── */
+  /* ── AI icon rounded square badge ──────────────────────────────────────── */
   aiIconWrapper: {
     width: 32,
     height: 32,
