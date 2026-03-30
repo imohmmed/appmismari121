@@ -114,6 +114,7 @@ export default function SectionDetailScreen() {
                         </View>
                         <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
                           <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          {(app.categoryNameAr || app.category) ? <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryNameAr || app.category}</Text> : null}
                         </View>
                         <AppIconImg icon={app.icon} size={52} borderRadius={14} />
                       </>
@@ -122,6 +123,7 @@ export default function SectionDetailScreen() {
                         <AppIconImg icon={app.icon} size={52} borderRadius={14} />
                         <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
                           <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                          {app.category ? <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.category}</Text> : null}
                         </View>
                         <View style={[styles.getButton, { backgroundColor: colors.background }]}>
                           <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
@@ -231,6 +233,9 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
+  },
+  appCategory: {
+    fontSize: 12,
   },
   appDesc: {
     fontSize: 12,

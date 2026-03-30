@@ -95,7 +95,6 @@ export default function SearchScreen() {
 
   const renderAppRow = (app: ApiApp, index: number, list: ApiApp[]) => {
     const tc = getTagColor(app.tag);
-    const desc = isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
     const textAlign = isArabic ? ("right" as const) : ("left" as const);
     return (
       <View key={app.id}>
@@ -111,7 +110,6 @@ export default function SearchScreen() {
               <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]}>{app.name}</Text>
                 <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryNameAr || app.categoryName}</Text>
-                <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
             </>
@@ -121,7 +119,6 @@ export default function SearchScreen() {
               <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
                 <Text style={[styles.appName, { color: colors.text, textAlign, fontFamily: appFont(app.name) }]}>{app.name}</Text>
                 <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryName}</Text>
-                <Text style={[styles.appDesc, { color: colors.textSecondary, fontFamily: fontAr("Regular"), textAlign }]}>{desc}</Text>
               </View>
               <View style={[styles.getButton, { backgroundColor: colors.card }]}>
                 <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
