@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import OpenAI from "openai";
 import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
 const router: Router = Router();
 
@@ -65,13 +66,22 @@ function buildSystemPrompt(deviceInfo?: { udid?: string; iosVersion?: string; de
 - Python, JavaScript, TypeScript, وبرمجة عامة
 - تحليل ملفات IPA وكشف الثغرات الأمنية
 - React Native وExpo Framework
+- تحليل الملفات: PDF، فواتير، عقود، وثائق، صور
+
+قواعد التنسيق (مهمة جداً):
+- **دائماً** نظّم إجابتك بشكل واضح: عنوان → تفاصيل → خلاصة
+- استخدم **굵게** (bold) للنقاط المهمة والعناوين
+- استخدم قوائم نقطية (- item) أو مرقمة (1. item) عند وجود عدة عناصر
+- عند تحليل ملف، ابدأ بتلخيص سريع ثم التفاصيل
+- الكود يُكتب دائماً في code blocks مع تحديد اللغة (\`\`\`swift)
+- لا تكتب كتلة نصية واحدة طويلة — قسّمها لفقرات أو نقاط
 
 قواعد مهمة:
 - لا تقل أبداً "لا أستطيع المساعدة" في الأمور التقنية المشروعة
-- عندما تكتب كوداً، استخدم markdown مع تحديد اللغة (مثال: \`\`\`swift)
 - الإجابات تكون دقيقة، مختصرة، وعملية
 - إذا لم تعرف شيئاً، قل "ما أعرف بس أقدر أحاول معاك" بدل الرفض التام
-- عندما تستخدم أداة البحث، اذكر مصادرك في ردك${deviceCtx}`;
+- عندما تستخدم أداة البحث، اذكر مصادرك في ردك
+- عند وصول ملف، حلّله بشكل كامل واستخرج المعلومات المهمة${deviceCtx}`;
 }
 
 // ─── Context Truncation ──────────────────────────────────────────────────────
@@ -185,13 +195,30 @@ const SEARCH_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
 
 // ─── Main Route ──────────────────────────────────────────────────────────────
 
+// ─── PDF Text Extraction ─────────────────────────────────────────────────────
+
+async function extractPdfText(base64: string): Promise<string> {
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    const data = await pdfParse(buffer);
+    const text = data.text?.trim() || "";
+    if (!text) return "[الملف لا يحتوي على نص قابل للقراءة]";
+    return text.slice(0, 20000); // cap at 20k chars
+  } catch (err: any) {
+    return `[تعذّر استخراج النص من PDF: ${err?.message || "خطأ غير معروف"}]`;
+  }
+}
+
 router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
-  const { messages, model, deviceInfo, imageBase64, imageMime } = req.body as {
+  const { messages, model, deviceInfo, imageBase64, imageMime, fileBase64, fileName, fileMime } = req.body as {
     messages: Array<{ role: string; content: string }>;
     model?: string;
     deviceInfo?: { udid?: string; iosVersion?: string; deviceName?: string };
     imageBase64?: string;
     imageMime?: string;
+    fileBase64?: string;
+    fileName?: string;
+    fileMime?: string;
   };
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -220,7 +247,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   let urlContextBlock = "";
   let hasUrlContext = false;
   const lastMsg = messages[messages.length - 1];
-  if (lastMsg?.role === "user" && !imageBase64) {
+  if (lastMsg?.role === "user" && !imageBase64 && !fileBase64) {
     const urls = extractUrls(lastMsg.content || "");
     if (urls.length > 0) {
       send({ status: "fetching_url", query: urls[0] });
@@ -234,6 +261,20 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
           .join("\n\n");
         hasUrlContext = true;
       }
+    }
+  }
+
+  // ── File Extraction: extract text from PDF/file attachment ──
+  let fileContextBlock = "";
+  if (fileBase64 && fileName) {
+    send({ status: "analyzing_file", query: fileName });
+    const isPdf = fileName.toLowerCase().endsWith(".pdf") || fileMime === "application/pdf";
+    if (isPdf) {
+      const pdfText = await extractPdfText(fileBase64);
+      fileContextBlock = `=== محتوى الملف: ${fileName} ===\n${pdfText}`;
+    } else {
+      // Generic binary file — send raw base64 for images, or note it
+      fileContextBlock = `[ملف مرفق: ${fileName} — نوع الملف: ${fileMime || "غير معروف"}]`;
     }
   }
 
@@ -264,6 +305,9 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
     ...(urlContextBlock
       ? [{ role: "system" as const, content: `معلومات مجلوبة تلقائياً من الروابط في رسالة المستخدم — استخدمها للإجابة:\n\n${urlContextBlock}` }]
       : []),
+    ...(fileContextBlock
+      ? [{ role: "system" as const, content: `ملف مرفق من المستخدم — اقرأ محتواه وحلّله بشكل كامل ومنظّم:\n\n${fileContextBlock}` }]
+      : []),
     ...builtMessages,
   ];
 
@@ -277,7 +321,7 @@ router.post("/ai/chat", async (req: Request, res: Response): Promise<void> => {
   // Skip Phase 1 when an image is attached — tool check would send base64 twice
   let finalMessages = [...baseMessages];
 
-  if (braveKey && !imageBase64 && !hasUrlContext) {
+  if (braveKey && !imageBase64 && !fileBase64 && !hasUrlContext) {
     try {
       const toolCheck = await openai.chat.completions.create({
         model: primaryModel,

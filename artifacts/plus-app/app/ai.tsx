@@ -647,7 +647,7 @@ function ModelPicker({
 function AttachPicker({
   onFilePick, onImagePick, onClose, isDark, isArabic, fontAr, keyboardHeight,
 }: {
-  onFilePick: (name: string, content: string) => void;
+  onFilePick: (name: string, content: string, base64?: string, mimeType?: string) => void;
   onImagePick: (uri: string, base64?: string) => void;
   onClose: () => void;
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
@@ -670,16 +670,39 @@ function AttachPicker({
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     const name = asset.name;
-    let content = "";
+    const mimeType = asset.mimeType || "";
+    const sizeKb = Math.round((asset.size ?? 0) / 1024);
+
     const textTypes = [".swift", ".py", ".js", ".ts", ".x", ".m", ".h", ".c", ".cpp", ".txt", ".json", ".md", ".xml", ".plist"];
     const isText = textTypes.some(ext => name.toLowerCase().endsWith(ext));
+    const isPdf = name.toLowerCase().endsWith(".pdf") || mimeType === "application/pdf";
+
     if (isText && asset.uri) {
-      try { content = await (await fetch(asset.uri)).text(); }
-      catch { content = "[تعذّر قراءة الملف]"; }
+      try {
+        const content = await (await fetch(asset.uri)).text();
+        onFilePick(name, content, undefined, mimeType);
+      } catch {
+        onFilePick(name, "[تعذّر قراءة الملف]", undefined, mimeType);
+      }
+    } else if (isPdf && asset.uri) {
+      try {
+        const blob = await fetch(asset.uri).then(r => r.blob());
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            resolve(dataUrl.split(",")[1] || "");
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        onFilePick(name, `📎 ${name} (${sizeKb} KB)`, base64, "application/pdf");
+      } catch {
+        onFilePick(name, `[ملف: ${name}, الحجم: ${sizeKb} KB]`, undefined, mimeType);
+      }
     } else {
-      content = `[ملف: ${name}, الحجم: ${Math.round((asset.size ?? 0) / 1024)} KB]`;
+      onFilePick(name, `[ملف: ${name}, الحجم: ${sizeKb} KB]`, undefined, mimeType);
     }
-    onFilePick(name, content);
   };
 
   const pickFromLibrary = async () => {
@@ -717,7 +740,7 @@ function AttachPicker({
   const ATTACH_OPTIONS = [
     { icon: "camera" as const, label: isArabic ? "الكاميرا" : "Camera", onPress: pickFromCamera },
     { icon: "image" as const, label: isArabic ? "اختر صورة" : "Photo Library", onPress: pickFromLibrary },
-    { icon: "file-text" as const, label: isArabic ? "ملف برمجي (.swift, .py, ...)" : "Code File (.swift, .py, ...)", onPress: pickFile },
+    { icon: "file-text" as const, label: isArabic ? "ملف (PDF، كود، نص...)" : "File (PDF, Code, Text...)", onPress: pickFile },
   ];
 
   return (
@@ -749,7 +772,7 @@ function InputBar({
   value: string; onChange: (t: string) => void; onSend: () => void; onAttach: () => void;
   onModelPress: () => void; isStreaming: boolean; isDark: boolean; isArabic: boolean;
   fontAr: FontArFn; model: string;
-  attachedFile?: { name: string; content: string } | null;
+  attachedFile?: { name: string; content: string; base64?: string; mimeType?: string } | null;
   attachedImage?: { uri: string; base64?: string } | null;
   onRemoveFile?: () => void;
   onRemoveImage?: () => void;
@@ -929,7 +952,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
-  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string; base64?: string; mimeType?: string } | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ uri: string; base64?: string } | null>(null);
   const [customAvatarSrc, setCustomAvatarSrc] = useState<ImageSourcePropType | null>(null);
   const [subscriberName, setSubscriberName] = useState<string | undefined>();
@@ -1039,8 +1062,22 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
     if (isStreaming) return;
 
     let fullText = trimmed;
+    let capturedFileBase64: string | null = null;
+    let capturedFileName: string | null = null;
+    let capturedFileMime: string | null = null;
+
     if (attachedFile) {
-      fullText += `\n\n📎 **${attachedFile.name}**:\n\`\`\`\n${attachedFile.content.slice(0, 8000)}\n\`\`\``;
+      if (attachedFile.base64) {
+        // Binary file (e.g. PDF) — send as base64 to API, show brief label in chat
+        capturedFileBase64 = attachedFile.base64;
+        capturedFileName = attachedFile.name;
+        capturedFileMime = attachedFile.mimeType || "application/pdf";
+        if (!fullText.trim()) fullText = isArabic ? "حلّل هذا الملف" : "Analyze this file";
+        fullText = `📎 **${attachedFile.name}**\n${fullText}`;
+      } else {
+        // Text file — inline content directly in the message
+        fullText += `\n\n📎 **${attachedFile.name}**:\n\`\`\`\n${attachedFile.content.slice(0, 8000)}\n\`\`\``;
+      }
       setAttachedFile(null);
     }
 
@@ -1090,6 +1127,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
         model: selectedModel,
         deviceInfo: { udid: deviceUdid || undefined },
         ...(imageBase64 ? { imageBase64, imageMime: "image/jpeg" } : {}),
+        ...(capturedFileBase64 ? { fileBase64: capturedFileBase64, fileName: capturedFileName, fileMime: capturedFileMime } : {}),
       },
       (chunk) => {
         setIsSearching(false);
@@ -1130,6 +1168,9 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
         } else if (status === "fetching_url") {
           setIsSearching(true);
           setSearchQuery("__url__:" + (query || ""));
+        } else if (status === "analyzing_file") {
+          setIsSearching(true);
+          setSearchQuery("__file__:" + (query || ""));
         }
       }
     );
@@ -1147,8 +1188,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const handleFilePick = (name: string, content: string) => {
-    setAttachedFile({ name, content });
+  const handleFilePick = (name: string, content: string, base64?: string, mimeType?: string) => {
+    setAttachedFile({ name, content, base64, mimeType });
   };
 
   const handleRenameConversation = useCallback((id: string, newTitle: string) => {
@@ -1224,11 +1265,18 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           />
         )}
 
-        {/* Web Search / URL Fetch Indicator */}
+        {/* Web Search / URL Fetch / File Analysis Indicator */}
         {isSearching && (
           <View style={[styles.searchIndicator, { backgroundColor: isDark ? "#36334A" : "#e8eeff" }]}>
             <ActivityIndicator size="small" color="#9fbcff" style={{ marginRight: 8 }} />
-            {searchQuery.startsWith("__url__:") ? (
+            {searchQuery.startsWith("__file__:") ? (
+              <>
+                <Feather name="file-text" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
+                <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
+                  {isArabic ? "جاري تحليل الملف..." : "Analyzing file..."}
+                </Text>
+              </>
+            ) : searchQuery.startsWith("__url__:") ? (
               <>
                 <Feather name="globe" size={14} color="#9fbcff" style={{ marginRight: 6 }} />
                 <Text style={[styles.searchIndicatorText, { fontFamily: fontAr("Medium") }]}>
