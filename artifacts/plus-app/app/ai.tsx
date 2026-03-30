@@ -448,7 +448,7 @@ function ModelPicker({
 }) {
   const slideAnim = useRef(new Animated.Value(300)).current;
   useEffect(() => {
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20 }).start();
+    Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
   }, []);
   const close = () => {
     Animated.timing(slideAnim, { toValue: 300, duration: 180, useNativeDriver: true }).start(onClose);
@@ -500,7 +500,7 @@ function AttachPicker({
 }) {
   const slideAnim = useRef(new Animated.Value(200)).current;
   useEffect(() => {
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20 }).start();
+    Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start();
   }, []);
   const close = () => {
     Animated.timing(slideAnim, { toValue: 200, duration: 150, useNativeDriver: true }).start(onClose);
@@ -587,7 +587,7 @@ function AttachPicker({
 
 function InputBar({
   value, onChange, onSend, onAttach, onModelPress, isStreaming, isDark, isArabic, fontAr, model,
-  attachedFile, attachedImage, onRemoveFile, onRemoveImage,
+  attachedFile, attachedImage, onRemoveFile, onRemoveImage, bottomInset,
 }: {
   value: string; onChange: (t: string) => void; onSend: () => void; onAttach: () => void;
   onModelPress: () => void; isStreaming: boolean; isDark: boolean; isArabic: boolean;
@@ -596,6 +596,7 @@ function InputBar({
   attachedImage?: { uri: string; base64?: string } | null;
   onRemoveFile?: () => void;
   onRemoveImage?: () => void;
+  bottomInset?: number;
 }) {
   const bg = isDark ? "#1c1c1e" : "#fff";
   const border = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
@@ -607,7 +608,7 @@ function InputBar({
   const hasAttachment = !!(attachedFile || attachedImage);
 
   return (
-    <View style={[styles.inputBar, { backgroundColor: bg, borderTopColor: border }]}>
+    <View style={[styles.inputBar, { backgroundColor: bg, borderTopColor: border, paddingBottom: (bottomInset ?? 0) + 4 }]}>
       {/* Attachment previews above text field */}
       {hasAttachment && (
         <View style={styles.attachPreviewRow}>
@@ -998,6 +999,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           attachedImage={attachedImage}
           onRemoveFile={() => setAttachedFile(null)}
           onRemoveImage={() => setAttachedImage(null)}
+          bottomInset={insets.bottom}
         />
       </KeyboardAvoidingView>
 
@@ -1181,7 +1183,7 @@ const styles = StyleSheet.create({
     maxWidth: 200,
   },
   attachFileChipText: { fontSize: 12, flex: 1 },
-  inputBar: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, borderTopWidth: StyleSheet.hairlineWidth },
+  inputBar: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   inputRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
   inputIconBtn: { padding: 6 },
   textInput: { flex: 1, fontSize: 15, maxHeight: 120, paddingVertical: 4 },
