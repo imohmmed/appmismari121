@@ -61,7 +61,7 @@ const VISIBLE_COUNT = 3; // 1 above + active + 1 below
 // Word n at track pos: top = -n * WORD_HEIGHT
 // translateY = activeWord * WH + 1 * WH  (center offset = 1 for 3-slot)
 // Container y of word n = (activeWord - n + 1) * WH → active always at 1*WH (center)
-function ScrollingWords({ activeWord, fontAr: fontArFn, words, isEn }: { activeWord: number; fontAr: (w: string) => string; words: typeof WORDS_AR; isEn: boolean }) {
+function ScrollingWords({ activeWord, fontAr: fontArFn, words, isEn, wordTextColor }: { activeWord: number; fontAr: (w: string) => string; words: typeof WORDS_AR; isEn: boolean; wordTextColor: string }) {
   const scrollY = useRef(new Animated.Value(WORD_HEIGHT)).current;
 
   useEffect(() => {
@@ -116,7 +116,7 @@ function ScrollingWords({ activeWord, fontAr: fontArFn, words, isEn }: { activeW
                 <View style={[styles.wordIcon, { backgroundColor: w.color + "22" }]}>
                   <Feather name={w.icon} size={22} color={w.color} />
                 </View>
-                <Text style={[styles.wordText, { fontFamily: isEn ? "Inter_700Bold" : fontArFn("ExtraBold"), color: DARK }]}>
+                <Text style={[styles.wordText, { fontFamily: isEn ? "Inter_700Bold" : fontArFn("ExtraBold"), color: wordTextColor }]}>
                   {w.text}
                 </Text>
               </View>
@@ -176,6 +176,19 @@ export default function OnboardingScreen() {
   };
   const WORDS = isEn ? WORDS_EN : WORDS_AR;
   const [selTheme, setSelTheme] = useState<"dark" | "light" | "system">(themeMode || "light");
+  const previewDark = selTheme === "dark";
+  const TC = {
+    bg:            previewDark ? "#1c1a28" : "#ffffff",
+    bgCard:        previewDark ? "#2e2b40" : "#ffffff",
+    bgCardActive:  previewDark ? "#38354e" : "#ffffff",
+    border:        previewDark ? "#4a4760" : "#e8eaf0",
+    text:          previewDark ? "#ffffff" : "#2b283b",
+    textSub:       previewDark ? "#9fbcff" : "#888",
+    textMuted:     previewDark ? "rgba(255,255,255,0.45)" : "#2b283b60",
+    gradTop:       previewDark ? "#9fbcff" : BLUE,
+    wordText:      previewDark ? "#ffffff" : DARK,
+    statusBar:     previewDark ? "light-content" : "dark-content",
+  };
   const [activeWord, setActiveWord] = useState(0);
   const [udid, setUdid] = useState(deviceUdid || "");
   const [checkResult, setCheckResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -417,12 +430,12 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { backgroundColor: TC.bg }]}>
+      <StatusBar barStyle={TC.statusBar as "dark-content" | "light-content"} />
 
       {/* Gradient background at top */}
       <LinearGradient
-        colors={[gradColors[0] + "40", gradColors[0] + "15", "transparent"]}
+        colors={[TC.gradTop + "40", TC.gradTop + "15", "transparent"]}
         style={styles.topGradient}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -438,8 +451,8 @@ export default function OnboardingScreen() {
                 source={logoUrl ? { uri: logoUrl } : require("../assets/images/mismari-logo.png")}
                 style={{ width: 140, height: 70, resizeMode: "contain", alignSelf: "center", marginBottom: 12 }}
               />
-              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>{ob.langTitle}</Text>
-              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right", color: TC.text }]}>{ob.langTitle}</Text>
+              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right", color: TC.textMuted }]}>
                 {ob.langSub}
               </Text>
             </View>
@@ -450,6 +463,7 @@ export default function OnboardingScreen() {
                 activeOpacity={0.85}
                 style={[
                   styles.langCard,
+                  { backgroundColor: TC.bgCard, borderColor: TC.border },
                   selLang === "ar" && { borderColor: BLUE, borderWidth: 2, backgroundColor: BLUE + "0D" },
                 ]}
                 onPress={() => setSelLang("ar")}
@@ -460,8 +474,8 @@ export default function OnboardingScreen() {
                   </View>
                 )}
                 <Text style={styles.langCardEmoji}>🇸🇦</Text>
-                <Text style={[styles.langCardTitle, { fontFamily: fontAr("Bold") }]}>العربية</Text>
-                <Text style={[styles.langCardSub, { fontFamily: "Inter_400Regular" }]}>Arabic</Text>
+                <Text style={[styles.langCardTitle, { fontFamily: fontAr("Bold"), color: TC.text }]}>العربية</Text>
+                <Text style={[styles.langCardSub, { fontFamily: "Inter_400Regular", color: TC.textSub }]}>Arabic</Text>
               </TouchableOpacity>
 
               {/* English card */}
@@ -469,6 +483,7 @@ export default function OnboardingScreen() {
                 activeOpacity={0.85}
                 style={[
                   styles.langCard,
+                  { backgroundColor: TC.bgCard, borderColor: TC.border },
                   selLang === "en" && { borderColor: BLUE, borderWidth: 2, backgroundColor: BLUE + "0D" },
                 ]}
                 onPress={() => setSelLang("en")}
@@ -479,12 +494,12 @@ export default function OnboardingScreen() {
                   </View>
                 )}
                 <Text style={styles.langCardEmoji}>🇬🇧</Text>
-                <Text style={[styles.langCardTitle, { fontFamily: "Inter_700Bold" }]}>English</Text>
-                <Text style={[styles.langCardSub, { fontFamily: fontAr("Regular") }]}>الإنجليزية</Text>
+                <Text style={[styles.langCardTitle, { fontFamily: "Inter_700Bold", color: TC.text }]}>English</Text>
+                <Text style={[styles.langCardSub, { fontFamily: fontAr("Regular"), color: TC.textSub }]}>الإنجليزية</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
+            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), color: TC.textMuted }]}>
               {ob.settingsNote}
             </Text>
 
@@ -506,8 +521,8 @@ export default function OnboardingScreen() {
         {step === "theme" && (
           <View style={[styles.setupStep, { paddingBottom: insets.bottom + 24 }]}>
             <View style={[styles.setupHeader, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
-              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>{ob.themeTitle}</Text>
-              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right", color: TC.text }]}>{ob.themeTitle}</Text>
+              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right", color: TC.textMuted }]}>
                 {ob.themeSub}
               </Text>
             </View>
@@ -523,7 +538,8 @@ export default function OnboardingScreen() {
                   activeOpacity={0.85}
                   style={[
                     styles.themeCard,
-                    selTheme === opt.value && { borderColor: PURPLE, borderWidth: 2, backgroundColor: PURPLE + "0D" },
+                    { backgroundColor: TC.bgCard, borderColor: TC.border },
+                    selTheme === opt.value && { borderColor: PURPLE, borderWidth: 2, backgroundColor: PURPLE + (previewDark ? "22" : "0D") },
                   ]}
                   onPress={() => setSelTheme(opt.value)}
                 >
@@ -533,12 +549,12 @@ export default function OnboardingScreen() {
                     </View>
                   )}
                   <Text style={styles.themeCardEmoji}>{opt.emoji}</Text>
-                  <Text style={[styles.themeCardLabel, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{opt.label}</Text>
+                  <Text style={[styles.themeCardLabel, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), color: TC.text }]}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
+            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), color: TC.textMuted }]}>
               {ob.settingsNote}
             </Text>
 
@@ -559,7 +575,7 @@ export default function OnboardingScreen() {
         {/* ═══ LANDING ═══ */}
         {step === "landing" && (
           <>
-            <ScrollingWords activeWord={activeWord} fontAr={fontAr} words={WORDS} isEn={isEn} />
+            <ScrollingWords activeWord={activeWord} fontAr={fontAr} words={WORDS} isEn={isEn} wordTextColor={TC.wordText} />
 
             <View style={{ flex: 1 }} />
 
@@ -638,13 +654,13 @@ export default function OnboardingScreen() {
                 />
               </View>
 
-              <Text style={[styles.stepTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>
+              <Text style={[styles.stepTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right", color: TC.text }]}>
                 {step === "download" && ob.dlLabel}
                 {step === "install" && ob.instLabel}
                 {step === "udid" && ob.udidLabel}
               </Text>
 
-              <Text style={[styles.stepDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+              <Text style={[styles.stepDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right", color: TC.textMuted }]}>
                 {step === "download" && ob.dlDesc}
                 {step === "install" && ob.instDesc}
                 {step === "udid" && ob.udidDesc}
@@ -663,23 +679,23 @@ export default function OnboardingScreen() {
             <View style={[styles.bottomAction, { paddingBottom: insets.bottom + 20 }]}>
               {step === "download" && (
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: DARK }]}
+                  style={[styles.actionBtn, { backgroundColor: previewDark ? "#ffffff" : DARK }]}
                   activeOpacity={0.85}
                   onPress={handleDownloadProfile}
                 >
-                  <Feather name="download" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.dlBtn}</Text>
+                  <Feather name="download" size={18} color={previewDark ? DARK : WHITE} style={{ marginLeft: 8 }} />
+                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), color: previewDark ? DARK : WHITE }]}>{ob.dlBtn}</Text>
                 </TouchableOpacity>
               )}
 
               {step === "install" && (
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: DARK }]}
+                  style={[styles.actionBtn, { backgroundColor: previewDark ? "#ffffff" : DARK }]}
                   activeOpacity={0.85}
                   onPress={() => { stopPolling(); transition("udid"); }}
                 >
-                  <Feather name="check-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.doneInst}</Text>
+                  <Feather name="check-circle" size={18} color={previewDark ? DARK : WHITE} style={{ marginLeft: 8 }} />
+                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), color: previewDark ? DARK : WHITE }]}>{ob.doneInst}</Text>
                 </TouchableOpacity>
               )}
 
@@ -700,7 +716,7 @@ export default function OnboardingScreen() {
 
               {step === "udid" && !udid && (
                 <View>
-                  <Text style={[styles.noUdidText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                  <Text style={[styles.noUdidText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), color: TC.textMuted }]}>
                     {ob.noUdid}
                   </Text>
                   <TouchableOpacity
@@ -744,7 +760,7 @@ export default function OnboardingScreen() {
               </View>
             </View>
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <Text style={[styles.checkingText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+              <Text style={[styles.checkingText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), color: TC.textSub }]}>
                 {ob.verifyingWait}
               </Text>
             </View>
@@ -794,10 +810,10 @@ export default function OnboardingScreen() {
                   color={checkResult.success ? GREEN : "#FF3B30"}
                 />
               </View>
-              <Text style={[styles.resultTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black") }]}>
+              <Text style={[styles.resultTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), color: TC.text }]}>
                 {checkResult.success ? ob.resultSuccess : ob.resultFail}
               </Text>
-              <Text style={[styles.resultDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
+              <Text style={[styles.resultDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), color: TC.textMuted }]}>
                 {checkResult.message}
               </Text>
             </View>
