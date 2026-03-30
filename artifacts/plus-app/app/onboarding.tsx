@@ -41,11 +41,17 @@ const WHITE = "#ffffff";
 
 type Step = "language" | "theme" | "landing" | "download" | "install" | "udid" | "checking" | "result";
 
-const WORDS = [
+const WORDS_AR = [
   { text: "سريع", icon: "zap" as const, color: BLUE },
   { text: "آمن", icon: "shield" as const, color: "#FF9500" },
   { text: "موثوق", icon: "check-circle" as const, color: GREEN },
   { text: "محدّث", icon: "refresh-cw" as const, color: PURPLE },
+];
+const WORDS_EN = [
+  { text: "Fast", icon: "zap" as const, color: BLUE },
+  { text: "Secure", icon: "shield" as const, color: "#FF9500" },
+  { text: "Trusted", icon: "check-circle" as const, color: GREEN },
+  { text: "Updated", icon: "refresh-cw" as const, color: PURPLE },
 ];
 
 const WORD_HEIGHT = 72;
@@ -55,7 +61,7 @@ const VISIBLE_COUNT = 3; // 1 above + active + 1 below
 // Word n at track pos: top = -n * WORD_HEIGHT
 // translateY = activeWord * WH + 1 * WH  (center offset = 1 for 3-slot)
 // Container y of word n = (activeWord - n + 1) * WH → active always at 1*WH (center)
-function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; fontAr: (w: string) => string }) {
+function ScrollingWords({ activeWord, fontAr: fontArFn, words, isEn }: { activeWord: number; fontAr: (w: string) => string; words: typeof WORDS_AR; isEn: boolean }) {
   const scrollY = useRef(new Animated.Value(WORD_HEIGHT)).current;
 
   useEffect(() => {
@@ -69,8 +75,8 @@ function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; 
 
   const slots = [];
   for (let n = activeWord - 2; n <= activeWord + 2; n++) {
-    const wIdx = ((n % WORDS.length) + WORDS.length) % WORDS.length;
-    slots.push({ ...WORDS[wIdx], n });
+    const wIdx = ((n % words.length) + words.length) % words.length;
+    slots.push({ ...words[wIdx], n });
   }
 
   return (
@@ -110,7 +116,7 @@ function ScrollingWords({ activeWord, fontAr: fontArFn }: { activeWord: number; 
                 <View style={[styles.wordIcon, { backgroundColor: w.color + "22" }]}>
                   <Feather name={w.icon} size={22} color={w.color} />
                 </View>
-                <Text style={[styles.wordText, { fontFamily: fontArFn("ExtraBold"), color: DARK }]}>
+                <Text style={[styles.wordText, { fontFamily: isEn ? "Inter_700Bold" : fontArFn("ExtraBold"), color: DARK }]}>
                   {w.text}
                 </Text>
               </View>
@@ -130,6 +136,45 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState<Step>("language");
   const [selLang, setSelLang] = useState<"ar" | "en">(language || "ar");
+  const isEn = selLang === "en";
+  const ifEn = (en: string, ar: string) => isEn ? en : ar;
+  const arrowDir = isEn ? "arrow-right" : "arrow-left";
+  const ob = {
+    langTitle: ifEn("Choose Your Language", "اختر لغتك"),
+    langSub: ifEn("اختر لغتك", "Choose your language"),
+    settingsNote: ifEn("You can change settings later from Account › Settings", "يمكنك تغيير الإعدادات مستقبلاً من الحساب › إعدادات"),
+    next: ifEn("Next", "التالي"),
+    themeTitle: ifEn("Choose Theme", "اختر المظهر"),
+    themeSub: ifEn("How would you like the app to look?", "كيف تحب أن يبدو التطبيق؟"),
+    dark: ifEn("Dark", "داكن"),
+    light: ifEn("Light", "فاتح"),
+    auto: ifEn("Auto", "تلقائي"),
+    cont: ifEn("Continue", "متابعة"),
+    landTitle: ifEn("Your Phone, Upgraded", "هاتفك، مُطوّر"),
+    landSub: ifEn("Install apps not available on the App Store", "حمّل وثبّت تطبيقات غير متوفرة في App Store"),
+    dlLabel: ifEn("Download Profile", "تحميل ملف التعريف"),
+    instLabel: ifEn("Install Profile", "تثبيت ملف التعريف"),
+    udidLabel: ifEn("Your Device ID", "المعرّف الخاص بك"),
+    dlDesc: ifEn("Download the profile to get your device ID. This helps us register your device.", "حمّل ملف التعريف للحصول على معرّف جهازك. يساعدنا هذا على تسجيل جهازك."),
+    instDesc: ifEn("Go to Settings → General → VPN & Device Management and install the profile. Your device will be detected automatically.", "اذهب إلى الإعدادات ← عام ← إدارة VPN والأجهزة وثبّت الملف. سيتم الكشف عن جهازك تلقائياً."),
+    udidDesc: ifEn("Your unique device ID has been detected. Press Submit to verify your subscription.", "تم الكشف عن معرّف جهازك الفريد. اضغط إرسال للتحقق من اشتراكك."),
+    searching: ifEn("Searching for your device...", "جارٍ البحث عن جهازك..."),
+    dlBtn: ifEn("Download Profile", "تحميل ملف التعريف"),
+    doneInst: ifEn("Profile Installed", "تم التثبيت"),
+    retry: ifEn("Try Again", "إعادة المحاولة"),
+    noUdid: ifEn("Device ID not detected yet. Make sure the profile is installed.", "لم يتم الكشف عن المعرّف بعد. تأكد من تثبيت ملف التعريف."),
+    verifying: ifEn("Verifying your device", "جاري التحقق من جهازك"),
+    verifyingWait: ifEn("Please wait while we verify your device registration...", "يرجى الانتظار أثناء التحقق من تسجيل جهازك..."),
+    resultSuccess: ifEn("All Ready!", "كل شيء جاهز!"),
+    resultFail: ifEn("Not Registered", "غير مسجّل"),
+    deviceReady: ifEn("Your device is ready!", "جهازك جاهز!"),
+    enterStore: ifEn("Enter Store", "الدخول للمتجر"),
+    contactSupport: ifEn("Contact Support", "تواصل مع الدعم"),
+    whatsapp: ifEn("WhatsApp", "واتساب"),
+    telegram: ifEn("Telegram", "تيليكرام"),
+    instagram: ifEn("Instagram", "انستكرام"),
+  };
+  const WORDS = isEn ? WORDS_EN : WORDS_AR;
   const [selTheme, setSelTheme] = useState<"dark" | "light" | "system">(themeMode || "light");
   const [activeWord, setActiveWord] = useState(0);
   const [udid, setUdid] = useState(deviceUdid || "");
@@ -357,9 +402,9 @@ export default function OnboardingScreen() {
   const gradColors = stepColors[step] ?? stepColors.landing;
 
   const stepsList = [
-    { key: "download", label: "تحميل ملف التعريف", icon: "file-text" as const },
-    { key: "install", label: "تثبيت ملف التعريف", icon: "shield" as const },
-    { key: "udid", label: "المعرّف الخاص بك", icon: "hash" as const },
+    { key: "download", label: ob.dlLabel, icon: "file-text" as const },
+    { key: "install", label: ob.instLabel, icon: "shield" as const },
+    { key: "udid", label: ob.udidLabel, icon: "hash" as const },
   ];
 
   function getStepStatus(stepKey: string) {
@@ -388,14 +433,14 @@ export default function OnboardingScreen() {
         {/* ═══ LANGUAGE SELECTION ═══ */}
         {step === "language" && (
           <View style={[styles.setupStep, { paddingBottom: insets.bottom + 24 }]}>
-            <View style={styles.setupHeader}>
+            <View style={[styles.setupHeader, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
               <Image
                 source={logoUrl ? { uri: logoUrl } : require("../assets/images/mismari-logo.png")}
                 style={{ width: 140, height: 70, resizeMode: "contain", alignSelf: "center", marginBottom: 12 }}
               />
-              <Text style={[styles.setupTitle, { fontFamily: fontAr("Black") }]}>اختر لغتك</Text>
-              <Text style={[styles.setupSubtitle, { fontFamily: fontAr("Regular") }]}>
-                Choose your language
+              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>{ob.langTitle}</Text>
+              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+                {ob.langSub}
               </Text>
             </View>
 
@@ -439,20 +484,20 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.setupNote, { fontFamily: fontAr("Regular") }]}>
-              يمكنك تغيير الإعدادات مستقبلاً من الحساب › إعدادات
+            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
+              {ob.settingsNote}
             </Text>
 
             <TouchableOpacity
-              style={[styles.setupNextBtn, { backgroundColor: BLUE }]}
+              style={[styles.setupNextBtn, { backgroundColor: BLUE, flexDirection: isEn ? "row-reverse" : "row" }]}
               activeOpacity={0.85}
               onPress={() => {
                 setLanguage(selLang);
                 transition("theme");
               }}
             >
-              <Text style={[styles.setupNextText, { fontFamily: fontAr("Bold") }]}>التالي</Text>
-              <Feather name="arrow-left" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={[styles.setupNextText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.next}</Text>
+              <Feather name={arrowDir} size={18} color="#fff" style={isEn ? { marginLeft: 6 } : { marginRight: 6 }} />
             </TouchableOpacity>
           </View>
         )}
@@ -460,18 +505,18 @@ export default function OnboardingScreen() {
         {/* ═══ THEME SELECTION ═══ */}
         {step === "theme" && (
           <View style={[styles.setupStep, { paddingBottom: insets.bottom + 24 }]}>
-            <View style={styles.setupHeader}>
-              <Text style={[styles.setupTitle, { fontFamily: fontAr("Black") }]}>اختر المظهر</Text>
-              <Text style={[styles.setupSubtitle, { fontFamily: fontAr("Regular") }]}>
-                كيف تحب أن يبدو التطبيق؟
+            <View style={[styles.setupHeader, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
+              <Text style={[styles.setupTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>{ob.themeTitle}</Text>
+              <Text style={[styles.setupSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+                {ob.themeSub}
               </Text>
             </View>
 
             <View style={styles.themeCards}>
               {[
-                { value: "dark" as const, icon: "moon" as const, label: "داكن", emoji: "🌙" },
-                { value: "light" as const, icon: "sun" as const, label: "فاتح", emoji: "☀️" },
-                { value: "system" as const, icon: "smartphone" as const, label: "تلقائي", emoji: "📱" },
+                { value: "dark" as const, icon: "moon" as const, label: ob.dark, emoji: "🌙" },
+                { value: "light" as const, icon: "sun" as const, label: ob.light, emoji: "☀️" },
+                { value: "system" as const, icon: "smartphone" as const, label: ob.auto, emoji: "📱" },
               ].map(opt => (
                 <TouchableOpacity
                   key={opt.value}
@@ -488,25 +533,25 @@ export default function OnboardingScreen() {
                     </View>
                   )}
                   <Text style={styles.themeCardEmoji}>{opt.emoji}</Text>
-                  <Text style={[styles.themeCardLabel, { fontFamily: fontAr("Bold") }]}>{opt.label}</Text>
+                  <Text style={[styles.themeCardLabel, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.setupNote, { fontFamily: fontAr("Regular") }]}>
-              يمكنك تغيير الإعدادات مستقبلاً من الحساب › إعدادات
+            <Text style={[styles.setupNote, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
+              {ob.settingsNote}
             </Text>
 
             <TouchableOpacity
-              style={[styles.setupNextBtn, { backgroundColor: PURPLE }]}
+              style={[styles.setupNextBtn, { backgroundColor: PURPLE, flexDirection: isEn ? "row-reverse" : "row" }]}
               activeOpacity={0.85}
               onPress={() => {
                 setThemeMode(selTheme);
                 transition("landing");
               }}
             >
-              <Text style={[styles.setupNextText, { fontFamily: fontAr("Bold") }]}>متابعة</Text>
-              <Feather name="arrow-left" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={[styles.setupNextText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.cont}</Text>
+              <Feather name={arrowDir} size={18} color="#fff" style={isEn ? { marginLeft: 6 } : { marginRight: 6 }} />
             </TouchableOpacity>
           </View>
         )}
@@ -514,7 +559,7 @@ export default function OnboardingScreen() {
         {/* ═══ LANDING ═══ */}
         {step === "landing" && (
           <>
-            <ScrollingWords activeWord={activeWord} fontAr={fontAr} />
+            <ScrollingWords activeWord={activeWord} fontAr={fontAr} words={WORDS} isEn={isEn} />
 
             <View style={{ flex: 1 }} />
 
@@ -529,18 +574,18 @@ export default function OnboardingScreen() {
             </LinearGradient>
 
             <View style={[styles.landingBottom, { paddingBottom: insets.bottom + 20 }]}>
-              <Text style={[styles.landingTitle, { fontFamily: fontAr("Black") }]}>
-                هاتفك، مُطوّر
+              <Text style={[styles.landingTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>
+                {ob.landTitle}
               </Text>
-              <Text style={[styles.landingSubtitle, { fontFamily: fontAr("Regular") }]}>
-                حمّل وثبّت تطبيقات غير متوفرة في App Store
+              <Text style={[styles.landingSubtitle, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+                {ob.landSub}
               </Text>
               <TouchableOpacity
                 style={styles.continueBtn}
                 activeOpacity={0.85}
                 onPress={() => transition("download")}
               >
-                <Text style={[styles.continueBtnText, { fontFamily: fontAr("Bold") }]}>متابعة</Text>
+                <Text style={[styles.continueBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.cont}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -556,7 +601,7 @@ export default function OnboardingScreen() {
                 const isActive = status === "active";
                 const isDone = status === "done";
                 return (
-                  <View key={s.key} style={styles.stepTrackerItem}>
+                  <View key={s.key} style={[styles.stepTrackerItem, { flexDirection: isEn ? "row" : "row-reverse" }]}>
                     <View style={[
                       styles.stepTrackerIcon,
                       isActive && { backgroundColor: gradColors[0] + "20" },
@@ -570,8 +615,8 @@ export default function OnboardingScreen() {
                     </View>
                     <Text style={[
                       styles.stepTrackerLabel,
-                      { fontFamily: fontAr("Medium") },
-                      isActive && { color: DARK, fontFamily: fontAr("Bold") },
+                      { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") },
+                      isActive && { color: DARK, fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") },
                       isDone && { color: GREEN },
                     ]}>
                       {s.label}
@@ -585,7 +630,7 @@ export default function OnboardingScreen() {
 
             {/* Current step content */}
             <View style={styles.stepContent}>
-              <View style={[styles.stepIconCircle, { backgroundColor: gradColors[0] + "15" }]}>
+              <View style={[styles.stepIconCircle, { backgroundColor: gradColors[0] + "15", alignSelf: isEn ? "flex-start" : "flex-end" }]}>
                 <Feather
                   name={step === "download" ? "file-text" : step === "install" ? "shield" : "hash"}
                   size={28}
@@ -593,22 +638,22 @@ export default function OnboardingScreen() {
                 />
               </View>
 
-              <Text style={[styles.stepTitle, { fontFamily: fontAr("Black") }]}>
-                {step === "download" && "تحميل ملف التعريف"}
-                {step === "install" && "تثبيت ملف التعريف"}
-                {step === "udid" && "المعرّف الخاص بك"}
+              <Text style={[styles.stepTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), textAlign: isEn ? "left" : "right" }]}>
+                {step === "download" && ob.dlLabel}
+                {step === "install" && ob.instLabel}
+                {step === "udid" && ob.udidLabel}
               </Text>
 
-              <Text style={[styles.stepDesc, { fontFamily: fontAr("Regular") }]}>
-                {step === "download" && "حمّل ملف التعريف للحصول على معرّف جهازك. يساعدنا هذا على تسجيل جهازك."}
-                {step === "install" && "اذهب إلى الإعدادات ← عام ← إدارة VPN والأجهزة وثبّت الملف. سيتم الكشف عن جهازك تلقائياً."}
-                {step === "udid" && "تم الكشف عن معرّف جهازك الفريد. اضغط إرسال للتحقق من اشتراكك."}
+              <Text style={[styles.stepDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), textAlign: isEn ? "left" : "right" }]}>
+                {step === "download" && ob.dlDesc}
+                {step === "install" && ob.instDesc}
+                {step === "udid" && ob.udidDesc}
               </Text>
               {step === "install" && isPolling && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10, opacity: 0.7 }}>
                   <ActivityIndicator size="small" color={ORANGE} />
-                  <Text style={[{ fontFamily: fontAr("Regular"), fontSize: 13, color: "#888" }]}>
-                    جارٍ البحث عن جهازك...
+                  <Text style={[{ fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), fontSize: 13, color: "#888" }]}>
+                    {ob.searching}
                   </Text>
                 </View>
               )}
@@ -623,7 +668,7 @@ export default function OnboardingScreen() {
                   onPress={handleDownloadProfile}
                 >
                   <Feather name="download" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                  <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تحميل ملف التعريف</Text>
+                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.dlBtn}</Text>
                 </TouchableOpacity>
               )}
 
@@ -634,7 +679,7 @@ export default function OnboardingScreen() {
                   onPress={() => { stopPolling(); transition("udid"); }}
                 >
                   <Feather name="check-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                  <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تم التثبيت</Text>
+                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.doneInst}</Text>
                 </TouchableOpacity>
               )}
 
@@ -655,8 +700,8 @@ export default function OnboardingScreen() {
 
               {step === "udid" && !udid && (
                 <View>
-                  <Text style={[styles.noUdidText, { fontFamily: fontAr("Medium") }]}>
-                    لم يتم الكشف عن المعرّف بعد. تأكد من تثبيت ملف التعريف.
+                  <Text style={[styles.noUdidText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                    {ob.noUdid}
                   </Text>
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: PURPLE, marginTop: 12 }]}
@@ -664,7 +709,7 @@ export default function OnboardingScreen() {
                     onPress={() => transition("download")}
                   >
                     <Feather name="rotate-ccw" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>إعادة المحاولة</Text>
+                    <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.retry}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -679,28 +724,28 @@ export default function OnboardingScreen() {
               {stepsList.map((s) => {
                 const isDone = true;
                 return (
-                  <View key={s.key} style={styles.stepTrackerItem}>
+                  <View key={s.key} style={[styles.stepTrackerItem, { flexDirection: isEn ? "row" : "row-reverse" }]}>
                     <View style={[styles.stepTrackerIcon, { backgroundColor: GREEN + "20" }]}>
                       <Feather name="check" size={16} color={GREEN} />
                     </View>
-                    <Text style={[styles.stepTrackerLabel, { fontFamily: fontAr("Medium"), color: GREEN }]}>
+                    <Text style={[styles.stepTrackerLabel, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), color: GREEN }]}>
                       {s.label}
                     </Text>
                   </View>
                 );
               })}
-              <View style={styles.stepTrackerItem}>
+              <View style={[styles.stepTrackerItem, { flexDirection: isEn ? "row" : "row-reverse" }]}>
                 <View style={[styles.stepTrackerIcon, { backgroundColor: BLUE + "20" }]}>
                   <ActivityIndicator size="small" color={BLUE} />
                 </View>
-                <Text style={[styles.stepTrackerLabel, { fontFamily: fontAr("Bold"), color: DARK }]}>
-                  جاري التحقق من جهازك
+                <Text style={[styles.stepTrackerLabel, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), color: DARK }]}>
+                  {ob.verifying}
                 </Text>
               </View>
             </View>
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <Text style={[styles.checkingText, { fontFamily: fontAr("Medium") }]}>
-                يرجى الانتظار أثناء التحقق من تسجيل جهازك...
+              <Text style={[styles.checkingText, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                {ob.verifyingWait}
               </Text>
             </View>
           </View>
@@ -711,16 +756,16 @@ export default function OnboardingScreen() {
           <View style={styles.centeredContent}>
             <View style={styles.stepsTracker}>
               {stepsList.map((s) => (
-                <View key={s.key} style={styles.stepTrackerItem}>
+                <View key={s.key} style={[styles.stepTrackerItem, { flexDirection: isEn ? "row" : "row-reverse" }]}>
                   <View style={[styles.stepTrackerIcon, { backgroundColor: GREEN + "20" }]}>
                     <Feather name="check" size={16} color={GREEN} />
                   </View>
-                  <Text style={[styles.stepTrackerLabel, { fontFamily: fontAr("Medium"), color: GREEN }]}>
+                  <Text style={[styles.stepTrackerLabel, { fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), color: GREEN }]}>
                     {s.label}
                   </Text>
                 </View>
               ))}
-              <View style={styles.stepTrackerItem}>
+              <View style={[styles.stepTrackerItem, { flexDirection: isEn ? "row" : "row-reverse" }]}>
                 <View style={[styles.stepTrackerIcon, {
                   backgroundColor: checkResult.success ? GREEN + "20" : "#FF3B3020",
                 }]}>
@@ -731,10 +776,10 @@ export default function OnboardingScreen() {
                   />
                 </View>
                 <Text style={[styles.stepTrackerLabel, {
-                  fontFamily: fontAr("Bold"),
+                  fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"),
                   color: checkResult.success ? GREEN : "#FF3B30",
                 }]}>
-                  {checkResult.success ? "جهازك جاهز!" : "غير مسجّل"}
+                  {checkResult.success ? ob.deviceReady : ob.resultFail}
                 </Text>
               </View>
             </View>
@@ -749,10 +794,10 @@ export default function OnboardingScreen() {
                   color={checkResult.success ? GREEN : "#FF3B30"}
                 />
               </View>
-              <Text style={[styles.resultTitle, { fontFamily: fontAr("Black") }]}>
-                {checkResult.success ? "كل شيء جاهز!" : "غير مسجّل"}
+              <Text style={[styles.resultTitle, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Black") }]}>
+                {checkResult.success ? ob.resultSuccess : ob.resultFail}
               </Text>
-              <Text style={[styles.resultDesc, { fontFamily: fontAr("Regular") }]}>
+              <Text style={[styles.resultDesc, { fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}>
                 {checkResult.message}
               </Text>
             </View>
@@ -764,8 +809,8 @@ export default function OnboardingScreen() {
                   activeOpacity={0.85}
                   onPress={handleFinish}
                 >
-                  <Feather name="arrow-left" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                  <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>الدخول للمتجر</Text>
+                  <Feather name={arrowDir} size={18} color={WHITE} style={isEn ? { marginRight: 8 } : { marginLeft: 8 }} />
+                  <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.enterStore}</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={{ gap: 14, width: "100%", alignItems: "center" }}>
@@ -787,7 +832,7 @@ export default function OnboardingScreen() {
                         onPress={expandSupport}
                       >
                         <Feather name="message-circle" size={18} color={WHITE} style={{ marginLeft: 8 }} />
-                        <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold") }]}>تواصل مع الدعم</Text>
+                        <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold") }]}>{ob.contactSupport}</Text>
                       </TouchableOpacity>
                     </Animated.View>
 
@@ -802,7 +847,7 @@ export default function OnboardingScreen() {
                         >
                           <Feather name="phone" size={26} color={WHITE} />
                         </TouchableOpacity>
-                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#25D366" }]}>واتساب</Text>
+                        <Text style={[styles.appCircleLabel, { fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), color: "#25D366" }]}>{ob.whatsapp}</Text>
                       </Animated.View>
 
                       {/* Telegram */}
@@ -814,7 +859,7 @@ export default function OnboardingScreen() {
                         >
                           <Feather name="send" size={26} color={WHITE} />
                         </TouchableOpacity>
-                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#0088CC" }]}>تيليكرام</Text>
+                        <Text style={[styles.appCircleLabel, { fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), color: "#0088CC" }]}>{ob.telegram}</Text>
                       </Animated.View>
 
                       {/* Instagram */}
@@ -826,7 +871,7 @@ export default function OnboardingScreen() {
                         >
                           <Feather name="instagram" size={26} color={WHITE} />
                         </TouchableOpacity>
-                        <Text style={[styles.appCircleLabel, { fontFamily: fontAr("SemiBold"), color: "#E1306C" }]}>انستكرام</Text>
+                        <Text style={[styles.appCircleLabel, { fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), color: "#E1306C" }]}>{ob.instagram}</Text>
                       </Animated.View>
                     </View>
                   </View>
@@ -837,7 +882,7 @@ export default function OnboardingScreen() {
                     onPress={() => { collapseSupport(); transition("download"); }}
                   >
                     <Feather name="rotate-ccw" size={16} color={DARK + "70"} style={{ marginLeft: 8 }} />
-                    <Text style={[styles.actionBtnText, { fontFamily: fontAr("Bold"), color: DARK + "70" }]}>إعادة المحاولة</Text>
+                    <Text style={[styles.actionBtnText, { fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), color: DARK + "70" }]}>{ob.retry}</Text>
                   </TouchableOpacity>
                 </View>
               )}
