@@ -213,20 +213,15 @@ function CodeBlock({ code, lang, isDark }: { code: string; lang: string; isDark:
 
 // ─── Message View ────────────────────────────────────────────────────────────
 
-const LOCAL_AVATAR = require("../assets/images/mismari-avatar.png");
-
 function MessageView({
-  msg, isDark, isArabic, fontAr, avatarSrc,
+  msg, isDark, isArabic, fontAr,
 }: {
   msg: ChatMessage; isDark: boolean; isArabic: boolean; fontAr: FontArFn;
-  avatarSrc?: ImageSourcePropType;
 }) {
   const isUser = msg.role === "user";
   const textColor = isDark ? "#fff" : "#1a1a1a";
-  const userBg = isDark ? "#0A84FF" : "#007AFF";
-  const aiBg = isDark ? "#2a2a2a" : "#f0f0f0";
+  const userTextColor = isDark ? "#e0e0e0" : "#444";
   const segments = parseMarkdown(msg.content);
-  const resolvedAvatar = avatarSrc || LOCAL_AVATAR;
 
   const handleCopy = async () => {
     if (!msg.content) return;
@@ -239,56 +234,50 @@ function MessageView({
 
   if (isUser) {
     return (
-      <View style={[styles.msgRow, styles.msgRowRight]}>
-        <View style={{ maxWidth: "80%", alignItems: "flex-end", gap: 6 }}>
+      <Pressable onLongPress={handleCopy} delayLongPress={500}>
+        <View style={styles.userMsgContainer}>
           {msg.imageUri ? (
             <Image source={{ uri: msg.imageUri }} style={styles.msgImage} resizeMode="cover" />
           ) : null}
           {msg.content ? (
-            <Pressable onLongPress={handleCopy} delayLongPress={500}>
-              <View style={[styles.userBubble, { backgroundColor: userBg }]}>
-                <Text style={[styles.userText, { fontFamily: fontAr("Regular"), textAlign: "right" }]}>
-                  {msg.content}
-                </Text>
-              </View>
-            </Pressable>
+            <Text style={[styles.userMsgText, { color: userTextColor, fontFamily: fontAr("Medium"), textAlign: isArabic ? "right" : "left" }]}>
+              {msg.content}
+            </Text>
           ) : null}
         </View>
-      </View>
+      </Pressable>
     );
   }
 
   return (
-    <View style={[styles.msgRow, styles.msgRowLeft]}>
-      <View style={styles.aiAvatarSmall}>
-        <Image source={resolvedAvatar} style={styles.aiAvatarSmallImg} resizeMode="contain" />
+    <Pressable onLongPress={handleCopy} delayLongPress={500}>
+      <View style={styles.aiMsgContainer}>
+        {/* Sparkle indicator */}
+        <Text style={[styles.aiSparkle, { color: isDark ? "#9fbcff" : "#4a80f0" }]}>✦</Text>
+
+        {msg.isStreaming && msg.content === "" ? (
+          <View style={styles.typingDots}>
+            <TypingDot delay={0} isDark={isDark} />
+            <TypingDot delay={150} isDark={isDark} />
+            <TypingDot delay={300} isDark={isDark} />
+          </View>
+        ) : (
+          segments.map((seg, i) => {
+            if (seg.type === "code") {
+              return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
+            }
+            return (
+              <Text key={i} style={[styles.aiText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
+                {renderInlineText(seg.content, { color: textColor, fontFamily: fontAr("Regular") })}
+              </Text>
+            );
+          })
+        )}
+        {msg.isStreaming && msg.content !== "" && (
+          <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
+        )}
       </View>
-      <Pressable onLongPress={handleCopy} delayLongPress={500}>
-        <View style={[styles.aiBubble, { backgroundColor: aiBg, maxWidth: "88%" }]}>
-          {msg.isStreaming && msg.content === "" ? (
-            <View style={styles.typingDots}>
-              <TypingDot delay={0} isDark={isDark} />
-              <TypingDot delay={150} isDark={isDark} />
-              <TypingDot delay={300} isDark={isDark} />
-            </View>
-          ) : (
-            segments.map((seg, i) => {
-              if (seg.type === "code") {
-                return <CodeBlock key={i} code={seg.content} lang={seg.lang || ""} isDark={isDark} />;
-              }
-              return (
-                <Text key={i} style={[styles.aiText, { color: textColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
-                  {renderInlineText(seg.content, { color: textColor, fontFamily: fontAr("Regular") })}
-                </Text>
-              );
-            })
-          )}
-          {msg.isStreaming && msg.content !== "" && (
-            <View style={[styles.streamCursor, { backgroundColor: isDark ? "#fff" : "#333" }]} />
-          )}
-        </View>
-      </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
@@ -324,21 +313,20 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function WelcomeScreen({
-  onSuggestion, isArabic, isDark, fontAr, userName, avatarSrc,
+  onSuggestion, isArabic, isDark, fontAr, userName,
 }: {
   onSuggestion: (t: string) => void;
   isArabic: boolean; isDark: boolean; fontAr: FontArFn;
   userName?: string;
-  avatarSrc?: ImageSourcePropType;
 }) {
   const allSuggestions = isArabic ? SUGGESTIONS_AR : SUGGESTIONS_EN;
   const suggestions = useMemo(() => shuffle(allSuggestions).slice(0, 4), [isArabic]);
-  const greetName = userName
-    ? (isArabic ? `مرحباً، ${userName}` : `Hi, ${userName}`)
-    : (isArabic ? "مرحباً" : "Hello");
-  const subtitle = isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?";
+  const greetLine = isArabic ? "مرحباً" : "Hello";
+  const subtitle = userName
+    ? (isArabic ? `${userName}، من أين نبدأ اليوم؟` : `${userName}, where should we start?`)
+    : (isArabic ? "من أين نبدأ اليوم؟" : "Where should we start?");
   const textColor = isDark ? "#fff" : "#111";
-  const subColor = isDark ? "#bbb" : "#444";
+  const subColor = isDark ? "#aaa" : "#777";
   const chipBg = isDark ? "#1c1c1e" : "#fff";
 
   return (
@@ -347,13 +335,10 @@ function WelcomeScreen({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Avatar + greeting */}
+      {/* Greeting */}
       <View style={[styles.welcomeTop, { alignItems: isArabic ? "flex-end" : "flex-start" }]}>
-        <View style={styles.aiAvatarLarge}>
-          <Image source={avatarSrc || LOCAL_AVATAR} style={styles.aiAvatarLargeImg} resizeMode="contain" />
-        </View>
         <Text style={[styles.greetSmall, { color: subColor, fontFamily: fontAr("Regular"), textAlign: isArabic ? "right" : "left" }]}>
-          {greetName}
+          {greetLine}
         </Text>
         <Text style={[styles.greetBig, { color: textColor, fontFamily: fontAr("Bold"), textAlign: isArabic ? "right" : "left" }]}>
           {subtitle}
@@ -546,28 +531,18 @@ function ModelPicker({
 // ─── Attach Picker ───────────────────────────────────────────────────────────
 
 function AttachPicker({
-  onFilePick, onImagePick, onClose, isDark, isArabic, fontAr,
+  onFilePick, onImagePick, onClose, isDark, isArabic, fontAr, keyboardHeight,
 }: {
   onFilePick: (name: string, content: string) => void;
   onImagePick: (uri: string, base64?: string) => void;
   onClose: () => void;
   isDark: boolean; isArabic: boolean; fontAr: FontArFn;
+  keyboardHeight: number;
 }) {
   const slideAnim = useRef(new Animated.Value(200)).current;
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   useEffect(() => {
     Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }).start();
-  }, []);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = (e: { endCoordinates: { height: number } }) => setKeyboardOffset(e.endCoordinates.height);
-    const onHide = () => setKeyboardOffset(0);
-    const sub1 = Keyboard.addListener(showEvent, onShow);
-    const sub2 = Keyboard.addListener(hideEvent, onHide);
-    return () => { sub1.remove(); sub2.remove(); };
   }, []);
 
   const close = () => {
@@ -634,7 +609,7 @@ function AttachPicker({
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Pressable style={styles.sidebarOverlay} onPress={close} />
-      <Animated.View style={[styles.attachSheet, { backgroundColor: bg, bottom: keyboardOffset, transform: [{ translateY: slideAnim }] }]}>
+      <Animated.View style={[styles.attachSheet, { backgroundColor: bg, bottom: keyboardHeight, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modelHandle} />
         {ATTACH_OPTIONS.map((opt, i) => (
           <Pressable
@@ -836,6 +811,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ uri: string; base64?: string } | null>(null);
   const [customAvatarSrc, setCustomAvatarSrc] = useState<ImageSourcePropType | null>(null);
+  const [subscriberName, setSubscriberName] = useState<string | undefined>();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
@@ -864,6 +841,28 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
       })
       .catch(() => { /* use local fallback */ });
   }, [domain, isDark]);
+
+  // Fetch subscriber name for greeting
+  useEffect(() => {
+    if (!deviceUdid || !domain) return;
+    fetch(`https://${domain}/api/enroll/check?udid=${encodeURIComponent(deviceUdid)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.found && data.subscriber?.subscriberName) {
+          setSubscriberName(data.subscriber.subscriberName);
+        }
+      })
+      .catch(() => {});
+  }, [domain, deviceUdid]);
+
+  // Track keyboard height globally so AttachPicker knows it on mount
+  useEffect(() => {
+    const showEv = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEv = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const s1 = Keyboard.addListener(showEv, e => setKeyboardHeight(e.endCoordinates.height));
+    const s2 = Keyboard.addListener(hideEv, () => setKeyboardHeight(0));
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
 
   // Load conversations
   useEffect(() => {
@@ -1034,8 +1033,8 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
   }, [conversations, saveConversations]);
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
-    <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} avatarSrc={customAvatarSrc ?? undefined} />
-  ), [isDark, isArabic, fontAr, customAvatarSrc]);
+    <MessageView msg={item} isDark={isDark} isArabic={isArabic} fontAr={fontAr} />
+  ), [isDark, isArabic, fontAr]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
@@ -1080,7 +1079,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
             isArabic={isArabic}
             isDark={isDark}
             fontAr={fontAr}
-            avatarSrc={customAvatarSrc ?? undefined}
+            userName={subscriberName}
           />
         ) : (
           <FlatList
@@ -1163,6 +1162,7 @@ export default function AiScreen({ onClose }: { onClose?: () => void }) {
           isDark={isDark}
           isArabic={isArabic}
           fontAr={fontAr}
+          keyboardHeight={keyboardHeight}
         />
       )}
     </View>
@@ -1184,18 +1184,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { fontSize: 17, letterSpacing: -0.3 },
   welcomeContainer: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 44, paddingBottom: 20 },
-  welcomeTop: { marginBottom: 36 },
-  aiAvatarLarge: {
-    width: 54, height: 54, borderRadius: 16,
-    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  aiAvatarLargeImg: { width: 34, height: 34 },
+  welcomeTop: { marginBottom: 32 },
   greetSmall: { fontSize: 16, marginBottom: 6 },
   greetBig: { fontSize: 28, lineHeight: 36, letterSpacing: -0.5 },
   chipsContainer: { gap: 10 },
@@ -1214,37 +1203,13 @@ const styles = StyleSheet.create({
   },
   chipIcon: { fontSize: 18 },
   chipText: { fontSize: 14, flex: 1, lineHeight: 20 },
-  messageList: { paddingVertical: 16, paddingHorizontal: 12, gap: 12 },
-  msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  msgRowLeft: { justifyContent: "flex-start" },
-  msgRowRight: { justifyContent: "flex-end" },
-  userBubble: {
-    borderRadius: 18,
-    borderBottomRightRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  userText: { color: "#fff", fontSize: 15, lineHeight: 22 },
-  msgImage: { width: 220, height: 220, borderRadius: 16, borderBottomRightRadius: 4 },
-  aiAvatarSmall: {
-    width: 28, height: 28, borderRadius: 9,
-    backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, marginBottom: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  aiAvatarSmallImg: { width: 18, height: 18 },
-  aiBubble: {
-    borderRadius: 18,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  aiText: { fontSize: 15, lineHeight: 24 },
+  messageList: { paddingTop: 24, paddingBottom: 12, paddingHorizontal: 18, gap: 28 },
+  userMsgContainer: { alignItems: "flex-end", paddingBottom: 4 },
+  userMsgText: { fontSize: 22, lineHeight: 32, letterSpacing: -0.3 },
+  aiMsgContainer: { gap: 8 },
+  aiSparkle: { fontSize: 16, marginBottom: 2 },
+  msgImage: { width: 220, height: 220, borderRadius: 16, marginBottom: 4 },
+  aiText: { fontSize: 15, lineHeight: 26 },
   typingDots: { flexDirection: "row", gap: 4, paddingVertical: 4 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   streamCursor: { width: 2, height: 16, borderRadius: 1, marginTop: 2, marginLeft: 2 },
@@ -1304,18 +1269,18 @@ const styles = StyleSheet.create({
     maxWidth: 200,
   },
   attachFileChipText: { fontSize: 12, flex: 1 },
-  inputBar: { paddingHorizontal: 14, paddingTop: 8 },
+  inputBar: { paddingHorizontal: 14, paddingTop: 4 },
   inputCard: {
     borderRadius: 24,
-    paddingTop: 14,
+    paddingTop: 10,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 12,
     elevation: 4,
     overflow: "hidden",
   },
   textInput: { fontSize: 15, maxHeight: 120, paddingVertical: 2, paddingHorizontal: 16, lineHeight: 22 },
-  inputDivider: { height: 1, marginTop: 10 },
-  inputActionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  inputDivider: { height: 1, marginTop: 8 },
+  inputActionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   inputActionBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center", borderRadius: 17 },
   modelBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   modelBadgeText: { fontSize: 12 },
