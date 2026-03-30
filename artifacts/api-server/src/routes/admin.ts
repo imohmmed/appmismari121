@@ -668,6 +668,8 @@ router.get("/admin/subscriptions", async (req, res): Promise<void> => {
       pushToken: subscriptionsTable.pushToken,
       activatedAt: subscriptionsTable.activatedAt,
       expiresAt: subscriptionsTable.expiresAt,
+      aiEnabled: subscriptionsTable.aiEnabled,
+      aiExpiresAt: subscriptionsTable.aiExpiresAt,
       createdAt: subscriptionsTable.createdAt,
     })
     .from(subscriptionsTable)
@@ -1784,6 +1786,33 @@ router.get("/admin/subscriptions/:id/balance", async (req, res): Promise<void> =
     res.json({ balance: sub.balance, transactions: txs });
   } catch (err) {
     res.status(500).json({ error: "خطأ" });
+  }
+});
+
+// ─── POST /admin/subscriptions/:id/ai-toggle — enable/disable AI access ──────
+router.post("/admin/subscriptions/:id/ai-toggle", adminAuth, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const { enable, durationDays } = req.body as { enable: boolean; durationDays?: number };
+
+  try {
+    const [sub] = await db.select({ id: subscriptionsTable.id, aiEnabled: subscriptionsTable.aiEnabled })
+      .from(subscriptionsTable).where(eq(subscriptionsTable.id, id)).limit(1);
+    if (!sub) { res.status(404).json({ error: "المشترك غير موجود" }); return; }
+
+    let aiExpiresAt: Date | null = null;
+    if (enable && durationDays && durationDays > 0) {
+      aiExpiresAt = new Date();
+      aiExpiresAt.setDate(aiExpiresAt.getDate() + durationDays);
+    }
+
+    await db.update(subscriptionsTable)
+      .set({ aiEnabled: enable, aiExpiresAt: enable ? aiExpiresAt : null })
+      .where(eq(subscriptionsTable.id, id));
+
+    res.json({ success: true, aiEnabled: enable, aiExpiresAt });
+  } catch (err) {
+    console.error("[admin/ai-toggle] error:", err);
+    res.status(500).json({ error: "خطأ في تعديل صلاحية الذكاء الاصطناعي" });
   }
 });
 

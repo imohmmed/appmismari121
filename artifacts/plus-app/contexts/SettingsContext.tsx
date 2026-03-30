@@ -29,6 +29,10 @@ interface SettingsContextType {
   appName: string;
   appNameEn: string;
   logoUrl: string;
+  aiActive: boolean | null;
+  contactWhatsapp: string;
+  contactInstagram: string;
+  contactTelegram: string;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -62,6 +66,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [appName, setAppName] = useState("مسماري");
   const [appNameEn, setAppNameEn] = useState("Mismari");
   const [logoUrl, setLogoUrl] = useState("");
+  const [aiActive, setAiActive] = useState<boolean | null>(null);
+  const [contactWhatsapp, setContactWhatsapp] = useState("");
+  const [contactInstagram, setContactInstagram] = useState("");
+  const [contactTelegram, setContactTelegram] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -100,13 +108,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           if (enPart) setAppNameEn(enPart);
         }
         if (d?.appearance_logo_url) setLogoUrl(`https://${domain}${d.appearance_logo_url}`);
+        if (d?.support_whatsapp) setContactWhatsapp(d.support_whatsapp);
+        if (d?.support_instagram) setContactInstagram(d.support_instagram);
+        if (d?.support_telegram) setContactTelegram(d.support_telegram);
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!loaded) return;
-    if (subscriptionCode || !deviceUdid) return;
+    if (!loaded || !deviceUdid) return;
     const domain = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
     if (!domain) return;
     fetch(`https://${domain}/api/enroll/check?udid=${encodeURIComponent(deviceUdid)}`)
@@ -116,9 +126,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           setSubscriptionCodeState(data.subscriber.code);
           AsyncStorage.setItem(CODE_KEY, data.subscriber.code).catch(() => {});
         }
+        if (data.found) {
+          setAiActive(data.subscriber?.aiActive === true);
+        }
       })
       .catch(() => {});
-  }, [loaded, deviceUdid, subscriptionCode]);
+  }, [loaded, deviceUdid]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
@@ -206,6 +219,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         appName,
         appNameEn,
         logoUrl,
+        aiActive,
+        contactWhatsapp,
+        contactInstagram,
+        contactTelegram,
       }}
     >
       {children}

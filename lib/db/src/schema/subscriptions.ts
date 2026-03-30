@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, sql } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, sql } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { plansTable } from "./plans";
@@ -26,6 +26,8 @@ export const subscriptionsTable = pgTable("subscriptions", {
   pushToken: text("push_token"),
   activatedAt: timestamp("activated_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  aiEnabled: boolean("ai_enabled").notNull().default(false),
+  aiExpiresAt: timestamp("ai_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

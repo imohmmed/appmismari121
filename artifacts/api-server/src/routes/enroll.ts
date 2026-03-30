@@ -364,13 +364,17 @@ router.get("/enroll/check", enrollCheckLimiter, async (req, res): Promise<void> 
         subscriberName: subscriptionsTable.subscriberName,
         isActive: subscriptionsTable.isActive,
         expiresAt: subscriptionsTable.expiresAt,
+        aiEnabled: subscriptionsTable.aiEnabled,
+        aiExpiresAt: subscriptionsTable.aiExpiresAt,
       })
       .from(subscriptionsTable)
       .where(eq(subscriptionsTable.udid, udid))
       .limit(1);
 
     if (sub) {
-      res.json({ found: true, subscriber: sub });
+      // Check if AI access has expired
+      const aiActive = sub.aiEnabled && (!sub.aiExpiresAt || new Date(sub.aiExpiresAt) > new Date());
+      res.json({ found: true, subscriber: { ...sub, aiActive } });
     } else {
       res.json({ found: false });
     }

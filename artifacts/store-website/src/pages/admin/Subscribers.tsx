@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Search, Plus, X, Trash2, Edit2, CheckSquare, Square,
   Loader2, AlertCircle, Copy, RefreshCw, Bell, Link2,
-  PauseCircle, PlayCircle, Wallet, ArrowUpCircle, ArrowDownCircle
+  PauseCircle, PlayCircle, Wallet, ArrowUpCircle, ArrowDownCircle, BrainCircuit
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +39,8 @@ interface Sub {
   balance: number;
   activatedAt: string | null;
   expiresAt: string | null;
+  aiEnabled: boolean;
+  aiExpiresAt: string | null;
   createdAt: string;
 }
 
@@ -406,6 +408,140 @@ function SubModal({ sub, plans, onClose, onSaved }: { sub?: Sub; plans: Plan[]; 
   );
 }
 
+function AiToggleModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => void; onChanged: () => void }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [durationDays, setDurationDays] = useState("30");
+
+  const isCurrentlyActive = sub.aiEnabled && (!sub.aiExpiresAt || new Date(sub.aiExpiresAt) > new Date());
+  const expiresLabel = sub.aiExpiresAt
+    ? new Date(sub.aiExpiresAt).toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+
+  const DURATIONS = [
+    { label: "7 أيام", value: "7" },
+    { label: "30 يوم", value: "30" },
+    { label: "90 يوم", value: "90" },
+    { label: "180 يوم", value: "180" },
+    { label: "365 يوم", value: "365" },
+    { label: "بدون انتهاء", value: "0" },
+  ];
+
+  const handleEnable = async () => {
+    setLoading(true);
+    try {
+      await adminFetch(`/admin/subscriptions/${sub.id}/ai-toggle`, {
+        method: "POST",
+        body: JSON.stringify({ enable: true, durationDays: Number(durationDays) }),
+      });
+      toast({ title: `تم تفعيل الذكاء الاصطناعي لـ ${sub.subscriberName || sub.code}` });
+      onChanged();
+      onClose();
+    } catch (e: any) {
+      toast({ title: e.message || "خطأ", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  const handleDisable = async () => {
+    setLoading(true);
+    try {
+      await adminFetch(`/admin/subscriptions/${sub.id}/ai-toggle`, {
+        method: "POST",
+        body: JSON.stringify({ enable: false }),
+      });
+      toast({ title: `تم تعطيل الذكاء الاصطناعي لـ ${sub.subscriberName || sub.code}` });
+      onChanged();
+      onClose();
+    } catch (e: any) {
+      toast({ title: e.message || "خطأ", variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl" dir="rtl">
+        <div className="flex items-center justify-between p-5 border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <BrainCircuit className="w-5 h-5 text-purple-400" />
+            <div>
+              <h2 className="font-bold text-white text-sm">الذكاء الاصطناعي</h2>
+              <p className="text-white/40 text-xs mt-0.5">{sub.subscriberName || sub.code}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Status */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/3 border border-white/5">
+            <div className={`w-2.5 h-2.5 rounded-full ${isCurrentlyActive ? "bg-green-400" : "bg-white/20"}`} />
+            <div>
+              <p className="text-sm text-white font-medium">{isCurrentlyActive ? "مفعّل" : "غير مفعّل"}</p>
+              {isCurrentlyActive && expiresLabel && (
+                <p className="text-xs text-white/40 mt-0.5">ينتهي: {expiresLabel}</p>
+              )}
+              {isCurrentlyActive && !sub.aiExpiresAt && (
+                <p className="text-xs text-white/40 mt-0.5">بدون انتهاء</p>
+              )}
+            </div>
+          </div>
+
+          {/* Duration picker (only shown when enabling) */}
+          {!isCurrentlyActive && (
+            <div>
+              <p className="text-xs text-white/40 mb-2">مدة التفعيل</p>
+              <div className="grid grid-cols-3 gap-2">
+                {DURATIONS.map(d => (
+                  <button
+                    key={d.value}
+                    onClick={() => setDurationDays(d.value)}
+                    className={`py-2 rounded-lg text-xs font-medium border transition-colors ${
+                      durationDays === d.value
+                        ? "border-purple-400 bg-purple-400/10 text-purple-300"
+                        : "border-white/10 text-white/50 hover:border-white/20 hover:text-white/70"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/5 p-4 flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/10 text-white/50 hover:text-white text-sm">
+            إلغاء
+          </button>
+          {isCurrentlyActive ? (
+            <button
+              onClick={handleDisable}
+              disabled={loading}
+              className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              تعطيل
+            </button>
+          ) : (
+            <button
+              onClick={handleEnable}
+              disabled={loading}
+              className="px-5 py-2 rounded-lg text-sm font-bold text-white bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              تفعيل
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSubscribers() {
   const { toast } = useToast();
   const [subs, setSubs] = useState<Sub[]>([]);
@@ -418,6 +554,7 @@ export default function AdminSubscribers() {
   const [deleting, setDeleting] = useState(false);
   const [notifySub, setNotifySub] = useState<Sub | null>(null);
   const [balanceSub, setBalanceSub] = useState<Sub | null>(null);
+  const [aiSub, setAiSub] = useState<Sub | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -652,6 +789,17 @@ export default function AdminSubscribers() {
                           <Wallet className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          title={sub.aiEnabled ? "تعطيل الذكاء الاصطناعي" : "تفعيل الذكاء الاصطناعي"}
+                          onClick={() => setAiSub(sub)}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            sub.aiEnabled
+                              ? "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                              : "text-white/40 hover:text-purple-400 hover:bg-purple-500/10"
+                          }`}
+                        >
+                          <BrainCircuit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => { setEditSub(sub); setModal("edit"); }}
                           className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5"
                         >
@@ -686,6 +834,13 @@ export default function AdminSubscribers() {
         <BalanceModal
           sub={balanceSub}
           onClose={() => setBalanceSub(null)}
+          onChanged={fetchData}
+        />
+      )}
+      {aiSub && (
+        <AiToggleModal
+          sub={aiSub}
+          onClose={() => setAiSub(null)}
           onChanged={fetchData}
         />
       )}
