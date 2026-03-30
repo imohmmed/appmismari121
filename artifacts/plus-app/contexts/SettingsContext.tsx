@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useColorScheme } from "react-native";
+import { Appearance } from "react-native";
 
 import Colors, { type ThemeColors } from "@/constants/colors";
 import translations, { type Language, type TranslationKey } from "@/constants/translations";
@@ -41,7 +41,17 @@ const UDID_KEY = "@mismari_device_udid";
 const PHOTO_KEY = "@mismari_profile_photo";
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useColorScheme();
+  const [systemScheme, setSystemScheme] = useState<"light" | "dark">(
+    Appearance.getColorScheme() === "dark" ? "dark" : "light"
+  );
+
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemScheme(colorScheme === "dark" ? "dark" : "light");
+    });
+    return () => sub.remove();
+  }, []);
+
   const [language, setLanguageState] = useState<Language>("ar");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("light");
   const [subscriptionCode, setSubscriptionCodeState] = useState("");
