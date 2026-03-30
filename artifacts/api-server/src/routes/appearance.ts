@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, settingsTable } from "@workspace/db";
-import { eq, like } from "drizzle-orm";
+import { eq, like, or } from "drizzle-orm";
 import { adminAuth } from "../middleware/adminAuth";
 import multer from "multer";
 import path from "path";
@@ -31,7 +31,9 @@ const aiAvatarDarkUp   = multer({ storage: makeStorage("ai-avatar-dark"),  limit
 
 /* ─── Public: جلب كل إعدادات المظهر ─────────────────────────────────────── */
 router.get("/appearance", async (_req: Request, res: Response): Promise<void> => {
-  const rows = await db.select().from(settingsTable).where(like(settingsTable.key, "appearance_%"));
+  const rows = await db.select().from(settingsTable).where(
+    or(like(settingsTable.key, "appearance_%"), like(settingsTable.key, "support_%"))
+  );
   const out: Record<string, string> = {
     appearance_site_name:          "Mismari | مسماري",
     appearance_app_name:           "مسماري",
