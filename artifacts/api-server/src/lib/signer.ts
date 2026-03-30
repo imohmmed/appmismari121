@@ -37,19 +37,30 @@ export function randomHex(n = 16) {
   return crypto.randomBytes(n).toString("hex");
 }
 
+/** Validate token contains only lowercase hex characters (matches output of randomHex) */
+function validateToken(token: string): string {
+  if (typeof token !== "string" || !/^[a-f0-9]{16,64}$/.test(token)) {
+    throw new Error("Invalid token format");
+  }
+  return token;
+}
+
 export function saveToken(token: string, meta: TokenMeta) {
-  const metaPath = path.join(SIGNED_DIR, `${token}.json`);
+  const safeToken = validateToken(token);
+  const metaPath = path.join(SIGNED_DIR, `${safeToken}.json`);
   fs.writeFileSync(metaPath, JSON.stringify(meta));
 }
 
 export function loadToken(token: string): TokenMeta | null {
-  const metaPath = path.join(SIGNED_DIR, `${token}.json`);
+  let safeToken: string;
+  try { safeToken = validateToken(token); } catch { return null; }
+  const metaPath = path.join(SIGNED_DIR, `${safeToken}.json`);
   if (!fs.existsSync(metaPath)) return null;
   try {
     const meta = JSON.parse(fs.readFileSync(metaPath, "utf8")) as TokenMeta;
     if (Date.now() > meta.expiresAt) {
       fs.rmSync(metaPath, { force: true });
-      fs.rmSync(path.join(SIGNED_DIR, `${token}.ipa`), { force: true });
+      fs.rmSync(path.join(SIGNED_DIR, `${safeToken}.ipa`), { force: true });
       return null;
     }
     return meta;
@@ -108,13 +119,13 @@ export function resolveLocalPath(storedPath: string): string {
     const url = new URL(storedPath);
     const p = url.pathname;
     const storeMatch = p.match(/\/FilesIPA\/StoreIPA\/(.+)$/);
-    if (storeMatch) return path.join(process.cwd(), "uploads", "StoreIPA", storeMatch[1]);
+    if (storeMatch) return path.join(process.cwd(), "uploads", "StoreIPA", path.basename(storeMatch[1]));
     const appMatch = p.match(/\/FilesIPA\/IpaApp\/(.+)$/);
-    if (appMatch) return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", appMatch[1]);
+    if (appMatch) return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", path.basename(appMatch[1]));
     const relMatch = p.match(/\/admin\/FilesIPA\/(.+)$/);
-    if (relMatch) return path.join(process.cwd(), "uploads", "FilesIPA", relMatch[1]);
+    if (relMatch) return path.join(process.cwd(), "uploads", "FilesIPA", path.basename(relMatch[1]));
     const signedStoreMatch = p.match(/\/(?:api\/)?admin\/signed-store\/(.+)$/);
-    if (signedStoreMatch) return path.join(process.cwd(), "uploads", "SignedStore", signedStoreMatch[1]);
+    if (signedStoreMatch) return path.join(process.cwd(), "uploads", "SignedStore", path.basename(signedStoreMatch[1]));
     return path.join(process.cwd(), "uploads", path.basename(p));
   }
   if (storedPath.startsWith("/admin/signed-store/") || storedPath.startsWith("/sign/store-files/")) {

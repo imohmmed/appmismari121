@@ -5,7 +5,7 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import multer from "multer";
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -35,16 +35,27 @@ function parseP12(buf: Buffer, password: string): { commonName: string; issuer: 
   const p12Path = path.join(tmpDir, "cert.p12");
   const certPath = path.join(tmpDir, "cert.pem");
 
+  const passFile = path.join(tmpDir, "pass.txt");
   try {
     fs.writeFileSync(p12Path, buf);
+    // Write password to a temp file — never interpolate user input into shell strings
+    fs.writeFileSync(passFile, password, { mode: 0o600 });
 
     // Export certificate as PEM (no key, no CA certs)
     // -legacy flag required for OpenSSL 3.x to support RC2/3DES-based p12 files
-    const tryExport = (extraFlag: string) =>
-      execSync(
-        `openssl pkcs12 ${extraFlag} -in "${p12Path}" -passin "pass:${password.replace(/"/g, '\\"')}" -nokeys -clcerts -out "${certPath}" 2>/dev/null`,
-        { timeout: 10000 }
-      );
+    const tryExport = (extraFlag: string) => {
+      const args = [
+        "pkcs12",
+        ...(extraFlag ? [extraFlag] : []),
+        "-in", p12Path,
+        "-passin", `file:${passFile}`,
+        "-nokeys",
+        "-clcerts",
+        "-out", certPath,
+      ];
+      const result = spawnSync("openssl", args, { timeout: 10000 });
+      if (result.status !== 0) throw new Error("openssl pkcs12 failed");
+    };
 
     try {
       tryExport("-legacy");
@@ -52,11 +63,12 @@ function parseP12(buf: Buffer, password: string): { commonName: string; issuer: 
       tryExport(""); // fallback for newer p12 formats that don't need -legacy
     }
 
-    // Read certificate info
-    const info = execSync(
-      `openssl x509 -in "${certPath}" -noout -subject -issuer -dates 2>/dev/null`,
+    // Read certificate info — no user input in this command
+    const infoResult = spawnSync(
+      "openssl", ["x509", "-in", certPath, "-noout", "-subject", "-issuer", "-dates"],
       { timeout: 5000, encoding: "utf8" }
     );
+    const info = infoResult.stdout ?? "";
 
     const subjectMatch = info.match(/subject=(.+)/);
     const issuerMatch = info.match(/issuer=(.+)/);

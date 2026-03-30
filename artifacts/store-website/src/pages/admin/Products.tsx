@@ -77,6 +77,23 @@ function Sep() {
   return <div className="w-px h-4 mx-0.5 shrink-0" style={{ background: "rgba(255,255,255,0.08)" }} />;
 }
 
+/** Strip dangerous tags/attributes before setting innerHTML in the rich editor */
+function sanitizeEditorHtml(dirty: string): string {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = dirty;
+  const BANNED_TAGS = ["script", "iframe", "object", "embed", "form", "input", "button", "link", "meta", "base"];
+  const BANNED_ATTRS = /^on|^javascript|^vbscript|^data:/i;
+  BANNED_TAGS.forEach(tag => tmp.querySelectorAll(tag).forEach(el => el.remove()));
+  tmp.querySelectorAll("*").forEach(el => {
+    Array.from(el.attributes).forEach(attr => {
+      if (BANNED_ATTRS.test(attr.name) || BANNED_ATTRS.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  return tmp.innerHTML;
+}
+
 function RichEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [showTextColors, setShowTextColors] = useState(false);
@@ -86,7 +103,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== value) {
-      ref.current.innerHTML = value;
+      ref.current.innerHTML = sanitizeEditorHtml(value);
     }
   }, []);
 
