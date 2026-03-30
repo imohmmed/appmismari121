@@ -622,14 +622,23 @@ export default function SignScreen() {
             { backgroundColor: colors.background, paddingTop, transform: [{ translateX: slideAnim }] },
           ]}
         >
-          {/* Panel header: back button on the right in both languages */}
+          {/* Panel header: back button left in English, right in Arabic */}
           <View style={[styles.header, { flexDirection: "row" }]}>
-            <View style={{ flex: 1 }}>
-              {signTitle}
-            </View>
-            <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
-              <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={16} color={colors.text} />
-            </TouchableOpacity>
+            {isArabic ? (
+              <>
+                <View style={{ flex: 1 }}>{signTitle}</View>
+                <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
+                  <Feather name="arrow-right" size={16} color={colors.text} />
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity onPress={closePanel} style={[styles.backBtn, { backgroundColor: colors.card }]} activeOpacity={0.7}>
+                  <Feather name="arrow-left" size={16} color={colors.text} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>{signTitle}</View>
+              </>
+            )}
           </View>
 
           {/* Panel scroll content */}

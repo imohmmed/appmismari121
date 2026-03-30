@@ -40,7 +40,7 @@ interface Props {
 
 export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
   const insets = useSafeAreaInsets();
-  const { colors, t, fontAr, isArabic, subscriptionCode, appName } = useSettings();
+  const { colors, t, fontAr, isArabic, subscriptionCode, appName, appNameEn } = useSettings();
 
   const TINT = "#9fbcff";
 
@@ -178,8 +178,8 @@ export default function SignUrlModal({ visible, onClose, onAnalyzed }: Props) {
                 <Feather name="arrow-left" size={16} color={colors.text} />
               </TouchableOpacity>
               <Text style={[st.headerTitle, { color: colors.text, marginLeft: 10 }]}>
-                <Text style={{ fontFamily: "Inter_700Bold" }}>{appName} </Text>
-                <Text style={{ fontFamily: fontAr("Bold") }}>Sign</Text>
+                <Text style={{ fontFamily: "Inter_700Bold" }}>{appNameEn} </Text>
+                <Text style={{ fontFamily: "Inter_700Bold" }}>Sign</Text>
               </Text>
               <View style={{ flex: 1 }} />
             </>
