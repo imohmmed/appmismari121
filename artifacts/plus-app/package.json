@@ -59,6 +59,7 @@
     "expo-clipboard": "^8.0.8",
     "expo-document-picker": "^14.0.8",
     "expo-notifications": "~0.32.16",
-    "react-native-markdown-display": "^7.0.2"
+    "react-native-markdown-display": "^7.0.2",
+    "react-native-webview": "^13.16.1"
   }
 }
