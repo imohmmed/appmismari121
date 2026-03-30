@@ -729,7 +729,7 @@ function genId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export default function AiScreen() {
+export default function AiScreen({ onClose }: { onClose?: () => void }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, t, fontAr, isDark, isArabic, deviceUdid } = useSettings();
@@ -897,7 +897,11 @@ export default function AiScreen() {
 
   const handleBack = () => {
     if (xhrRef.current) xhrRef.current.abort();
-    router.replace("/(tabs)");
+    if (onClose) {
+      onClose();
+    } else {
+      router.replace("/(tabs)");
+    }
   };
 
   const handleFilePick = (name: string, content: string) => {
@@ -914,17 +918,29 @@ export default function AiScreen() {
     <View style={[styles.screen, { backgroundColor: bg }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: headerBorder, paddingTop: insets.top }]}>
-        <Pressable onPress={() => setShowSidebar(true)} style={styles.headerBtn} hitSlop={12}>
-          <Feather name="menu" size={22} color={textColor} />
-        </Pressable>
+        {isArabic ? (
+          <Pressable onPress={() => setShowSidebar(true)} style={styles.headerBtn} hitSlop={12}>
+            <Feather name="menu" size={22} color={textColor} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={handleBack} style={styles.headerBtn} hitSlop={12}>
+            <Feather name="home" size={20} color={textColor} />
+          </Pressable>
+        )}
         <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: textColor, fontFamily: fontAr("Bold") }]}>
+          <Text style={[styles.headerTitle, { color: textColor, fontFamily: fontAr("SemiBold") }]}>
             Mismari AI
           </Text>
         </View>
-        <Pressable onPress={handleBack} style={styles.headerBtn} hitSlop={12}>
-          <Feather name="home" size={20} color={textColor} />
-        </Pressable>
+        {isArabic ? (
+          <Pressable onPress={handleBack} style={styles.headerBtn} hitSlop={12}>
+            <Feather name="home" size={20} color={textColor} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => setShowSidebar(true)} style={styles.headerBtn} hitSlop={12}>
+            <Feather name="menu" size={22} color={textColor} />
+          </Pressable>
+        )}
       </View>
 
       {/* Content */}

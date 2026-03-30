@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, { useState, useCallback } from "react";
 import { Modal, View } from "react-native";
 
@@ -8,6 +8,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 export default function AiTab() {
   const [visible, setVisible] = useState(false);
   const { isDark } = useSettings();
+  const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
@@ -18,16 +19,21 @@ export default function AiTab() {
     }, [])
   );
 
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    router.replace("/(tabs)");
+  }, [router]);
+
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? "#000" : "#F0F2F5" }}>
       <Modal
         visible={visible}
         animationType="fade"
         presentationStyle="fullScreen"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={handleClose}
         statusBarTranslucent
       >
-        <AiScreen />
+        <AiScreen onClose={handleClose} />
       </Modal>
     </View>
   );
