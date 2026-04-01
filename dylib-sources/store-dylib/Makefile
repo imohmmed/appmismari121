@@ -1,114 +1,83 @@
-# ══════════════════════════════════════════════════════════════
-#  Mismari Store Dylib — Makefile
-#  يعمل على macOS مع Xcode Command Line Tools
-#  الهدف: arm64 + arm64e (iPhone 8s وأحدث)
+# ══════════════════════════════════════════════════════════════════════════════
+#  Mismari Store Dylib — Makefile (Theos)
+#  يعمل على macOS مع Theos مثبّت
+#  الهدف: arm64 + arm64e (iPhone 8 وأحدث)
 #
-#  طبقات الحماية المُطبَّقة في الـ Build:
-#   • Symbol Stripping   — حذف جدول الرموز تماماً
-#   • Dead Code Strip    — حذف الكود غير المستخدم
-#   • Stack Protector    — حماية الـ Stack من الـ Overflow
-#   • No Stack Exec      — منع تنفيذ الكود من الـ Stack
-#   • Visibility Hidden  — إخفاء كل الدوال كـ private
-# ══════════════════════════════════════════════════════════════
+#  طبقات الحماية المُطبَّقة:
+#   • Symbol Stripping      — حذف جدول الرموز تماماً (Theos STRIP_INSTALLED_PRODUCT)
+#   • Dead Code Strip       — حذف الكود غير المستخدم (-Wl,-dead_strip)
+#   • Stack Protector       — حماية الـ Stack من الـ Overflow
+#   • Visibility Hidden     — إخفاء كل الدوال كـ private
+#   • XOR String Encryption — كل النصوص مشفَّرة في الـ Binary (Obfuscation.h)
+#
+#  البناء:
+#   cd dylib-sources/store-dylib && make
+#  الناتج:
+#   mismari-store.dylib  (جاهز للرفع في لوحة التحكم)
+# ══════════════════════════════════════════════════════════════════════════════
 
-TARGET    := mismari-store.dylib
-SOURCES   := StoreDylib.m fishhook.c
-HEADERS   := fishhook.h Obfuscation.h
-SDK       := $(shell xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)
-MIN_IOS   := 14.0
+ARCHS       = arm64 arm64e
+TARGET      = iphone:clang:16.5:14.0
 
-CC        := $(shell xcrun --find clang)
-STRIP     := $(shell xcrun --find strip)
-ARCHS     := -arch arm64 -arch arm64e
+# نوع المشروع: library (لا يستخدم Logos / %hook — hooks يدوية عبر fishhook + ObjC runtime)
+LIBRARY_NAME = mismari-store
 
-# ─── Compilation Flags ────────────────────────────────────────────────────────
-CFLAGS    := \
-    $(ARCHS) \
-    -isysroot $(SDK) \
-    -miphoneos-version-min=$(MIN_IOS) \
-    -dynamiclib \
-    -fPIC \
+mismari-store_FILES       = StoreDylib.m fishhook.c
+mismari-store_FRAMEWORKS  = Foundation UIKit CommonCrypto
+mismari-store_LIBRARIES   = objc dl
+
+mismari-store_CFLAGS = \
     -fobjc-arc \
     -O2 \
-    -framework Foundation \
-    -framework UIKit \
-    -framework CommonCrypto \
-    -lobjc \
-    -ldl \
-    -install_name @rpath/$(TARGET) \
-    -compatibility_version 1.0 \
-    -current_version 1.0.0 \
-    \
+    -std=c11 \
     -fvisibility=hidden \
     -fvisibility-inlines-hidden \
-    \
     -fstack-protector-strong \
-    \
+    -ffunction-sections \
+    -fdata-sections \
+    -DNDEBUG \
+    -Wno-deprecated-declarations
+
+mismari-store_LDFLAGS = \
+    -Wl,-S \
     -Wl,-dead_strip \
-    \
-    -DNDEBUG
+    -Wl,-x
 
-# ─── Strip Flags ──────────────────────────────────────────────────────────────
-# -x   : حذف رموز الـ Locals تماماً
-# -S   : حذف معلومات الـ Debug
-# -T   : حذف رموز Swift / ObjC الزائدة
-STRIP_FLAGS := -x -S -T
+STRIP_INSTALLED_PRODUCT = YES
 
-.PHONY: all clean check info
+include $(THEOS)/makefiles/common.mk
+include $(THEOS_MAKE_PATH)/library.mk
 
-all: check $(TARGET) strip_symbols
-	@echo ""
-	@echo "╔══════════════════════════════════════════╗"
-	@echo "║  ✅ mismari-store.dylib جاهز للرفع       ║"
-	@echo "╚══════════════════════════════════════════╝"
-	@ls -lh $(TARGET)
-
-$(TARGET): $(SOURCES) $(HEADERS)
-	@echo "🔨 بناء $(TARGET) لـ arm64 + arm64e..."
-	$(CC) $(CFLAGS) -o $@ $(SOURCES)
-	@echo "✅ تم البناء"
-
-# ─── Symbol Stripping ─────────────────────────────────────────────────────────
-# يحذف جميع رموز الـ Debug والـ Symbols من الملف الثنائي النهائي
-# بعد هذه الخطوة: Hopper / IDA / nm لن يستطيعوا رؤية أي دالة بالاسم
-strip_symbols: $(TARGET)
-	@echo "🔒 حذف الـ Symbols من $(TARGET)..."
-	$(STRIP) $(STRIP_FLAGS) $(TARGET)
-	@echo "✅ تم الـ Strip — جدول الرموز محذوف"
-
-check:
-	@if [ -z "$(SDK)" ]; then \
-		echo "❌ Xcode SDK غير موجود. شغّل: xcode-select --install"; \
-		exit 1; \
+# ─── نسخ الناتج لاسمه الصحيح ──────────────────────────────────────────────────
+# Theos ينتج: mismari-store.dylib في مجلد .theos/obj
+after-all::
+	@DYLIB=$$(find .theos -name "mismari-store.dylib" 2>/dev/null | head -1); \
+	if [ -n "$$DYLIB" ]; then \
+	    cp "$$DYLIB" ./mismari-store.dylib && \
+	    echo "" && \
+	    echo "╔══════════════════════════════════════════╗" && \
+	    echo "║  ✅ mismari-store.dylib جاهز للرفع       ║" && \
+	    echo "╚══════════════════════════════════════════╝" && \
+	    ls -lh ./mismari-store.dylib; \
+	else \
+	    echo "❌ لم يُوجد الناتج — تحقق من الأخطاء أعلاه"; \
 	fi
-	@echo "📱 SDK: $(SDK)"
-
-clean:
-	rm -f $(TARGET)
-	@echo "🗑️  تم الحذف"
-
-# ── عرض معلومات الـ dylib ─────────────────────────────────────────────────────
-info: $(TARGET)
-	@echo "\n── المعماريات ──────────────────────────────────"
-	lipo -info $(TARGET)
-	@echo "\n── المكتبات المرتبطة ──────────────────────────"
-	otool -L $(TARGET)
-	@echo "\n── الرموز المُصدَّرة (يجب أن تكون فارغة بعد الـ Strip) ──"
-	nm -gU $(TARGET) 2>/dev/null | head -20 || echo "✅ لا توجد رموز — Strip ناجح"
-	@echo "\n── حجم الملف ────────────────────────────────────"
-	ls -lh $(TARGET)
 
 # ── التحقق من نجاح الـ Obfuscation ───────────────────────────────────────────
-verify: $(TARGET)
+verify: mismari-store.dylib
 	@echo "\n── فحص النصوص المكشوفة (يجب ألا تظهر روابط) ──"
-	@if strings $(TARGET) | grep -E "mismari\.com|ocsp\.apple|app\.mismari" 2>/dev/null; then \
-		echo "⚠️  تحذير: وُجدت نصوص مكشوفة! راجع الـ Obfuscation"; \
+	@if strings mismari-store.dylib | grep -E "mismari\.com|ocsp\.apple|app\.mismari" 2>/dev/null; then \
+	    echo "⚠️  تحذير: وُجدت نصوص مكشوفة! راجع الـ Obfuscation"; \
 	else \
-		echo "✅ لا توجد نصوص مكشوفة — التشفير ناجح"; \
+	    echo "✅ لا توجد نصوص مكشوفة — التشفير ناجح"; \
 	fi
 	@echo "\n── فحص الـ Symbols المكشوفة ──────────────────"
-	@if nm -gU $(TARGET) 2>/dev/null | grep -v "^$$" | head -5; then \
-		echo "⚠️  بعض الرموز مكشوفة — شغّل make strip_symbols"; \
+	@if nm -gU mismari-store.dylib 2>/dev/null | grep -v "^$$" | head -5; then \
+	    echo "⚠️  بعض الرموز مكشوفة — Theos STRIP_INSTALLED_PRODUCT=YES يجب أن يحلّها"; \
 	else \
-		echo "✅ لا توجد رموز مكشوفة"; \
+	    echo "✅ لا توجد رموز مكشوفة"; \
 	fi
+	@echo "\n── المعماريات ──────────────────────────────────"
+	lipo -info mismari-store.dylib
+	@echo "\n── المكتبات المرتبطة ────────────────────────────"
+	otool -L mismari-store.dylib

@@ -1,170 +1,63 @@
-# Mismari Store Dylib — دليل البناء والتشفير
+# بناء Mismari Store Dylib (Theos)
 
-## الملفات
+## المميزات (6 وحدات حماية)
 
-| الملف | الوصف |
-|---|---|
-| `StoreDylib.m` | الكود الرئيسي (6 ميزات + 4 طبقات تشفير) |
-| `Obfuscation.h` | نظام تشفير النصوص XOR |
-| `fishhook.c/.h` | مكتبة Facebook لـ hooking الـ C functions |
-| `Makefile` | بناء + Strip + Verify |
+| # | الاسم | الوظيفة |
+|---|---|---|
+| 1 | JB Bypass (fishhook) | يخفي مسارات Cydia/Substrate — hooks على stat/lstat/access/open |
+| 2 | NSFileManager Protection | fileExistsAtPath يُخفي مسارات JB عن الـ Objective-C layer |
+| 3 | Bundle ID Masking | يثبّت Bundle ID الأصلي حتى بعد إعادة التوقيع |
+| 4 | Auto-Update Checker | يفحص التحديثات كل 30 دقيقة ويعرض Alert للمستخدم |
+| 5 | Safe Mode | بعد 3 crashes في 8 ثواني → تعطيل تلقائي للـ hooks |
+| 6 | Integrity Check | يكتشف الحقن الخارجي عبر DYLD_INSERT_LIBRARIES |
+| + | Welcome Alert | رسالة ترحيب عند أول تشغيل لكل إصدار جديد |
 
----
+## ⚠️ مهم: لا تُحقن هذا الدايلب في تطبيقات المستخدمين
+- فقط لتطبيق مسماري+ (المتجر)
+- `antirevoke.dylib` هو الذي يُحقن في تطبيقات المستخدمين والألعاب
 
-## طبقات التشفير الأربع
-
-### 1. تشفير النصوص — XOR String Obfuscation
-
-**المشكلة:** أي أداة (`strings`, `Hopper`, `IDA`) تستطيع قراءة الروابط من الملف الثنائي مباشرة.
-
-**الحل:** كل نص حساس مخزَّن كـ bytes مشفّرة بـ XOR (مفتاح `0xAB`):
-- الـ URL الخاص بالـ API  
-- مسارات الجيلبريك (24 مسار)  
-- جميع UserDefaults keys  
-- Bundle ID
-
-**كيف يعمل:**
-```c
-// بدلاً من:
-NSString *url = @"https://app.mismari.com/api/settings";
-
-// نستخدم:
-XSTR(apiUrl, _ENC_UPDATE_URL, _LEN_UPDATE_URL);
-NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:apiUrl]];
-XSTR_ZERO(apiUrl, _LEN_UPDATE_URL);  // يُمسح من الـ RAM فوراً
-```
-
-**النتيجة:** `strings mismari-store.dylib` → لا يجد أي رابط.
-
----
-
-### 2. إخفاء الدوال — dlsym Runtime Resolution
-
-**المشكلة:** `NSURLSession` المرتبط بشكل ثابت يظهر في جدول الرموز.
-
-**الحل:** استخدام `objc_getClass()` لحل الدوال وقت التشغيل:
-```c
-// بدلاً من:
-NSURLSession *session = [NSURLSession sharedSession];
-
-// نستخدم:
-Class sessionClass = objc_getClass("NSURLSession");
-NSURLSession *session = [sessionClass sharedSession];
-```
-
-**النتيجة:** لا يوجد ارتباط ثابت بـ NSURLSession في جدول الرموز.
-
----
-
-### 3. Symbol Stripping — حذف جدول الرموز
-
-**يتم تلقائياً عند البناء** (`make` يشغّل `strip` تلقائياً).
-
-**الـ Flags المستخدمة:**
-```
-strip -x -S -T mismari-store.dylib
-```
-- `-x` : حذف رموز الـ Locals  
-- `-S` : حذف معلومات الـ Debug  
-- `-T` : حذف رموز ObjC الزائدة
-
-**الـ Compiler Flags:**
-```
--fvisibility=hidden          → كل الدوال private بشكل افتراضي
--fvisibility-inlines-hidden  → الدوال الـ inline أيضاً hidden
--fstack-protector-strong     → حماية الـ Stack من Overflow
--Wl,-dead_strip              → حذف الكود غير المستخدم
-```
-
-**النتيجة:** `nm -gU mismari-store.dylib` → لا يجد أي دالة.
-
----
-
-### 4. Integrity Check — تحقق النزاهة
-
-**يكتشف:**
-- حقن خارجي عبر `DYLD_INSERT_LIBRARIES` بمسارات مريبة (`/var/`, `/tmp/`)
-
-**الاستجابة:**
-- `gIntegrityFailed = YES` → جميع الـ hooks تتعطل فوراً
-- التطبيق يعمل بشكل طبيعي بدون أي تعديل
-
-**Safe Mode (تلقائي):**
-- بعد 3 crashes في أقل من 8 ثوانٍ → Safe Mode تلقائي
-- يُعطّل جميع الـ hooks لحماية المستخدم
-- يعرض رسالة تشرح الوضع
-
----
-
-## البناء على MacBook
-
-### المتطلبات
+## المتطلبات (على الماك)
 ```bash
-xcode-select --install   # Xcode Command Line Tools
+# تثبيت Theos (مرة واحدة)
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
 ```
 
-### البناء الكامل
+## البناء
 ```bash
-cd ~/Desktop/mismari-store-dylib
+cd dylib-sources/store-dylib
 make
+# الناتج: ./mismari-store.dylib  (arm64 + arm64e)
 ```
 
-ينفذ:
-1. بناء arm64 + arm64e
-2. Strip تلقائي للـ Symbols
-3. يطبع الحجم النهائي
-
-### التحقق من نجاح التشفير
+## التحقق من الجودة
 ```bash
 make verify
+# يفحص: النصوص المكشوفة + الرموز + المعماريات + المكتبات
 ```
-يتحقق من:
-- ✅ لا توجد روابط مكشوفة
-- ✅ لا توجد رموز مكشوفة
 
-### فحص المعلومات
+## نظام التشفير
+
+### Obfuscation.h — KEY = 0xAB
+```objc
+// Stack buffer — لا malloc — لا memory leak
+XSTR(myVar, _ENC_SOME_STRING, _LEN_SOME_STRING);
+// استخدم myVar مباشرةً
+XSTR_ZERO(myVar, _LEN_SOME_STRING); // امسح بعد الاستخدام
+```
+
+### لإنشاء نص مشفَّر جديد (KEY=0xAB)
 ```bash
-make info
-```
-يعرض:
-- المعماريات (arm64 / arm64e)
-- المكتبات المرتبطة
-- الرموز المتبقية (يجب أن تكون فارغة)
-
-### الرفع على R2
-بعد البناء الناجح:
-```
-Cloudflare R2 → dylibs/mismari-store.dylib
-```
-السيرفر يُنزّله تلقائياً ويحدّث الـ ETag Cache خلال 5 دقائق.
-
----
-
-## إعادة توليد مفتاح XOR
-
-إذا أردت تغيير مفتاح التشفير (يُنصح بذلك لكل إصدار):
-
-1. عدّل `KEY` في هذا السكريبت:
-```javascript
-// keygen.js
-const KEY = 0xAB; // غيّر هذا
+node -e "const K=0xAB; const s='your.string'; console.log('{' + [...s].map(c=>'0x'+(c.charCodeAt(0)^K).toString(16).padStart(2,'0').toUpperCase()).join(',') + ',0x00}')"
 ```
 
-2. شغّل:
-```bash
-node keygen.js
-```
+## الفرق بين الدايلبين
 
-3. انسخ الـ `#define` الجديدة في `Obfuscation.h`
-
-4. عدّل `_XK` في `Obfuscation.h` ليطابق المفتاح الجديد
-
----
-
-## قاعدة مهمة جداً
-
-> ⚠️ **هذا الدايلب حصراً للمتجر (Mismari+)**  
-> لا تحقنه في تطبيقات المستخدمين  
-> يحتوي على كود يتعارض مع React Native / Hermes  
->  
-> **لتطبيقات المستخدمين:** استخدم `antirevoke.dylib` فقط
+| الخاصية | mismari-store.dylib | antirevoke.dylib |
+|---|---|---|
+| يُحقن في | مسماري+ (المتجر فقط) | تطبيقات + ألعاب المستخدمين |
+| أداة البناء | Theos library.mk | Theos tweak.mk |
+| نظام الـ Hooks | fishhook + ObjC Runtime | Cydia Substrate (Logos %hook) |
+| تشفير النصوص | XOR KEY=0xAB (Obfuscation.h) | XOR KEY=0x42 (MSMStrings.h) |
+| Safe Mode | ✅ بعد 3 crashes | ❌ |
+| Auto-Update | ✅ يفحص API المتجر | ❌ |
+| Anti-Revoke (OCSP) | ❌ (React Native يتعطل معه) | ✅ 10 Modules |

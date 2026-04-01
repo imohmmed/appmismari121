@@ -1875,4 +1875,58 @@ router.delete("/admin/dylib", adminAuth, (_req, res): void => {
   }
 });
 
+// ─── Store Dylib Upload / Status / Delete ─────────────────────────────────────
+// mismari-store.dylib — يُحقن في تطبيق مسماري+ (المتجر) فقط
+// ⚠️  لا يُحقن في تطبيقات المستخدمين — راجع sign.ts و activate.ts
+const STORE_DYLIB_UPLOAD_PATH = path.join(DYLIB_UPLOAD_DIR, "mismari-store.dylib");
+const STORE_DYLIB_PERSIST     = path.join(DYLIB_DATA_DIR,   "mismari-store.dylib");
+
+const storeDylibStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, DYLIB_UPLOAD_DIR),
+  filename:    (_req, _file, cb) => cb(null, "mismari-store.dylib"),
+});
+const storeDylibUpload = multer({
+  storage: storeDylibStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.endsWith(".dylib")) return cb(null, true);
+    cb(new Error("يُقبل فقط ملفات .dylib"));
+  },
+});
+
+router.get("/admin/store-dylib/status", adminAuth, (_req, res): void => {
+  try {
+    if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) {
+      const stat = fs.statSync(STORE_DYLIB_UPLOAD_PATH);
+      res.json({ exists: true, size: stat.size, updatedAt: stat.mtime.toISOString() });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch {
+    res.json({ exists: false });
+  }
+});
+
+router.post("/admin/store-dylib/upload", adminAuth, storeDylibUpload.single("file"), (req, res): void => {
+  try {
+    if (!req.file) { res.status(400).json({ error: "لم يُرسل أي ملف" }); return; }
+    fs.copyFileSync(STORE_DYLIB_UPLOAD_PATH, STORE_DYLIB_PERSIST);
+    const stat = fs.statSync(STORE_DYLIB_UPLOAD_PATH);
+    r2Upload("dylibs/mismari-store.dylib", fs.readFileSync(STORE_DYLIB_UPLOAD_PATH), "application/octet-stream").catch(() => {});
+    res.json({ success: true, size: stat.size });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الرفع" });
+  }
+});
+
+router.delete("/admin/store-dylib", adminAuth, (_req, res): void => {
+  try {
+    if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) fs.unlinkSync(STORE_DYLIB_UPLOAD_PATH);
+    if (fs.existsSync(STORE_DYLIB_PERSIST))     fs.unlinkSync(STORE_DYLIB_PERSIST);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الحذف" });
+  }
+});
+
 export default router;

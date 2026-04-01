@@ -682,6 +682,158 @@ function TelegramBotSection() {
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   StoreDylibSection — رفع دايلب مسماري+ (المتجر)
+   mismari-store.dylib يُحقن في تطبيق مسماري+ فقط — لا يمس تطبيقات المستخدمين
+────────────────────────────────────────────────────────────────────────── */
+function StoreDylibSection() {
+  const { toast } = useToast();
+  const C = "#22c55e";
+  const [open, setOpen] = useState(false);
+  const storeDylibRef = useRef<HTMLInputElement>(null);
+  const [storeDylibStatus, setStoreDylibStatus] = useState<{ exists: boolean; size?: number; updatedAt?: string } | null>(null);
+  const [uploadingStore, setUploadingStore] = useState(false);
+
+  const fetchStatus = async () => {
+    try {
+      const d = await adminFetch("/admin/store-dylib/status");
+      setStoreDylibStatus(d);
+    } catch { setStoreDylibStatus({ exists: false }); }
+  };
+
+  useEffect(() => { if (open) fetchStatus(); }, [open]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingStore(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await adminUpload("/admin/store-dylib/upload", fd);
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "✅ تم رفع دايلب المتجر", description: `الحجم: ${(data.size / 1024).toFixed(1)} KB` });
+        fetchStatus();
+      } else {
+        toast({ title: "فشل الرفع", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "فشل الرفع", variant: "destructive" });
+    }
+    setUploadingStore(false);
+    if (storeDylibRef.current) storeDylibRef.current.value = "";
+  };
+
+  const handleDelete = async () => {
+    await adminFetch("/admin/store-dylib", { method: "DELETE" });
+    toast({ title: "تم حذف دايلب المتجر" });
+    fetchStatus();
+  };
+
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ borderColor: `${C}25`, background: `${C}06` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${C}15` }}>
+          <Shield className="w-5 h-5" style={{ color: C }} />
+        </div>
+        <div className="flex-1 text-right">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-white font-bold text-sm">دايلب المتجر</h3>
+            <span className="text-white/30 text-xs">mismari-store.dylib</span>
+            {storeDylibStatus?.exists && !open && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: `${C}20`, color: C }}>
+                مرفوع ✓
+              </span>
+            )}
+          </div>
+          <p className="text-white/30 text-xs mt-0.5 text-right">
+            يُحقن في مسماري+ فقط — JB bypass · Safe Mode · Auto-Update · Welcome
+          </p>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-white/30 shrink-0" /> : <ChevronDown className="w-4 h-4 text-white/30 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="border-t px-5 py-4 space-y-4" style={{ borderColor: `${C}15` }}>
+
+          {/* مميزات الدايلب */}
+          <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: `${C}08`, border: `1px solid ${C}18` }}>
+            <p className="text-xs font-bold mb-2" style={{ color: C }}>مميزات mismari-store.dylib</p>
+            {[
+              { icon: "①", text: "JB Bypass — يخفي مسارات Cydia/Substrate عن كود المتجر (fishhook + NSFileManager)" },
+              { icon: "②", text: "Bundle ID Masking — يمنع انكشاف Bundle ID عند تغيير الشهادة" },
+              { icon: "③", text: "Auto-Update — يفحص التحديثات كل 30 دقيقة ويعرض Alert للمستخدم" },
+              { icon: "④", text: "Safe Mode — بعد 3 crashes في 8 ثواني يُعطِّل الـ hooks تلقائياً" },
+              { icon: "⑤", text: "Integrity Check — يكتشف الحقن الخارجي غير الشرعي (DYLD_INSERT_LIBRARIES)" },
+              { icon: "⑥", text: "Welcome Alert — رسالة ترحيب عند أول تشغيل لكل إصدار جديد" },
+            ].map(f => (
+              <div key={f.icon} className="flex items-start gap-2 text-xs text-white/50">
+                <span className="shrink-0 font-bold" style={{ color: `${C}99` }}>{f.icon}</span>
+                <span>{f.text}</span>
+              </div>
+            ))}
+            <div className="mt-2 pt-2 border-t text-[11px] text-white/30" style={{ borderColor: `${C}15` }}>
+              التشفير: XOR KEY=0xAB · XSTR Stack Buffer · Symbol Strip · fishhook · Theos library.mk
+            </div>
+          </div>
+
+          {/* حالة الملف + رفع */}
+          <div className="flex items-center gap-3 bg-white/[0.03] rounded-xl px-4 py-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-white/60 text-xs font-medium">mismari-store.dylib</span>
+                {storeDylibStatus?.exists ? (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: `${C}15`, color: C }}>
+                    مرفوع ✓ ({((storeDylibStatus.size || 0) / 1024).toFixed(0)} KB)
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: "#ef444415", color: "#ef4444" }}>
+                    غير مرفوع
+                  </span>
+                )}
+              </div>
+              {storeDylibStatus?.updatedAt && (
+                <p className="text-white/20 text-xs">آخر تحديث: {new Date(storeDylibStatus.updatedAt).toLocaleString("ar-SA")}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => storeDylibRef.current?.click()}
+                disabled={uploadingStore}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                style={{ background: `${C}18`, color: C }}
+              >
+                {uploadingStore ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {uploadingStore ? "جاري الرفع..." : "رفع"}
+              </button>
+              <input ref={storeDylibRef} type="file" accept=".dylib" className="hidden" onChange={handleUpload} />
+              {storeDylibStatus?.exists && (
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "#ef444418", color: "#ef4444" }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />حذف
+                </button>
+              )}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-white/25 flex items-center gap-1.5">
+            <Info className="w-3 h-3 shrink-0" />
+            هذا الدايلب لمسماري+ فقط — لا يُحقن في تطبيقات المستخدمين أو الألعاب
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -871,17 +1023,48 @@ export default function AdminSettings() {
           </div>
         )}
 
-        <div className="rounded-2xl border overflow-hidden mt-6" style={{ borderColor: "#f59e0b25", background: "#f59e0b06" }}>
+        {/* ── دايلب المتجر — فوق Anti-Revoke ─────────────────────────── */}
+        <StoreDylibSection />
+
+        <div className="rounded-2xl border overflow-hidden mt-2" style={{ borderColor: "#f59e0b25", background: "#f59e0b06" }}>
           <div className="px-5 py-4 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#f59e0b15" }}>
                 <Shield className="w-5 h-5" style={{ color: "#f59e0b" }} />
               </div>
-              <div>
-                <h3 className="text-white font-bold text-sm">التوزيع والتوقيع</h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-white font-bold text-sm">Anti-Revoke</h3>
+                  <span className="text-white/30 text-xs">antirevoke.dylib</span>
+                </div>
                 <p className="text-white/35 text-xs mt-0.5">
-                  ارفع ملف Anti-Revoke (.dylib) ← أدخل رابط IPA ← يوقّع لكل مجموعة مع حقن الـ dylib تلقائياً
+                  يُحقن في تطبيقات المستخدمين والألعاب — ارفع dylib ← أدخل IPA ← وقّع للكل
                 </p>
+              </div>
+            </div>
+
+            {/* مميزات antirevoke.dylib */}
+            <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: "#f59e0b08", border: "1px solid #f59e0b18" }}>
+              <p className="text-xs font-bold mb-2" style={{ color: "#f59e0b" }}>مميزات antirevoke.dylib (10 Modules)</p>
+              {[
+                { icon: "①", text: "Anti-Debugging — ptrace(PT_DENY_ATTACH) + sysctl — يمنع lldb/frida/cycript" },
+                { icon: "②", text: "OCSP Block — يحجب مواقع التحقق من إلغاء الشهادة (قلب الـ Anti-Revoke)" },
+                { icon: "③", text: "SSL Unpinning — يقبل أي شهادة SSL بغض النظر عن Certificate Pinning" },
+                { icon: "④", text: "Bundle ID Guard — يمنع اكتشاف التطبيق أنه مثبت خارج App Store" },
+                { icon: "⑤", text: "Fake Device Info — IDFV=nil · Device Name جنيريك — يمنع Device Ban والتتبع" },
+                { icon: "⑥", text: "File Path Shadow — يخفي مسارات Cydia/Substrate/Tweaks عن التطبيقات الذكية" },
+                { icon: "⑦", text: "Background AutoKill — ينهي Background Tasks بعد ثانيتين — يقلل الاستهلاك" },
+                { icon: "⑧", text: "URL Scheme Filter — يحجب canOpenURL لـ 9 تطبيقات JB (cydia/sileo/filza/...)" },
+                { icon: "⑨", text: "Env Variable Hide — يخفي DYLD_INSERT_LIBRARIES وغيرها — أعمق طبقة حماية" },
+                { icon: "⑩", text: "Swizzle Ghost — يخفي الـ hooks عن method_getImplementation (ضد Epic/Tencent)" },
+              ].map(f => (
+                <div key={f.icon} className="flex items-start gap-2 text-xs text-white/50">
+                  <span className="shrink-0 font-bold" style={{ color: "#f59e0b99" }}>{f.icon}</span>
+                  <span>{f.text}</span>
+                </div>
+              ))}
+              <div className="mt-2 pt-2 border-t text-[11px] text-white/30" style={{ borderColor: "#f59e0b15" }}>
+                التشفير: XOR KEY=0x42 · MSM_STACK (no malloc) · Symbol Strip · Theos tweak.mk · arm64+arm64e
               </div>
             </div>
 
