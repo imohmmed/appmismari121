@@ -57,6 +57,45 @@ const reviewsLimiter = rateLimit({
   message: { error: "طلبات كثيرة جداً — حاول بعد قليل" },
 });
 
+// ─── Rate Limiter: translate (free API — prevent abuse) ───────────────────────
+const translateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "طلبات ترجمة كثيرة جداً" },
+});
+
+// ─── Global Auth Guard ────────────────────────────────────────────────────────
+// All /admin/* routes require authentication EXCEPT the explicit public list below.
+// Routes not starting with /admin (e.g. /reviews) are handled per-route.
+const ADMIN_PUBLIC_EXACT: { method: string; path: string }[] = [
+  { method: "GET",  path: "/admin/captcha" },
+  { method: "POST", path: "/admin/login" },
+];
+const ADMIN_PUBLIC_PREFIX: string[] = [
+  "/admin/banner-image/",   // public banner images shown on store
+  "/admin/signed-store/",   // iOS IPA downloads — security-by-obscurity filenames
+];
+
+router.use((req, res, next) => {
+  // Non-admin paths (e.g. /reviews) — skip global guard, handled per-route
+  if (!req.path.startsWith("/admin")) return next();
+
+  // Exact public routes (captcha, login, stats)
+  if (ADMIN_PUBLIC_EXACT.some(r => r.method === req.method && req.path === r.path)) {
+    return next();
+  }
+
+  // Public path prefixes (banner images, signed IPAs)
+  if (ADMIN_PUBLIC_PREFIX.some(prefix => req.path.startsWith(prefix))) {
+    return next();
+  }
+
+  // Everything else under /admin/* requires a valid JWT
+  return adminAuth(req, res, next);
+});
+
 // ─── CAPTCHA Generator ───────────────────────────────────────────────────────
 const CAPTCHA_SECRET = JWT_SECRET + "_captcha";
 const CAPTCHA_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -206,6 +245,13 @@ router.get("/reviews", async (req, res): Promise<void> => {
 router.post("/reviews", reviewsLimiter, async (req, res): Promise<void> => {
   const { appId, code, rating, text } = req.body;
   if (!appId || !rating || !text?.trim()) { res.status(400).json({ error: "بيانات ناقصة" }); return; }
+  const ratingNum = Number(rating);
+  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+    res.status(400).json({ error: "التقييم يجب أن يكون بين 1 و 5" }); return;
+  }
+  if (text.trim().length > 1000) {
+    res.status(400).json({ error: "النص يجب أن يكون أقل من 1000 حرف" }); return;
+  }
   let subscriptionId: number | null = null;
   let subscriberName: string | null = null;
   let phone: string | null = null;
@@ -752,7 +798,20 @@ router.post("/admin/subscriptions/bulk-delete", async (req, res): Promise<void> 
 const bannerUploadDir = path.join(process.cwd(), "uploads", "banners");
 if (!fs.existsSync(bannerUploadDir)) fs.mkdirSync(bannerUploadDir, { recursive: true });
 
-const bannerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"]);
+const ALLOWED_IMAGE_EXTS  = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
+
+const bannerUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_IMAGE_MIMES.has(file.mimetype) || !ALLOWED_IMAGE_EXTS.has(ext)) {
+      return cb(new Error("يُقبل فقط صور JPG/PNG/GIF/WebP/AVIF"));
+    }
+    cb(null, true);
+  },
+});
 
 router.post("/admin/upload-banner", bannerUpload.single("image"), async (req, res): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: "No file" }); return; }
@@ -1394,6 +1453,8 @@ router.post("/admin/notifications", async (req, res): Promise<void> => {
     res.status(400).json({ error: "title and body are required" });
     return;
   }
+  if (String(title).length > 200) { res.status(400).json({ error: "العنوان يجب أن يكون أقل من 200 حرف" }); return; }
+  if (String(body).length > 1000) { res.status(400).json({ error: "النص يجب أن يكون أقل من 1000 حرف" }); return; }
 
   const resolvedTarget = target || "all";
   let pushCount: number;
@@ -1469,9 +1530,10 @@ router.delete("/admin/reviews/:id", async (req, res): Promise<void> => {
 
 // ─── TRANSLATE ─────────────────────────────────────────────────────────────
 
-router.post("/admin/translate", async (req, res): Promise<void> => {
+router.post("/admin/translate", translateLimiter, async (req, res): Promise<void> => {
   const { text, from, to } = req.body;
   if (!text?.trim()) { res.json({ translated: "" }); return; }
+  if (String(text).length > 2000) { res.status(400).json({ error: "النص يجب أن يكون أقل من 2000 حرف" }); return; }
 
   const srcLang = from || "auto";
   const tgtLang = to || "en";
