@@ -635,6 +635,12 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
 
     const { sub, group } = await getSubAndGroup(code);
 
+    // ── Quota check ──────────────────────────────────────────────────────────
+    const preUsed = await getTodayUsedBytes(code);
+    if (preUsed >= QUOTA_BYTES) {
+      res.status(429).json({ error: "تجاوزت الحصة اليومية (4 GB). حاول غداً." }); return;
+    }
+
     const [app] = await db.select().from(appsTable).where(eq(appsTable.id, appIdNum));
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
     if (!app.ipaPath) { res.status(400).json({ error: "ملف IPA غير موجود لهذا التطبيق" }); return; }
@@ -674,6 +680,18 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
     const manifestUrl = `${baseUrl}/api/sign/manifest/${token}.plist`;
     const itmsUrl = buildItmsUrl(baseUrl, manifestUrl);
 
+    // ── Record quota usage ────────────────────────────────────────────────────
+    const signedSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
+    await db.insert(signJobsTable).values({
+      jobId: crypto.randomUUID(),
+      subscriberCode: code,
+      status: "done",
+      sourceType: "store-app",
+      sourceUrl: app.ipaPath || null,
+      customName: app.name || null,
+      fileSize: signedSize,
+    });
+
     await db.update(appsTable).set({ downloads: (app.downloads || 0) + 1 }).where(eq(appsTable.id, appIdNum));
 
     res.json({
@@ -700,6 +718,12 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     if (isNaN(appIdNum)) { res.status(400).json({ error: "معرّف التطبيق غير صالح" }); return; }
 
     const { sub, group } = await getSubAndGroup(code);
+
+    // ── Quota check ──────────────────────────────────────────────────────────
+    const preUsedClone = await getTodayUsedBytes(code);
+    if (preUsedClone >= QUOTA_BYTES) {
+      res.status(429).json({ error: "تجاوزت الحصة اليومية (4 GB). حاول غداً." }); return;
+    }
 
     const [app] = await db.select().from(appsTable).where(eq(appsTable.id, appIdNum));
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
@@ -749,6 +773,19 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     const baseUrl = getBaseUrl(req);
     const manifestUrl = `${baseUrl}/api/sign/manifest/${token}.plist`;
     const itmsUrl = buildItmsUrl(baseUrl, manifestUrl);
+
+    // ── Record quota usage ────────────────────────────────────────────────────
+    const cloneSignedSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
+    await db.insert(signJobsTable).values({
+      jobId: crypto.randomUUID(),
+      subscriberCode: code,
+      status: "done",
+      sourceType: "store-clone",
+      sourceUrl: app.ipaPath || null,
+      customName: cloneName,
+      customBundleId: newBundleId,
+      fileSize: cloneSignedSize,
+    });
 
     res.json({
       token,

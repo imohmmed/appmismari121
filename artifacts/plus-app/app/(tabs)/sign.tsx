@@ -151,7 +151,7 @@ function HealthBar({ colors, fontAr, isArabic, code }: any) {
           <View style={[styles.healthLabelRow, isArabic && { flexDirection: "row-reverse" }]}>
             <Feather name="user" size={12} color={TINT} />
             <Text style={[styles.healthLabel, { color: colors.textSecondary, fontFamily: fontAr("Regular") }]}>
-              {isArabic ? "حصتك" : "Your Quota"}
+              {isArabic ? "حصتك اليومية" : "Daily"}
             </Text>
             {quota && (
               <Text style={{ color: TINT, fontFamily: "Inter_600SemiBold", fontSize: 11, marginRight: "auto", marginLeft: "auto" }}>
