@@ -23,7 +23,7 @@ TARGET      = iphone:clang:16.5:14.0
 LIBRARY_NAME = mismari-store
 
 mismari-store_FILES       = StoreDylib.m fishhook.c
-mismari-store_FRAMEWORKS  = Foundation UIKit CommonCrypto
+mismari-store_FRAMEWORKS  = Foundation UIKit
 mismari-store_LIBRARIES   = objc dl
 
 mismari-store_CFLAGS = \
@@ -51,33 +51,33 @@ include $(THEOS_MAKE_PATH)/library.mk
 # ─── نسخ الناتج لاسمه الصحيح ──────────────────────────────────────────────────
 # Theos ينتج: mismari-store.dylib في مجلد .theos/obj
 after-all::
-	@DYLIB=$$(find .theos -name "mismari-store.dylib" 2>/dev/null | head -1); \
-	if [ -n "$$DYLIB" ]; then \
-	    cp "$$DYLIB" ./mismari-store.dylib && \
-	    echo "" && \
-	    echo "╔══════════════════════════════════════════╗" && \
-	    echo "║  ✅ mismari-store.dylib جاهز للرفع       ║" && \
-	    echo "╚══════════════════════════════════════════╝" && \
-	    ls -lh ./mismari-store.dylib; \
-	else \
-	    echo "❌ لم يُوجد الناتج — تحقق من الأخطاء أعلاه"; \
-	fi
+        @DYLIB=$$(find .theos -name "mismari-store.dylib" 2>/dev/null | head -1); \
+        if [ -n "$$DYLIB" ]; then \
+            cp "$$DYLIB" ./mismari-store.dylib && \
+            echo "" && \
+            echo "╔══════════════════════════════════════════╗" && \
+            echo "║  ✅ mismari-store.dylib جاهز للرفع       ║" && \
+            echo "╚══════════════════════════════════════════╝" && \
+            ls -lh ./mismari-store.dylib; \
+        else \
+            echo "❌ لم يُوجد الناتج — تحقق من الأخطاء أعلاه"; \
+        fi
 
 # ── التحقق من نجاح الـ Obfuscation ───────────────────────────────────────────
 verify: mismari-store.dylib
-	@echo "\n── فحص النصوص المكشوفة (يجب ألا تظهر روابط) ──"
-	@if strings mismari-store.dylib | grep -E "mismari\.com|ocsp\.apple|app\.mismari" 2>/dev/null; then \
-	    echo "⚠️  تحذير: وُجدت نصوص مكشوفة! راجع الـ Obfuscation"; \
-	else \
-	    echo "✅ لا توجد نصوص مكشوفة — التشفير ناجح"; \
-	fi
-	@echo "\n── فحص الـ Symbols المكشوفة ──────────────────"
-	@if nm -gU mismari-store.dylib 2>/dev/null | grep -v "^$$" | head -5; then \
-	    echo "⚠️  بعض الرموز مكشوفة — Theos STRIP_INSTALLED_PRODUCT=YES يجب أن يحلّها"; \
-	else \
-	    echo "✅ لا توجد رموز مكشوفة"; \
-	fi
-	@echo "\n── المعماريات ──────────────────────────────────"
-	lipo -info mismari-store.dylib
-	@echo "\n── المكتبات المرتبطة ────────────────────────────"
-	otool -L mismari-store.dylib
+        @echo "\n── فحص النصوص المكشوفة (يجب ألا تظهر روابط) ──"
+        @if strings mismari-store.dylib | grep -E "mismari\.com|ocsp\.apple|app\.mismari" 2>/dev/null; then \
+            echo "⚠️  تحذير: وُجدت نصوص مكشوفة! راجع الـ Obfuscation"; \
+        else \
+            echo "✅ لا توجد نصوص مكشوفة — التشفير ناجح"; \
+        fi
+        @echo "\n── فحص الـ Symbols المكشوفة ──────────────────"
+        @if nm -gU mismari-store.dylib 2>/dev/null | grep -v "^$$" | head -5; then \
+            echo "⚠️  بعض الرموز مكشوفة — Theos STRIP_INSTALLED_PRODUCT=YES يجب أن يحلّها"; \
+        else \
+            echo "✅ لا توجد رموز مكشوفة"; \
+        fi
+        @echo "\n── المعماريات ──────────────────────────────────"
+        lipo -info mismari-store.dylib
+        @echo "\n── المكتبات المرتبطة ────────────────────────────"
+        otool -L mismari-store.dylib
