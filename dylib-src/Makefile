@@ -17,4 +17,12 @@ include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 after-all::
-        @DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); if [ -n "$$DYLIB" ]; then cp "$$DYLIB" ./antirevoke.dylib && echo "✅ antirevoke.dylib جاهز"; fi
+	@DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); \
+	if [ -n "$$DYLIB" ]; then \
+		cp "$$DYLIB" ./antirevoke.dylib && \
+		echo "" && \
+		echo "==> antirevoke.dylib ready" && \
+		ls -lh ./antirevoke.dylib; \
+	else \
+		echo "ERROR: MismariProtect.dylib not found"; \
+	fi
