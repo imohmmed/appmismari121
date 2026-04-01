@@ -1,5 +1,6 @@
 import { Router } from "express";
 import plist from "plist";
+import bplist from "bplist-parser";
 import multer from "multer";
 import AdmZip from "adm-zip";
 import { inflateRawSync } from "zlib";
@@ -25,6 +26,15 @@ fs.mkdirSync(ICONS_DIR, { recursive: true });
 
 function randomHex(n = 24) {
   return crypto.randomBytes(n).toString("hex");
+}
+
+/** Parse a plist Buffer — handles both XML plists and binary plists (bplist00). */
+function parsePlistBuffer(buf: Buffer): Record<string, any> {
+  if (buf.length >= 6 && buf.slice(0, 6).toString("ascii") === "bplist") {
+    const parsed = bplist.parseBuffer(buf);
+    return (Array.isArray(parsed) ? parsed[0] : parsed) as Record<string, any>;
+  }
+  return plist.parse(buf.toString("utf8")) as Record<string, any>;
 }
 
 function buildIpaUrl(_req: any, filename: string): string {
@@ -248,7 +258,7 @@ router.post("/admin/ipa/parse-url", adminAuth, async (req, res): Promise<void> =
     const plistEntry = entries.find(e => /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.name));
     if (!plistEntry) throw new Error("لم يتم العثور على Info.plist");
     const plistBuf = await extractEntryFromUrl(url, plistEntry);
-    const plistData = plist.parse(plistBuf.toString("utf8")) as Record<string, any>;
+    const plistData = parsePlistBuffer(plistBuf);
     const name: string = plistData["CFBundleDisplayName"] || plistData["CFBundleName"] || "";
     const bundleId: string = plistData["CFBundleIdentifier"] || "";
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
@@ -275,7 +285,7 @@ router.post("/admin/ipa/upload-file", adminAuth, memUpload.single("file"), async
     const entries = zip.getEntries();
     const plistEntry = entries.find(e => /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.entryName));
     if (!plistEntry) { res.status(422).json({ error: "لم يتم العثور على Info.plist داخل ملف IPA" }); return; }
-    const plistData = plist.parse(plistEntry.getData().toString("utf8")) as Record<string, any>;
+    const plistData = parsePlistBuffer(plistEntry.getData());
     const name: string = plistData["CFBundleDisplayName"] || plistData["CFBundleName"] || "";
     const bundleId: string = plistData["CFBundleIdentifier"] || "";
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
@@ -323,7 +333,7 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
     const plistEntry = entries.find(e => /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.name));
     if (!plistEntry) throw new Error("لم يتم العثور على Info.plist");
     const plistBuf = await extractEntryFromUrl(url, plistEntry);
-    const plistData = plist.parse(plistBuf.toString("utf8")) as Record<string, any>;
+    const plistData = parsePlistBuffer(plistBuf);
     const name: string = plistData["CFBundleDisplayName"] || plistData["CFBundleName"] || "";
     const bundleId: string = plistData["CFBundleIdentifier"] || "";
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
@@ -376,7 +386,7 @@ router.post("/admin/ipa/parse-file", adminAuth, memUpload.single("file"), async 
     const entries = zip.getEntries();
     const plistEntry = entries.find(e => /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.entryName));
     if (!plistEntry) { res.status(422).json({ error: "لم يتم العثور على Info.plist داخل ملف IPA" }); return; }
-    const plistData = plist.parse(plistEntry.getData().toString("utf8")) as Record<string, any>;
+    const plistData = parsePlistBuffer(plistEntry.getData());
     const name: string = plistData["CFBundleDisplayName"] || plistData["CFBundleName"] || "";
     const bundleId: string = plistData["CFBundleIdentifier"] || "";
     const version: string = plistData["CFBundleShortVersionString"] || plistData["CFBundleVersion"] || "";
@@ -443,7 +453,7 @@ router.post("/admin/apps/:id/clone", adminAuth, async (req: any, res): Promise<v
   const plistEntry = entries.find(e => /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.entryName));
   if (!plistEntry) { res.status(422).json({ error: "لم يتم العثور على Info.plist داخل ملف IPA" }); return; }
 
-  const plistData = plist.parse(plistEntry.getData().toString("utf8")) as Record<string, any>;
+  const plistData = parsePlistBuffer(plistEntry.getData());
 
   plistData["CFBundleIdentifier"] = newBundleId;
   plistData["CFBundleDisplayName"] = newName;

@@ -114,6 +114,9 @@ importers:
       axios:
         specifier: ^1.13.6
         version: 1.13.6
+      bplist-parser:
+        specifier: ^0.3.2
+        version: 0.3.2
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
