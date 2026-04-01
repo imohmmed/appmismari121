@@ -581,6 +581,25 @@ router.post("/admin/apps/bulk-plans", async (req, res): Promise<void> => {
   res.json({ updated: appIds.length });
 });
 
+router.post("/admin/apps/bulk-category", async (req, res): Promise<void> => {
+  const { appIds, categoryId } = req.body as { appIds: number[]; categoryId: number };
+  if (!Array.isArray(appIds) || appIds.length === 0) {
+    res.status(400).json({ error: "appIds required" });
+    return;
+  }
+  if (!categoryId || typeof categoryId !== "number") {
+    res.status(400).json({ error: "categoryId required" });
+    return;
+  }
+  const [category] = await db.select({ id: categoriesTable.id }).from(categoriesTable).where(eq(categoriesTable.id, categoryId)).limit(1);
+  if (!category) {
+    res.status(404).json({ error: "القسم غير موجود" });
+    return;
+  }
+  await db.update(appsTable).set({ categoryId }).where(inArray(appsTable.id, appIds));
+  res.json({ updated: appIds.length });
+});
+
 // ─── CATEGORIES ────────────────────────────────────────────────────────────
 
 router.get("/admin/categories", async (_req, res): Promise<void> => {

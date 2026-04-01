@@ -9,7 +9,7 @@ import {
   Copy, Edit2, EyeOff, FlaskConical, Trash2, CheckSquare, Square,
   Loader2, AlertCircle, CheckCircle2, RefreshCw, FileArchive, Globe, Bell,
   Flame, ArrowUpCircle, Languages, GitFork, AlertTriangle, PackageCheck,
-  ArrowLeftRight, Lock
+  ArrowLeftRight, Lock, FolderInput, ChevronDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { App } from "@workspace/api-client-react";
@@ -1129,6 +1129,92 @@ function BulkMovePlanModal({
   );
 }
 
+function BulkMoveCategoryModal({
+  count,
+  categories,
+  onClose,
+  onDone,
+}: {
+  count: number;
+  categories: { id: number; name: string; nameAr?: string | null }[];
+  onClose: () => void;
+  onDone: (categoryId: number) => Promise<void>;
+}) {
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handle = async () => {
+    if (!selectedCategoryId) return;
+    setLoading(true);
+    try { await onDone(selectedCategoryId); } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/85 backdrop-blur-sm" dir="rtl">
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <FolderInput className="w-4 h-4" style={{ color: ACCENT }} />
+            <div>
+              <h3 className="text-sm font-bold text-white">نقل إلى قسم</h3>
+              <p className="text-xs text-white/30 mt-0.5">{count} تطبيق محدد</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-white/40">اختر القسم الذي تريد نقل التطبيقات إليه:</p>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {categories.map(c => {
+              const active = selectedCategoryId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryId(c.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-right transition-all"
+                  style={active
+                    ? { background: `${ACCENT}12`, borderColor: `${ACCENT}40`, color: ACCENT }
+                    : { borderColor: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.55)" }}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all",
+                    active ? "border-current" : "border-white/20"
+                  )}>
+                    {active && <div className="w-2 h-2 rounded-full bg-current" />}
+                  </div>
+                  <span className="text-sm font-medium">{c.nameAr || c.name}</span>
+                </button>
+              );
+            })}
+            {categories.length === 0 && (
+              <p className="text-xs text-white/20 py-4 text-center">لا توجد أقسام</p>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-white/5 px-5 py-4 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/50 hover:text-white text-sm transition-colors">
+            إلغاء
+          </button>
+          <button
+            onClick={handle}
+            disabled={loading || !selectedCategoryId}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-black disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: ACCENT }}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderInput className="w-4 h-4" />}
+            نقل
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminApps() {
   usePageTitle("التطبيقات");
   const [, navigate] = useLocation();
@@ -1143,6 +1229,7 @@ export default function AdminApps() {
   const deleteMutation = useAdminDeleteApp();
 
   const [search, setSearch] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [modal, setModal] = useState<"import" | null>(null);
@@ -1150,16 +1237,23 @@ export default function AdminApps() {
   const [updatingApp, setUpdatingApp] = useState<App | null>(null);
   const [cloningApp, setCloningApp] = useState<App | null>(null);
   const [showBulkPlan, setShowBulkPlan] = useState(false);
+  const [showBulkCategory, setShowBulkCategory] = useState(false);
 
   const filteredApps = useMemo(() => {
-    if (!search.trim()) return apps;
-    const q = search.toLowerCase();
-    return apps.filter(a =>
-      a.name.toLowerCase().includes(q) ||
-      (a.bundleId || "").toLowerCase().includes(q) ||
-      (a.categoryName || "").toLowerCase().includes(q)
-    );
-  }, [apps, search]);
+    let result = apps;
+    if (filterCategoryId !== null) {
+      result = result.filter(a => a.categoryId === filterCategoryId);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        (a.bundleId || "").toLowerCase().includes(q) ||
+        (a.categoryName || "").toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [apps, search, filterCategoryId]);
 
   const allFilteredSelected = filteredApps.length > 0 && filteredApps.every(a => selectedIds.has(a.id));
 
@@ -1228,6 +1322,24 @@ export default function AdminApps() {
     }
   };
 
+  const handleBulkCategory = async (categoryId: number) => {
+    const ids = Array.from(selectedIds);
+    try {
+      await callApi("/admin/apps/bulk-category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appIds: ids, categoryId }),
+      });
+      queryClient.invalidateQueries({ queryKey: getAdminListAppsQueryKey() });
+      setSelectedIds(new Set());
+      setShowBulkCategory(false);
+      const cat = categories.find(c => c.id === categoryId);
+      toast({ title: `تم نقل ${ids.length} تطبيق إلى "${cat?.nameAr || cat?.name || "القسم"}"` });
+    } catch {
+      toast({ title: "حدث خطأ أثناء النقل", variant: "destructive" });
+    }
+  };
+
   const copyLink = (app: App) => {
     const url = app.downloadUrl || "";
     if (!url) { toast({ title: "لا يوجد رابط محفوظ", variant: "destructive" }); return; }
@@ -1261,12 +1373,27 @@ export default function AdminApps() {
           onDone={handleBulkPlans}
         />
       )}
+      {showBulkCategory && (
+        <BulkMoveCategoryModal
+          count={selectedIds.size}
+          categories={categories}
+          onClose={() => setShowBulkCategory(false)}
+          onDone={handleBulkCategory}
+        />
+      )}
 
       <div className="space-y-4" dir="rtl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-white">قائمة التطبيقات</h2>
-            <p className="text-xs text-white/30 mt-0.5">{filteredApps.length} تطبيق</p>
+            <p className="text-xs text-white/30 mt-0.5">
+              {filteredApps.length} تطبيق
+              {filterCategoryId !== null && (
+                <span className="mr-1" style={{ color: ACCENT }}>
+                  · {categories.find(c => c.id === filterCategoryId)?.nameAr || categories.find(c => c.id === filterCategoryId)?.name}
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setModal("import")}
@@ -1276,10 +1403,43 @@ export default function AdminApps() {
           </div>
         </div>
 
-        <div className="relative max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
-          <input type="text" placeholder="ابحث عن تطبيق..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg py-2 pr-3 pl-9 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/20" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25" />
+            <input type="text" placeholder="ابحث عن تطبيق..." value={search} onChange={e => setSearch(e.target.value)}
+              className="w-56 bg-[#0a0a0a] border border-white/10 rounded-lg py-2 pr-3 pl-9 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/20" />
+          </div>
+
+          {/* Category filter */}
+          <div className="relative">
+            <select
+              value={filterCategoryId ?? ""}
+              onChange={e => {
+                const v = e.target.value;
+                setFilterCategoryId(v === "" ? null : Number(v));
+                setSelectedIds(new Set());
+              }}
+              className="appearance-none bg-[#0a0a0a] border border-white/10 rounded-lg py-2 pr-3 pl-8 text-sm focus:outline-none focus:border-white/20 cursor-pointer"
+              style={{ color: filterCategoryId !== null ? ACCENT : "rgba(255,255,255,0.35)" }}
+            >
+              <option value="">كل الأقسام</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id} style={{ color: "white", background: "#111" }}>
+                  {c.nameAr || c.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: filterCategoryId !== null ? ACCENT : "rgba(255,255,255,0.25)" }} />
+          </div>
+
+          {filterCategoryId !== null && (
+            <button
+              onClick={() => { setFilterCategoryId(null); setSelectedIds(new Set()); }}
+              className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs border border-white/10 text-white/40 hover:text-white hover:border-white/20 transition-colors"
+            >
+              <X className="w-3 h-3" /> مسح الفلتر
+            </button>
+          )}
         </div>
 
         {selectedIds.size > 0 && (
@@ -1305,6 +1465,13 @@ export default function AdminApps() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
             >
               <FlaskConical className="w-3 h-3" /> وضع تجربة
+            </button>
+            <button
+              onClick={() => setShowBulkCategory(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors"
+              style={{ background: `rgba(168,85,247,0.12)`, color: `#a855f7` }}
+            >
+              <FolderInput className="w-3 h-3" /> نقل للقسم
             </button>
             <button
               onClick={() => setShowBulkPlan(true)}
