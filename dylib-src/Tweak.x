@@ -1,18 +1,26 @@
 /*
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║       Mismari Anti-Revoke & Protection Dylib v2.0                      ║
+ * ║       Mismari Anti-Revoke & Protection Dylib v3.0                      ║
  * ║       Build: cd dylib-src && make                                      ║
  * ║       Requirements: Theos installed on macOS                           ║
  * ╠══════════════════════════════════════════════════════════════════════════╣
  * ║  MODULES:                                                              ║
- * ║  1. Anti-Debugging      — ptrace + sysctl                             ║
- * ║  2. OCSP Block          — NSURLSession + NSURLConnection hooks         ║
- * ║  3. SSL Unpinning       — SecTrust hooks                              ║
- * ║  4. Bundle ID Guard     — Sideload detection bypass                    ║
- * ║  5. Fake Device Info    — UIDevice hooks                               ║
- * ║  6. File Path Shadow    — access/stat/fopen hooks                      ║
- * ║  7. Background AutoKill — UIApplication background task control        ║
+ * ║  1.  Anti-Debugging       — ptrace + sysctl                           ║
+ * ║  2.  OCSP Block           — NSURLSession + NSURLConnection hooks       ║
+ * ║  3.  SSL Unpinning        — SecTrust hooks                            ║
+ * ║  4.  Bundle ID Guard      — Sideload detection bypass                  ║
+ * ║  5.  Fake Device Info     — UIDevice hooks (Anti-Ban/Tracking)         ║
+ * ║  6.  File Path Shadow     — access/stat/lstat/fopen/open hooks         ║
+ * ║  7.  Background AutoKill  — UIApplication background task control      ║
+ * ║  8.  URL Scheme Filter    — canOpenURL: JB app scheme blocking         ║
+ * ║  9.  Env Variable Hide    — getenv hook (hides DYLD / Substrate vars)  ║
+ * ║  10. Swizzle Ghost        — method_getImplementation camouflage        ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
+ *
+ * Memory Safety:
+ *  - MSM_STACK: Stack allocation — zero-overhead, auto-freed at scope end
+ *  - MSM_S:     Heap allocation  — requires explicit free() by caller
+ *  - High-frequency hooks (stat/access/getenv) use MSM_STACK exclusively
  */
 
 #import <Foundation/Foundation.h>
@@ -20,7 +28,6 @@
 #import <Security/Security.h>
 #import <objc/runtime.h>
 
-/* ptrace غير متاح مباشرةً في iOS SDK — نعرّفه يدوياً */
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #define PT_DENY_ATTACH 31
@@ -31,55 +38,63 @@ extern int ptrace(int request, pid_t pid, caddr_t addr, int data);
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdint.h>
 
 #include "MSMStrings.h"
 
+
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: 1 — ANTI-DEBUGGING                                                   */
-/* يمنع lldb / cycript / frida من الاتصال بالتطبيق                            */
-/* يعمل قبل main() مباشرةً                                                   */
+/* يمنع lldb / cycript / frida من الاتصال بالتطبيق — يعمل قبل main()         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 __attribute__((constructor)) __attribute__((visibility("hidden")))
 static void msm_antiDebug(void) {
-    /* Block any debugger from attaching */
     ptrace(PT_DENY_ATTACH, 0, 0, 0);
 
-    /* sysctl double-check */
     int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
     struct kinfo_proc info = {};
     size_t sz = sizeof(info);
     if (sysctl(mib, 4, &info, &sz, NULL, 0) == 0) {
         if (info.kp_proc.p_flag & P_TRACED) {
-            exit(0); /* هرب إذا اكتُشفت */
+            exit(0);
         }
     }
 }
 
+
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: 2 — OCSP / CRL BLOCK (قلب الـ Anti-Revoke)                          */
 /* يمنع iOS من التحقق إذا تم إلغاء الشهادة                                   */
+/* ⚡ يستخدم MSM_STACK — لا memory leak بغض النظر عن عدد الاستدعاءات          */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 __attribute__((visibility("hidden")))
 static BOOL msm_isRevocationHost(NSString *host) {
     if (!host) return NO;
-    NSString *h = host.lowercaseString;
+    const char *h = [host.lowercaseString UTF8String];
+    if (!h) return NO;
 
-    char *d1 = MSM_S(S_OCSP1);
-    char *d2 = MSM_S(S_OCSP2);
-    char *d3 = MSM_S(S_CRL);
-    char *d4 = MSM_S(S_VALID);
+    /* Stack buffers — آمنة في الـ hooks عالية التكرار */
+    MSM_STACK(d1, S_OCSP1);
+    MSM_STACK(d2, S_OCSP2);
+    MSM_STACK(d3, S_CRL);
+    MSM_STACK(d4, S_VALID);
 
-    BOOL blocked = ([h isEqualToString:@(d1)] ||
-                    [h isEqualToString:@(d2)] ||
-                    [h isEqualToString:@(d3)] ||
-                    [h isEqualToString:@(d4)] ||
-                    [h hasSuffix:@".apple.com"] == NO ? NO :  /* فقط apple */
-                    ([h containsString:@"ocsp"] || [h containsString:@"crl"]));
+    if (strcasecmp(h, d1) == 0 || strcasecmp(h, d2) == 0 ||
+        strcasecmp(h, d3) == 0 || strcasecmp(h, d4) == 0) {
+        return YES;
+    }
 
-    if (d1) free(d1); if (d2) free(d2); if (d3) free(d3); if (d4) free(d4);
-    return blocked;
+    /* فحص شامل لأي نطاق apple مرتبط بالـ OCSP / CRL */
+    if (strstr(h, "apple.com") &&
+        (strstr(h, "ocsp") || strstr(h, "crl") ||
+         strstr(h, "valid") || strstr(h, "cert"))) {
+        return YES;
+    }
+
+    return NO;
 }
 
 %hook NSURLSession
@@ -141,7 +156,7 @@ static BOOL msm_isRevocationHost(NSString *host) {
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: 3 — SSL UNPINNING                                                    */
-/* يقبل أي شهادة SSL — يعمل الـ Ad-Blocker بسلاسة                            */
+/* يقبل أي شهادة SSL بغض النظر عن الـ Certificate Pinning                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 #pragma clang diagnostic push
@@ -158,7 +173,6 @@ static BOOL msm_isRevocationHost(NSString *host) {
     return true;
 }
 
-/* iOS 15+ API */
 %hookf(SecTrustResultType, SecTrustGetTrustResult, SecTrustRef trust, SecTrustResultType *result) {
     if (result) *result = kSecTrustResultProceed;
     return kSecTrustResultProceed;
@@ -166,7 +180,7 @@ static BOOL msm_isRevocationHost(NSString *host) {
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* MARK: 4 — BUNDLE ID GUARD (Sideload Detection Bypass)                      */
+/* MARK: 4 — BUNDLE ID GUARD                                                  */
 /* يمنع التطبيق من اكتشاف أنه مثبت خارج App Store                            */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -176,7 +190,6 @@ static NSString *_msm_bundleID = nil;
 
 - (NSString *)bundleIdentifier {
     NSString *orig = %orig;
-    /* احفظ الـ Bundle ID الأصلي أول مرة */
     if (!_msm_bundleID && orig.length > 0) {
         _msm_bundleID = [orig copy];
     }
@@ -196,22 +209,19 @@ static NSString *_msm_bundleID = nil;
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: 5 — FAKE DEVICE INFO (Anti-Ban + Anti-Tracking)                      */
-/* يعطي قيم وهمية لأي تطبيق يحاول تتبع جهازك أو عمل Device Ban               */
+/* يعطي قيم وهمية — يمنع تتبع الجهاز وعمل Device Fingerprint دائم           */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 %hook UIDevice
 
-/* إخفاء IDFV — يمنع تتبع الجهاز */
 - (NSUUID *)identifierForVendor {
-    return nil; /* nil يمنع التطبيق من بناء fingerprint دائم */
+    return nil;
 }
 
-/* اسم جهاز جنيريك */
 - (NSString *)name {
     return @"iPhone";
 }
 
-/* إخفاء موديل الجهاز الحقيقي */
 - (NSString *)model {
     return @"iPhone";
 }
@@ -220,38 +230,32 @@ static NSString *_msm_bundleID = nil;
     return @"iPhone";
 }
 
-/* iOS version — أبقِها حقيقية لتجنب الكشف */
-/* لا تعدّل systemVersion */
-
 %end
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* MARK: 6 — FILE PATH SHADOW (Jailbreak & Injection Detection Bypass)        */
-/* يخفي مسارات MobileSubstrate / Cydia / Tweaks عن التطبيقات الذكية           */
+/* MARK: 6 — FILE PATH SHADOW                                                 */
+/* يخفي مسارات Cydia / Substrate / Tweaks عن تطبيقات الكشف الذكية            */
+/* ⚡ MSM_STACK — آمن حتى لو استُدعي آلاف المرات في الثانية                   */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 __attribute__((visibility("hidden")))
 static BOOL msm_isSuspiciousPath(const char *path) {
     if (!path) return NO;
 
-    char *p1 = MSM_S(S_PATH1); /* /Library/MobileSubstrate */
-    char *p2 = MSM_S(S_PATH2); /* /var/lib/cydia */
-    char *p3 = MSM_S(S_PATH3); /* /usr/lib/tweaks */
-    char *p4 = MSM_S(S_PATH4); /* /var/jb */
-    char *p5 = MSM_S(S_PATH5); /* /usr/bin/cycript */
-    char *p6 = MSM_S(S_PATH6); /* /var/mobile/Applications */
+    MSM_STACK(p1, S_PATH1); /* /Library/MobileSubstrate */
+    MSM_STACK(p2, S_PATH2); /* /var/lib/cydia */
+    MSM_STACK(p3, S_PATH3); /* /usr/lib/tweaks */
+    MSM_STACK(p4, S_PATH4); /* /var/jb */
+    MSM_STACK(p5, S_PATH5); /* /usr/bin/cycript */
+    MSM_STACK(p6, S_PATH6); /* /var/mobile/Applications */
 
-    BOOL bad = (p1 && strstr(path, p1)) ||
-               (p2 && strstr(path, p2)) ||
-               (p3 && strstr(path, p3)) ||
-               (p4 && strstr(path, p4)) ||
-               (p5 && strstr(path, p5)) ||
-               (p6 && strstr(path, p6));
-
-    if (p1) free(p1); if (p2) free(p2); if (p3) free(p3);
-    if (p4) free(p4); if (p5) free(p5); if (p6) free(p6);
-    return bad;
+    return (strstr(path, p1) ||
+            strstr(path, p2) ||
+            strstr(path, p3) ||
+            strstr(path, p4) ||
+            strstr(path, p5) ||
+            strstr(path, p6));
 }
 
 %hookf(int, access, const char *path, int mode) {
@@ -282,8 +286,7 @@ static BOOL msm_isSuspiciousPath(const char *path) {
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: 7 — BACKGROUND TASK AUTO-KILL                                        */
-/* ينهي العمليات غير الضرورية في الخلفية فور خروج المستخدم                   */
-/* يقلل استهلاك البطارية ويمنع النظام من Flagging التطبيق                     */
+/* ينهي Background Tasks بعد ثانيتين — يقلل الاستهلاك ويمنع Flagging         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 %hook UIApplication
@@ -292,13 +295,10 @@ static BOOL msm_isSuspiciousPath(const char *path) {
     UIBackgroundTaskIdentifier task = %orig;
     if (task != UIBackgroundTaskInvalid) {
         __weak UIApplication *weakSelf = self;
-        dispatch_after(
-            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-            dispatch_get_main_queue(),
-            ^{
-                [weakSelf endBackgroundTask:task];
-            }
-        );
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [weakSelf endBackgroundTask:task];
+        });
     }
     return task;
 }
@@ -308,18 +308,179 @@ static BOOL msm_isSuspiciousPath(const char *path) {
     UIBackgroundTaskIdentifier task = %orig;
     if (task != UIBackgroundTaskInvalid) {
         __weak UIApplication *weakSelf = self;
-        dispatch_after(
-            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-            dispatch_get_main_queue(),
-            ^{
-                [weakSelf endBackgroundTask:task];
-            }
-        );
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [weakSelf endBackgroundTask:task];
+        });
     }
     return task;
 }
 
-%end
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 8 — URL SCHEME FILTER (JB App Detection Bypass)                      */
+/* يمنع Snapchat / PUBG / بنوك من اكتشاف تطبيقات الجيلبريك عبر URL Schemes   */
+/*                                                                             */
+/* آلية الكشف المُعطَّلة:                                                      */
+/*   [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"cydia://"]]  */
+/*   → بدون الـ hook: YES (مكشوف)                                              */
+/*   → مع الـ hook:   NO  (مخفي)                                               */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+__attribute__((visibility("hidden")))
+static BOOL msm_isJailbreakScheme(NSString *scheme) {
+    if (!scheme) return NO;
+    NSString *s = scheme.lowercaseString;
+
+    /* Stack buffers — 9 Schemes مشفَّرة */
+    MSM_STACK(sc1, S_SCHEME_CYDIA);
+    MSM_STACK(sc2, S_SCHEME_UNDECIMUS);
+    MSM_STACK(sc3, S_SCHEME_SILEO);
+    MSM_STACK(sc4, S_SCHEME_FILZA);
+    MSM_STACK(sc5, S_SCHEME_ZBRA);
+    MSM_STACK(sc6, S_SCHEME_BLACKRA1N);
+    MSM_STACK(sc7, S_SCHEME_CHECKRA1N);
+    MSM_STACK(sc8, S_SCHEME_UNC0VER);
+    MSM_STACK(sc9, S_SCHEME_PALERA1N);
+
+    /* نُقارن فقط الـ scheme (بدون ://) */
+    /* نقطع الـ :// من المتغير للمقارنة */
+    const char *raw = [s UTF8String];
+    if (!raw) return NO;
+
+    /* نستخرج اسم الـ scheme (قبل :) */
+    char schemeBuf[64] = {0};
+    const char *colon = strchr(raw, ':');
+    if (colon) {
+        size_t schemeLen = (size_t)(colon - raw);
+        if (schemeLen < sizeof(schemeBuf)) {
+            memcpy(schemeBuf, raw, schemeLen);
+        }
+    } else {
+        strncpy(schemeBuf, raw, sizeof(schemeBuf) - 1);
+    }
+
+    /* مقارنة مع قائمة الـ schemes المُشفَّرة (نُزيل :// من sc*) */
+    #define SCHEME_MATCH(sc) \
+        ({ char _s[64]={0}; const char *_c=strchr(sc,':'); \
+           if(_c){memcpy(_s,sc,(size_t)(_c-sc));} else{strncpy(_s,sc,63);} \
+           strcasecmp(schemeBuf, _s) == 0; })
+
+    BOOL blocked = (SCHEME_MATCH(sc1) || SCHEME_MATCH(sc2) || SCHEME_MATCH(sc3) ||
+                    SCHEME_MATCH(sc4) || SCHEME_MATCH(sc5) || SCHEME_MATCH(sc6) ||
+                    SCHEME_MATCH(sc7) || SCHEME_MATCH(sc8) || SCHEME_MATCH(sc9));
+    #undef SCHEME_MATCH
+
+    return blocked;
+}
+
+- (BOOL)canOpenURL:(NSURL *)url {
+    if (!url) return %orig;
+    if (msm_isJailbreakScheme(url.scheme)) return NO;
+    return %orig;
+}
+
+- (void)openURL:(NSURL *)url options:(NSDictionary *)options
+                   completionHandler:(void (^)(BOOL))handler {
+    if (url && msm_isJailbreakScheme(url.scheme)) {
+        if (handler) handler(NO);
+        return;
+    }
+    %orig;
+}
+
+%end /* UIApplication */
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 9 — ENVIRONMENT VARIABLE HIDE                                        */
+/* يُخفي متغيرات البيئة الخاصة بالجيلبريك — الطبقة الأعمق لتجاوز بنوك/ألعاب */
+/*                                                                             */
+/* يكتشف: DYLD_INSERT_LIBRARIES / MobileSubstrate / _MSSafeMode / LIBHOOKER  */
+/* كل هذه دلائل مباشرة على وجود جيلبريك — نُخفيها كأنها لا تُوجد             */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+__attribute__((visibility("hidden")))
+static BOOL msm_isJailbreakEnvVar(const char *name) {
+    if (!name) return NO;
+
+    MSM_STACK(e1, S_ENV_DYLD);       /* DYLD_INSERT_LIBRARIES */
+    MSM_STACK(e2, S_ENV_XCTEST);     /* _XCAppTest            */
+    MSM_STACK(e3, S_ENV_SUBSTRATE);  /* MobileSubstrate       */
+    MSM_STACK(e4, S_ENV_SUBSTITUTE); /* Substitute            */
+    MSM_STACK(e5, S_ENV_SAFEMODE);   /* _MSSafeMode           */
+    MSM_STACK(e6, S_ENV_LIBHOOKER);  /* LIBHOOKER             */
+    MSM_STACK(e7, S_ENV_INJECTION);  /* INJECTION_BUNDLE      */
+
+    /* مطابقة دقيقة أو جزئية (strstr) للمتغيرات المشبوهة */
+    return (strcasecmp(name, e1) == 0 ||
+            strcasecmp(name, e2) == 0 ||
+            strstr(name, e3) != NULL   ||  /* أي متغير يحتوي MobileSubstrate */
+            strstr(name, e4) != NULL   ||  /* أي متغير يحتوي Substitute */
+            strcasecmp(name, e5) == 0 ||
+            strcasecmp(name, e6) == 0 ||
+            strcasecmp(name, e7) == 0);
+}
+
+%hookf(char *, getenv, const char *name) {
+    if (msm_isJailbreakEnvVar(name)) return NULL;
+    return %orig;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 10 — METHOD SWIZZLING GHOST (Anti-Detection Bypass)                  */
+/* يمنع تطبيقات Epic / Tencent من اكتشاف أننا عدّلنا دوالها بالـ Hook        */
+/*                                                                             */
+/* آلية الكشف المُعطَّلة:                                                      */
+/*   IMP imp = method_getImplementation(m);                                    */
+/*   dladdr(imp, &info) → يظهر اسم dylib مسمارينا → مكشوف!                   */
+/*                                                                             */
+/* الحل:                                                                       */
+/*   نحصل على اسم الـ symbol → إذا كان _logos_method$ نبحث عن _logos_orig$   */
+/*   ونرجع الـ IMP الأصلية للتطبيق — يرى نفسه غير مُعدَّل                    */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+/* Guard ضد الاستدعاء الدوراني (re-entrancy) */
+static _Thread_local BOOL msm_inSwizzleQuery = NO;
+
+%hookf(IMP, method_getImplementation, Method m) {
+    /* منع الاستدعاء الدوراني */
+    if (msm_inSwizzleQuery) return %orig;
+    msm_inSwizzleQuery = YES;
+
+    IMP imp = %orig;
+    msm_inSwizzleQuery = NO;
+
+    if (!imp) return imp;
+
+    /* فحص: هل هذا الـ IMP يخصّ dylib مسماري؟ */
+    Dl_info dl;
+    memset(&dl, 0, sizeof(dl));
+    if (!dladdr((void *)imp, &dl)) return imp;
+    if (!dl.dli_sname)             return imp;
+
+    /* Theos يُسمّي trampolines بـ _logos_method$ */
+    MSM_STACK(logosMethod, S_LOGOS_METHOD);
+    MSM_STACK(logosOrig,   S_LOGOS_ORIG);
+
+    if (strncmp(dl.dli_sname, logosMethod, strlen(logosMethod)) != 0) {
+        return imp; /* ليس hook مسماري — أرجع كما هو */
+    }
+
+    /* حوّل: _logos_method$Class$method  →  _logos_orig$Class$method */
+    const char *suffix = dl.dli_sname + strlen(logosMethod);
+    char origSymbol[256] = {0};
+    snprintf(origSymbol, sizeof(origSymbol), "%s%s", logosOrig, suffix);
+
+    /* ابحث عن الـ IMP الأصلية */
+    void *origImp = dlsym(RTLD_DEFAULT, origSymbol);
+    if (origImp) {
+        return (IMP)origImp; /* أرجع الأصلية — التطبيق لا يرى أي تعديل */
+    }
+
+    return imp; /* لا يوجد أصلي محفوظ — أرجع الـ hook (أفضل من لا شيء) */
+}
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -328,6 +489,7 @@ static BOOL msm_isSuspiciousPath(const char *path) {
 
 %ctor {
     @autoreleasepool {
-        %init; /* يفعّل جميع الـ hooks تلقائياً */
+        %init; /* يفعّل modules 2-10 تلقائياً */
+        /* Module 1 (Anti-Debug) يعمل عبر __attribute__((constructor)) منفصل */
     }
 }

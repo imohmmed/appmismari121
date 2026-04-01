@@ -7,7 +7,7 @@ MismariProtect_FILES       = Tweak.x
 MismariProtect_FRAMEWORKS  = Foundation UIKit Security
 MismariProtect_LIBRARIES   = substrate
 
-MismariProtect_CFLAGS = -fobjc-arc -O2 -fvisibility=hidden -ffunction-sections -fdata-sections -DNDEBUG -Wno-deprecated-declarations
+MismariProtect_CFLAGS = -fobjc-arc -O2 -std=c11 -fvisibility=hidden -ffunction-sections -fdata-sections -DNDEBUG -Wno-deprecated-declarations
 
 MismariProtect_LDFLAGS = -Wl,-S -Wl,-dead_strip -Wl,-x
 
@@ -17,4 +17,4 @@ include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 after-all::
-	@DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); if [ -n "$$DYLIB" ]; then cp "$$DYLIB" ./antirevoke.dylib && echo "✅ antirevoke.dylib جاهز"; fi
+        @DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | head -1); if [ -n "$$DYLIB" ]; then cp "$$DYLIB" ./antirevoke.dylib && echo "✅ antirevoke.dylib جاهز"; fi
