@@ -57,10 +57,36 @@ const storeIpaStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ts = Date.now();
-    cb(null, `store_${ts}_${file.originalname.replace(/\s+/g, "_")}`);
+    // path.basename strips any directory components, then we remove all chars
+    // except alphanumeric, dash, underscore, and dot to prevent special-char injection
+    const safeName = path.basename(file.originalname)
+      .replace(/[^a-zA-Z0-9.\-_]/g, "_")
+      .replace(/\.+/g, ".")        // collapse multiple dots
+      .toLowerCase()
+      .slice(0, 64);               // max 64 chars for the original part
+    cb(null, `store_${ts}_${safeName}`);
   },
 });
-const storeIpaUpload = multer({ storage: storeIpaStorage, limits: { fileSize: 500 * 1024 * 1024 } });
+
+/** Allow only .ipa files by extension (IPA = ZIP container) */
+function ipaFileFilter(
+  _req: import("express").Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+): void {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext !== ".ipa") {
+    cb(new Error("نوع الملف غير مقبول — يجب أن يكون ملف .ipa فقط"));
+    return;
+  }
+  cb(null, true);
+}
+
+const storeIpaUpload = multer({
+  storage: storeIpaStorage,
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: ipaFileFilter,
+});
 
 // ─── GET /activate/validate — check subscription code ─────────────────────────
 // Returns group info + itms-services download link if code is valid
@@ -365,16 +391,32 @@ router.post("/activate/complete", completeLimiter, async (req, res): Promise<voi
     deviceType?: string;
   };
 
-  if (!subscriptionId) {
-    res.status(400).json({ error: "subscriptionId مطلوب" });
+  if (!subscriptionId || isNaN(Number(subscriptionId))) {
+    res.status(400).json({ error: "subscriptionId غير صحيح" });
     return;
   }
   if (!name?.trim()) {
     res.status(400).json({ error: "الاسم مطلوب" });
     return;
   }
+  if (name.trim().length > 100) {
+    res.status(400).json({ error: "الاسم طويل جداً (الحد الأقصى 100 حرف)" });
+    return;
+  }
   if (!phone?.trim()) {
     res.status(400).json({ error: "رقم الهاتف مطلوب" });
+    return;
+  }
+  if (phone.trim().length > 20) {
+    res.status(400).json({ error: "رقم الهاتف غير صحيح" });
+    return;
+  }
+  if (email && email.trim().length > 254) {
+    res.status(400).json({ error: "البريد الإلكتروني طويل جداً" });
+    return;
+  }
+  if (udid && !/^[a-fA-F0-9\-]{36,40}$/.test(udid.trim())) {
+    res.status(400).json({ error: "UDID غير صحيح" });
     return;
   }
 

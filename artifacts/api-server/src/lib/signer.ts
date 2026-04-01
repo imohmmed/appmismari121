@@ -113,34 +113,58 @@ export async function signIpa(opts: {
   }
 }
 
+/** Allowed base directories for file operations — nothing outside these is permitted */
+const UPLOADS_ROOT = path.resolve(process.cwd(), "uploads");
+const ALLOWED_ROOTS = [UPLOADS_ROOT, "/tmp"];
+
+/**
+ * Verify a resolved path stays within allowed directories.
+ * Throws if the path escapes uploads/ or /tmp (path traversal guard).
+ */
+function confineToAllowed(resolved: string): string {
+  const normalized = path.normalize(resolved);
+  const safe = ALLOWED_ROOTS.some(root =>
+    normalized === root || normalized.startsWith(root + path.sep)
+  );
+  if (!safe) {
+    // Log for audit — do not expose the actual path to callers
+    console.error(`[SECURITY] Path traversal attempt blocked: ${normalized}`);
+    throw new Error("Path traversal detected — access denied");
+  }
+  return normalized;
+}
+
 export function resolveLocalPath(storedPath: string): string {
   if (!storedPath) return "";
   if (storedPath.startsWith("http")) {
     const url = new URL(storedPath);
     const p = url.pathname;
     const storeMatch = p.match(/\/FilesIPA\/StoreIPA\/(.+)$/);
-    if (storeMatch) return path.join(process.cwd(), "uploads", "StoreIPA", path.basename(storeMatch[1]));
+    if (storeMatch) return confineToAllowed(path.join(UPLOADS_ROOT, "StoreIPA", path.basename(storeMatch[1])));
     const appMatch = p.match(/\/FilesIPA\/IpaApp\/(.+)$/);
-    if (appMatch) return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", path.basename(appMatch[1]));
+    if (appMatch) return confineToAllowed(path.join(UPLOADS_ROOT, "FilesIPA", "IpaApp", path.basename(appMatch[1])));
     const relMatch = p.match(/\/admin\/FilesIPA\/(.+)$/);
-    if (relMatch) return path.join(process.cwd(), "uploads", "FilesIPA", path.basename(relMatch[1]));
+    if (relMatch) return confineToAllowed(path.join(UPLOADS_ROOT, "FilesIPA", path.basename(relMatch[1])));
     const signedStoreMatch = p.match(/\/(?:api\/)?admin\/signed-store\/(.+)$/);
-    if (signedStoreMatch) return path.join(process.cwd(), "uploads", "SignedStore", path.basename(signedStoreMatch[1]));
-    return path.join(process.cwd(), "uploads", path.basename(p));
+    if (signedStoreMatch) return confineToAllowed(path.join(UPLOADS_ROOT, "SignedStore", path.basename(signedStoreMatch[1])));
+    return confineToAllowed(path.join(UPLOADS_ROOT, path.basename(p)));
   }
   if (storedPath.startsWith("/admin/signed-store/") || storedPath.startsWith("/sign/store-files/")) {
-    return path.join(process.cwd(), "uploads", "SignedStore", path.basename(storedPath));
+    return confineToAllowed(path.join(UPLOADS_ROOT, "SignedStore", path.basename(storedPath)));
   }
   if (storedPath.startsWith("/admin/FilesIPA/StoreIPA/")) {
-    return path.join(process.cwd(), "uploads", "StoreIPA", path.basename(storedPath));
+    return confineToAllowed(path.join(UPLOADS_ROOT, "StoreIPA", path.basename(storedPath)));
   }
   if (storedPath.startsWith("/admin/FilesIPA/IpaApp/")) {
-    return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", path.basename(storedPath));
+    return confineToAllowed(path.join(UPLOADS_ROOT, "FilesIPA", "IpaApp", path.basename(storedPath)));
   }
   if (storedPath.startsWith("/")) {
-    return path.join(process.cwd(), storedPath.slice(1));
+    // Strip leading slash and sanitize — no directory traversal allowed
+    const safe = path.basename(storedPath.slice(1));
+    return confineToAllowed(path.join(UPLOADS_ROOT, safe));
   }
-  return path.join(process.cwd(), storedPath);
+  // Relative path — basename only, confined to uploads/
+  return confineToAllowed(path.join(UPLOADS_ROOT, path.basename(storedPath)));
 }
 
 export async function downloadToTemp(url: string): Promise<string> {
