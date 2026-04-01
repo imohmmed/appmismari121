@@ -185,11 +185,48 @@ async function signIpa(opts: {
 
 // ─── Antirevoke dylib helper ──────────────────────────────────────────────────
 const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
+const DYLIB_CACHE_PATH = path.join(DYLIB_DIR, "antirevoke.dylib");
+
+/** Download dylib from R2 if not available locally. Caches on disk. */
+async function ensureDylibLocal(): Promise<void> {
+  if (fs.existsSync(DYLIB_CACHE_PATH)) return;
+  const dlDomain = process.env.R2_DL_DOMAIN || "https://dl.mismari.com";
+  const r2Url = `${dlDomain}/dylibs/antirevoke.dylib`;
+  try {
+    fs.mkdirSync(DYLIB_DIR, { recursive: true });
+    await downloadUrlToFile(r2Url, DYLIB_CACHE_PATH);
+    console.log(`[antirevoke] Downloaded dylib from R2 → ${DYLIB_CACHE_PATH}`);
+  } catch (e: any) {
+    console.warn(`[antirevoke] Could not download dylib from R2: ${e.message}`);
+  }
+}
+
 function getAntiRevokeDylibPath(): string | null {
-  const p = path.join(DYLIB_DIR, "antirevoke.dylib");
-  const exists = fs.existsSync(p);
-  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND — will inject" : "❌ NOT FOUND — skipping"} (${p})`);
-  return exists ? p : null;
+  const exists = fs.existsSync(DYLIB_CACHE_PATH);
+  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND — will inject" : "❌ NOT FOUND — skipping"} (${DYLIB_CACHE_PATH})`);
+  return exists ? DYLIB_CACHE_PATH : null;
+}
+
+/**
+ * Resolves an IPA path for signing.
+ * - Local file exists → returns {path, cleanup: noop}
+ * - R2/HTTP URL (or local file missing) → downloads to /tmp, returns {path, cleanup: deletes temp}
+ */
+async function resolveIpaForSigning(storedPath: string): Promise<{ path: string; cleanup: () => void }> {
+  const noop = () => {};
+  // If it's an HTTP URL, download directly
+  if (storedPath.startsWith("http")) {
+    const tmpPath = `/tmp/ipa-sign-${randomHex(8)}.ipa`;
+    await downloadUrlToFile(storedPath, tmpPath);
+    return { path: tmpPath, cleanup: () => fs.rmSync(tmpPath, { force: true }) };
+  }
+  // Local path
+  const localPath = resolveLocalPath(storedPath);
+  if (fs.existsSync(localPath)) {
+    return { path: localPath, cleanup: noop };
+  }
+  // Local file missing — shouldn't happen but handle gracefully
+  throw new Error(`ملف IPA غير موجود: ${storedPath}`);
 }
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
@@ -510,6 +547,7 @@ router.get("/sign/ipa/:token.ipa", (req, res): void => {
 // ─── POST /api/sign/store/:code ──────────────────────────────────────────────
 // Signs the group's store IPA for this subscriber → returns itms-services URL
 router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> => {
+  let cleanup = () => {};
   try {
     const { code } = req.params;
     const { sub, group } = await getSubAndGroup(code);
@@ -519,12 +557,9 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
       return;
     }
 
-    const inputPath = resolveLocalPath(group.storeIpaPath);
-
-    if (!fs.existsSync(inputPath)) {
-      res.status(400).json({ error: "ملف IPA للمتجر غير موجود على السيرفر" });
-      return;
-    }
+    const resolved = await resolveIpaForSigning(group.storeIpaPath);
+    const inputPath = resolved.path;
+    cleanup = resolved.cleanup;
 
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
@@ -564,6 +599,8 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل التوقيع" });
+  } finally {
+    cleanup();
   }
 });
 
@@ -581,24 +618,27 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
     if (!app.ipaPath) { res.status(400).json({ error: "ملف IPA غير موجود لهذا التطبيق" }); return; }
 
-    const inputPath = resolveLocalPath(app.ipaPath);
-    if (!fs.existsSync(inputPath)) {
-      res.status(400).json({ error: "ملف IPA غير موجود على السيرفر" }); return;
-    }
+    await ensureDylibLocal();
+    const resolved = await resolveIpaForSigning(app.ipaPath);
+    const inputPath = resolved.path;
 
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
     const dylibPath = getAntiRevokeDylibPath();
 
-    await signIpa({
-      p12Base64: group.p12Data!,
-      p12Password: group.p12Password || "",
-      mpBase64: group.mobileprovisionData!,
-      inputPath,
-      outputPath,
-      dylibPaths: dylibPath ? [dylibPath] : undefined,
-    });
+    try {
+      await signIpa({
+        p12Base64: group.p12Data!,
+        p12Password: group.p12Password || "",
+        mpBase64: group.mobileprovisionData!,
+        inputPath,
+        outputPath,
+        dylibPaths: dylibPath ? [dylibPath] : undefined,
+      });
+    } finally {
+      resolved.cleanup();
+    }
 
     const meta: TokenMeta = {
       appName: app.name || appInfo.name,
@@ -644,11 +684,9 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
     if (!app.ipaPath) { res.status(400).json({ error: "ملف IPA غير موجود لهذا التطبيق" }); return; }
 
-    const inputPath = resolveLocalPath(app.ipaPath);
-    if (!fs.existsSync(inputPath)) {
-      res.status(400).json({ error: "ملف IPA غير موجود على السيرفر" }); return;
-    }
-
+    await ensureDylibLocal();
+    const resolved = await resolveIpaForSigning(app.ipaPath);
+    const inputPath = resolved.path;
     const appInfo = readIpaInfo(inputPath);
     const cloneName = newName?.trim() || `${app.name || appInfo.name} 2`;
     const originalBundleId = app.bundleId || appInfo.bundleId;
@@ -663,16 +701,20 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
     const dylibPath = getAntiRevokeDylibPath();
 
-    await signIpa({
-      p12Base64: group.p12Data!,
-      p12Password: group.p12Password || "",
-      mpBase64: group.mobileprovisionData!,
-      inputPath,
-      outputPath,
-      bundleId: newBundleId,
-      bundleName: cloneName,
-      dylibPaths: dylibPath ? [dylibPath] : undefined,
-    });
+    try {
+      await signIpa({
+        p12Base64: group.p12Data!,
+        p12Password: group.p12Password || "",
+        mpBase64: group.mobileprovisionData!,
+        inputPath,
+        outputPath,
+        bundleId: newBundleId,
+        bundleName: cloneName,
+        dylibPaths: dylibPath ? [dylibPath] : undefined,
+      });
+    } finally {
+      resolved.cleanup();
+    }
 
     const meta: TokenMeta = {
       appName: cloneName,
