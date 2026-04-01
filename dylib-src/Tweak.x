@@ -11,7 +11,7 @@
  * ║  4.  Bundle ID Guard      — Sideload detection bypass                  ║
  * ║  5.  Fake Device Info     — UIDevice hooks (Anti-Ban/Tracking)         ║
  * ║  6.  File Path Shadow     — access/stat/lstat/fopen/open hooks         ║
- * ║  7.  Background AutoKill  — UIApplication background task control      ║
+ * ║  7.  (محذوف) Background AutoKill — كان يكسر تحميلات اليوتيوب/سبوتيفاي ║
  * ║  8.  URL Scheme Filter    — canOpenURL: JB app scheme blocking         ║
  * ║  9.  Env Variable Hide    — getenv hook (hides DYLD / Substrate vars)  ║
  * ║  10. Swizzle Ghost        — method_getImplementation camouflage        ║
@@ -285,36 +285,11 @@ static BOOL msm_isSuspiciousPath(const char *path) {
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* MARK: 7 — BACKGROUND TASK AUTO-KILL                                        */
-/* ينهي Background Tasks بعد ثانيتين — يقلل الاستهلاك ويمنع Flagging         */
+/* MARK: 7 — (محذوف — Background AutoKill)                                    */
+/* تم حذفه: كان يقطع Background Tasks بعد ثانيتين مما يكسر التحميلات         */
+/* واليوتيوب وسبوتيفاي وأي تطبيق يستخدم Background Task بشكل شرعي            */
+/* لا علاقة له بالـ Anti-Revoke — يزعج المستخدم أكثر مما يحميه               */
 /* ─────────────────────────────────────────────────────────────────────────── */
-
-%hook UIApplication
-
-- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithExpirationHandler:(void (^)(void))handler {
-    UIBackgroundTaskIdentifier task = %orig;
-    if (task != UIBackgroundTaskInvalid) {
-        __weak UIApplication *weakSelf = self;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [weakSelf endBackgroundTask:task];
-        });
-    }
-    return task;
-}
-
-- (UIBackgroundTaskIdentifier)beginBackgroundTaskWithName:(NSString *)name
-                                        expirationHandler:(void (^)(void))handler {
-    UIBackgroundTaskIdentifier task = %orig;
-    if (task != UIBackgroundTaskInvalid) {
-        __weak UIApplication *weakSelf = self;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [weakSelf endBackgroundTask:task];
-        });
-    }
-    return task;
-}
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */

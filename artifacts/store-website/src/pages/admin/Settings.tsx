@@ -1045,7 +1045,7 @@ export default function AdminSettings() {
 
             {/* مميزات antirevoke.dylib */}
             <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: "#f59e0b08", border: "1px solid #f59e0b18" }}>
-              <p className="text-xs font-bold mb-2" style={{ color: "#f59e0b" }}>مميزات antirevoke.dylib (10 Modules)</p>
+              <p className="text-xs font-bold mb-2" style={{ color: "#f59e0b" }}>مميزات antirevoke.dylib (9 Modules)</p>
               {[
                 { icon: "①", text: "Anti-Debugging — ptrace(PT_DENY_ATTACH) + sysctl — يمنع lldb/frida/cycript" },
                 { icon: "②", text: "OCSP Block — يحجب مواقع التحقق من إلغاء الشهادة (قلب الـ Anti-Revoke)" },
@@ -1053,10 +1053,9 @@ export default function AdminSettings() {
                 { icon: "④", text: "Bundle ID Guard — يمنع اكتشاف التطبيق أنه مثبت خارج App Store" },
                 { icon: "⑤", text: "Fake Device Info — IDFV=nil · Device Name جنيريك — يمنع Device Ban والتتبع" },
                 { icon: "⑥", text: "File Path Shadow — يخفي مسارات Cydia/Substrate/Tweaks عن التطبيقات الذكية" },
-                { icon: "⑦", text: "Background AutoKill — ينهي Background Tasks بعد ثانيتين — يقلل الاستهلاك" },
-                { icon: "⑧", text: "URL Scheme Filter — يحجب canOpenURL لـ 9 تطبيقات JB (cydia/sileo/filza/...)" },
-                { icon: "⑨", text: "Env Variable Hide — يخفي DYLD_INSERT_LIBRARIES وغيرها — أعمق طبقة حماية" },
-                { icon: "⑩", text: "Swizzle Ghost — يخفي الـ hooks عن method_getImplementation (ضد Epic/Tencent)" },
+                { icon: "⑦", text: "URL Scheme Filter — يحجب canOpenURL لـ 9 تطبيقات JB (cydia/sileo/filza/...)" },
+                { icon: "⑧", text: "Env Variable Hide — يخفي DYLD_INSERT_LIBRARIES وغيرها — أعمق طبقة حماية" },
+                { icon: "⑨", text: "Swizzle Ghost — يخفي الـ hooks عن method_getImplementation (ضد Epic/Tencent)" },
               ].map(f => (
                 <div key={f.icon} className="flex items-start gap-2 text-xs text-white/50">
                   <span className="shrink-0 font-bold" style={{ color: "#f59e0b99" }}>{f.icon}</span>
