@@ -23,6 +23,7 @@ export const appsTable = pgTable("apps", {
   isHot: boolean("is_hot").notNull().default(false),
   isHidden: boolean("is_hidden").notNull().default(false),
   isTestMode: boolean("is_test_mode").notNull().default(false),
+  skipDylib: boolean("skip_dylib").notNull().default(false),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

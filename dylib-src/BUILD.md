@@ -1,6 +1,6 @@
-# بناء Mismari Protect Dylib v3.0
+# بناء Mismari Protect Dylib v4.0
 
-## الـ Modules (10 وحدات حماية)
+## الـ Modules (11 وحدة حماية)
 
 | # | الاسم | الوظيفة |
 |---|---|---|
@@ -8,12 +8,19 @@
 | 2 | OCSP Block | يحجب التحقق من إلغاء الشهادة |
 | 3 | SSL Unpinning | يقبل أي شهادة SSL |
 | 4 | Bundle ID Guard | يخفي أن التطبيق مثبت خارج App Store |
-| 5 | Fake Device Info | IDFV=nil، Device Name جنيريك |
+| 5 | Fake Device Info | IDFV وهمي، Device Name جنيريك |
 | 6 | File Path Shadow | يخفي مسارات Cydia/Substrate/Tweaks |
-| 7 | Background AutoKill | ينهي Background Tasks بعد ثانيتين |
+| 7 | (محذوف) Background AutoKill | كان يكسر اليوتيوب/سبوتيفاي |
 | 8 | URL Scheme Filter | يحجب canOpenURL لـ JB apps |
 | 9 | Env Variable Hide | يخفي DYLD_INSERT_LIBRARIES وغيرها |
 | 10 | Swizzle Ghost | يُخفي الـ hooks عن method_getImplementation |
+| 11 | **DYLD Image Cloaking** | **يُخفي الدايلب من _dyld_image_count/name — يتجاوز Hybrid Detection** |
+
+### ملاحظة Module 11
+التطبيقات البنكية (ZainCash، Snapchat، PUBG) تستخدم Hybrid Detection:
+- تفحص `_dyld_get_image_name()` بحثاً عن مكتبات غير Apple
+- إذا وجدت `.dylib` غير موقّع من Apple → تُصدر "Jailbroken iPhone"
+- Module 11 يخفي الدايلب كلياً من هذه القائمة
 
 ## المتطلبات (على الماك)
 ```bash

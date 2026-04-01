@@ -1,6 +1,6 @@
 /*
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║       Mismari Anti-Revoke & Protection Dylib v3.0                      ║
+ * ║       Mismari Anti-Revoke & Protection Dylib v4.0                      ║
  * ║       Build: cd dylib-src && make                                      ║
  * ║       Requirements: Theos installed on macOS                           ║
  * ╠══════════════════════════════════════════════════════════════════════════╣
@@ -15,6 +15,8 @@
  * ║  8.  URL Scheme Filter    — canOpenURL: JB app scheme blocking         ║
  * ║  9.  Env Variable Hide    — getenv hook (hides DYLD / Substrate vars)  ║
  * ║  10. Swizzle Ghost        — method_getImplementation camouflage        ║
+ * ║  11. DYLD Image Cloaking  — _dyld_image_count/name/header hooks       ║
+ * ║      يُخفي الدايلب من قائمة المكتبات — يتجاوز Hybrid Detection         ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
  *
  * Memory Safety:
@@ -40,6 +42,7 @@ extern int ptrace(int request, pid_t pid, caddr_t addr, int data);
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <mach-o/dyld.h>
 
 #include "MSMStrings.h"
 
@@ -514,12 +517,72 @@ static _Thread_local BOOL msm_inSwizzleQuery = NO;
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 11 — DYLD IMAGE CLOAKING (إخفاء الدايلب من قائمة المكتبات)          */
+/*                                                                             */
+/* آلية الكشف المُعطَّلة (Hybrid Detection):                                  */
+/*   uint32_t n = _dyld_image_count();                                        */
+/*   for (i = 0; i < n; i++) {                                                */
+/*       const char *name = _dyld_get_image_name(i);                         */
+/*       if (strstr(name, ".dylib")) → مكتبة غير Apple = جيلبريك             */
+/*   }                                                                         */
+/*                                                                             */
+/* الحل: نحفظ index الدايلب بدقة عبر dladdr على pointer داخلي —              */
+/*   ثم نزيحه من العداد والقائمة كأنه غير موجود.                              */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+static uint32_t s_msm_self_index = UINT32_MAX;
+
+/* يعمل قبل %init — يحفظ index الدايلب بدقة مطلقة عبر dladdr على نفسه */
+__attribute__((constructor)) __attribute__((visibility("hidden")))
+static void msm_cacheSelfIndex(void) {
+    Dl_info dl;
+    memset(&dl, 0, sizeof(dl));
+    /* نُمرّر pointer على هذه الدالة نفسها — مضمون أنه داخل دايلبنا */
+    if (!dladdr((void *)msm_cacheSelfIndex, &dl) || !dl.dli_fname) return;
+
+    uint32_t n = _dyld_image_count();
+    for (uint32_t i = 0; i < n; i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (name && strcmp(name, dl.dli_fname) == 0) {
+            s_msm_self_index = i;
+            break;
+        }
+    }
+}
+
+/* ─── عدد المكتبات − 1 (يُخفي الدايلب من العداد) ──────────────────────── */
+%hookf(uint32_t, _dyld_image_count) {
+    uint32_t c = %orig;
+    return (s_msm_self_index != UINT32_MAX && c > 0) ? c - 1 : c;
+}
+
+/* ─── إزاحة الـ index لتجاوز index الدايلب — كأنه غير موجود ────────────── */
+%hookf(const char *, _dyld_get_image_name, uint32_t image_index) {
+    if (s_msm_self_index != UINT32_MAX && image_index >= s_msm_self_index)
+        return %orig(image_index + 1);
+    return %orig;
+}
+
+%hookf(const struct mach_header *, _dyld_get_image_header, uint32_t image_index) {
+    if (s_msm_self_index != UINT32_MAX && image_index >= s_msm_self_index)
+        return %orig(image_index + 1);
+    return %orig;
+}
+
+%hookf(intptr_t, _dyld_get_image_vmaddr_slide, uint32_t image_index) {
+    if (s_msm_self_index != UINT32_MAX && image_index >= s_msm_self_index)
+        return %orig(image_index + 1);
+    return %orig;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: INIT — تفعيل جميع الـ Hooks                                          */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 %ctor {
     @autoreleasepool {
-        %init; /* يفعّل modules 2-10 تلقائياً */
-        /* Module 1 (Anti-Debug) يعمل عبر __attribute__((constructor)) منفصل */
+        %init; /* يفعّل modules 2-11 تلقائياً */
+        /* Module 1 (Anti-Debug) + Module 11 cache يعملان عبر __attribute__((constructor)) */
     }
 }
