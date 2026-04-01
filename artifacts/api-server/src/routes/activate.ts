@@ -8,6 +8,7 @@ import { db, subscriptionsTable, groupsTable, plansTable } from "@workspace/db";
 import { registerDeviceWithApple } from "../apple-connect";
 import { adminAuth } from "../middleware/adminAuth";
 import { signIpa, saveToken, randomHex, resolveLocalPath, downloadToTemp, SIGNED_DIR, TOKEN_TTL_MS, type TokenMeta } from "../lib/signer";
+import { STORE_DYLIB_PATH, ensureStoreDylib, getDylibPath } from "../lib/dylibs";
 
 const router: IRouter = Router();
 
@@ -21,37 +22,6 @@ function xmlEscape(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-const DYLIB_DIR        = path.join(process.cwd(), "uploads", "dylibs");
-const STORE_DYLIB_PATH = path.join(DYLIB_DIR, "mismari-store.dylib");
-
-async function ensureStoreDylibLocal(): Promise<void> {
-  if (fs.existsSync(STORE_DYLIB_PATH)) return;
-  const dlDomain = process.env.R2_DL_DOMAIN || "https://dl.mismari.com";
-  const r2Url = `${dlDomain}/dylibs/mismari-store.dylib`;
-  try {
-    fs.mkdirSync(DYLIB_DIR, { recursive: true });
-    const { default: https } = await import("https");
-    const { default: http } = await import("http");
-    const tmpPath = STORE_DYLIB_PATH + ".tmp";
-    await new Promise<void>((resolve, reject) => {
-      const proto = r2Url.startsWith("https") ? https : http;
-      const file = fs.createWriteStream(tmpPath);
-      proto.get(r2Url, (res) => {
-        if (res.statusCode !== 200) { file.close(); reject(new Error(`HTTP ${res.statusCode}`)); return; }
-        res.pipe(file);
-        file.on("finish", () => { file.close(); resolve(); });
-      }).on("error", reject);
-    });
-    fs.renameSync(tmpPath, STORE_DYLIB_PATH);
-    console.log(`[activate] mismari-store.dylib downloaded from R2`);
-  } catch (e: any) {
-    console.warn(`[activate] Could not download mismari-store.dylib: ${e.message}`);
-  }
-}
-
-function getStoreDylibPath(): string | null {
-  return fs.existsSync(STORE_DYLIB_PATH) ? STORE_DYLIB_PATH : null;
-}
 
 // ─── Rate limiters ────────────────────────────────────────────────────────────
 const validateLimiter = rateLimit({
@@ -271,8 +241,8 @@ router.get("/groups/:certName/manifest.plist", async (req, res): Promise<void> =
       const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
       // ✅ Inject mismari-store.dylib (JB bypass, safe mode, welcome msg, auto-update)
       // ⚠️ Never inject antirevoke.dylib here — crashes React Native / Hermes
-      await ensureStoreDylibLocal();
-      const storeDylib = getStoreDylibPath();
+      await ensureStoreDylib();
+      const storeDylib = getDylibPath(STORE_DYLIB_PATH);
       await signIpa({
         p12Base64: group.p12Data,
         p12Password: group.p12Password || "",

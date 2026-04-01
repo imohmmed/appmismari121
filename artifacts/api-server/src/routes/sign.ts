@@ -13,6 +13,12 @@ import pLimit from "p-limit";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import { db, subscriptionsTable, groupsTable, appsTable, signJobsTable } from "@workspace/db";
+import { adminAuth } from "../middleware/adminAuth";
+import {
+  DYLIB_DIR, ANTIREVOKE_DYLIB_PATH, STORE_DYLIB_PATH,
+  ensureDylib, ensureAppDylib, ensureStoreDylib, getDylibPath,
+  flushDylibCache, getDylibCacheStatus,
+} from "../lib/dylibs";
 
 const execFileAsync = promisify(execFile);
 const router: IRouter = Router();
@@ -183,54 +189,11 @@ async function signIpa(opts: {
   });
 }
 
-// ─── Dylib helpers ────────────────────────────────────────────────────────────
-// Two separate dylibs:
-//   antirevoke.dylib      → injected into USER APPS signed from the store
-//   mismari-store.dylib   → injected into the STORE APP (Mismari+) itself
-const DYLIB_DIR               = path.join(process.cwd(), "uploads", "dylibs");
-const ANTIREVOKE_DYLIB_PATH   = path.join(DYLIB_DIR, "antirevoke.dylib");
-const STORE_DYLIB_PATH        = path.join(DYLIB_DIR, "mismari-store.dylib");
-
-/** Download a named dylib from R2 if not cached locally */
-async function ensureDylibFromR2(filename: string, localPath: string): Promise<void> {
-  if (fs.existsSync(localPath)) return;
-  const dlDomain = process.env.R2_DL_DOMAIN || "https://dl.mismari.com";
-  const r2Url = `${dlDomain}/dylibs/${filename}`;
-  try {
-    fs.mkdirSync(DYLIB_DIR, { recursive: true });
-    await downloadUrlToFile(r2Url, localPath);
-    console.log(`[dylib] Downloaded ${filename} from R2 → ${localPath}`);
-  } catch (e: any) {
-    console.warn(`[dylib] Could not download ${filename} from R2: ${e.message}`);
-  }
-}
-
-/** For user apps: antirevoke.dylib */
-async function ensureAppDylibLocal(): Promise<void> {
-  return ensureDylibFromR2("antirevoke.dylib", ANTIREVOKE_DYLIB_PATH);
-}
-
-/** For store app (Mismari+): mismari-store.dylib */
-async function ensureStoreDylibLocal(): Promise<void> {
-  return ensureDylibFromR2("mismari-store.dylib", STORE_DYLIB_PATH);
-}
-
-function getAntiRevokeDylibPath(): string | null {
-  const exists = fs.existsSync(ANTIREVOKE_DYLIB_PATH);
-  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND" : "❌ NOT FOUND"} (${ANTIREVOKE_DYLIB_PATH})`);
-  return exists ? ANTIREVOKE_DYLIB_PATH : null;
-}
-
-function getStoreDylibPath(): string | null {
-  const exists = fs.existsSync(STORE_DYLIB_PATH);
-  console.log(`[store-dylib] check → ${exists ? "✅ FOUND" : "❌ NOT FOUND"} (${STORE_DYLIB_PATH})`);
-  return exists ? STORE_DYLIB_PATH : null;
-}
-
-// Legacy alias (used by ensureAppDylibLocal callers below)
-async function ensureDylibLocal(): Promise<void> {
-  return ensureAppDylibLocal();
-}
+// ─── Dylib helpers (thin wrappers over ../lib/dylibs) ────────────────────────
+function getAntiRevokeDylibPath(): string | null { return getDylibPath(ANTIREVOKE_DYLIB_PATH); }
+function getStoreDylibPath(): string | null       { return getDylibPath(STORE_DYLIB_PATH); }
+async function ensureStoreDylibLocal(): Promise<void> { return ensureStoreDylib(); }
+async function ensureDylibLocal(): Promise<void>      { return ensureAppDylib(); }
 
 /**
  * Resolves an IPA path for signing.
@@ -1097,6 +1060,51 @@ router.get("/sign/personal/history", async (req, res): Promise<void> => {
     res.json({ jobs: withStatus });
   } catch (err: any) {
     res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN — Dylib Cache Management
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── GET /api/admin/dylibs/status ────────────────────────────────────────────
+// Returns cache status for each dylib: cached, ETag, size, last checked
+router.get("/admin/dylibs/status", adminAuth, (_req, res): void => {
+  res.json({ dylibs: getDylibCacheStatus() });
+});
+
+// ─── POST /api/admin/dylibs/refresh ──────────────────────────────────────────
+// Force-flush cache for one or all dylibs → next signing re-downloads from R2
+// Body: { filename?: "antirevoke.dylib" | "mismari-store.dylib" }
+//       omit filename to flush ALL
+router.post("/admin/dylibs/refresh", adminAuth, async (req, res): Promise<void> => {
+  try {
+    const { filename } = req.body as { filename?: string };
+
+    // Validate filename if provided
+    const allowed = ["antirevoke.dylib", "mismari-store.dylib"];
+    if (filename && !allowed.includes(filename)) {
+      res.status(400).json({ error: `اسم الـ dylib غير صحيح. المسموح: ${allowed.join(", ")}` });
+      return;
+    }
+
+    const { flushed } = flushDylibCache(filename);
+
+    // Trigger re-download immediately in background
+    for (const name of flushed) {
+      const localPath = path.join(DYLIB_DIR, name);
+      ensureDylib(name, localPath).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      flushed,
+      message: flushed.length > 0
+        ? `تم مسح الكاش وبدء تحديث: ${flushed.join(", ")}`
+        : "لم يوجد كاش لمسحه",
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
