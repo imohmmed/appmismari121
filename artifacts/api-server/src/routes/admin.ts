@@ -30,6 +30,7 @@ import { postAppToTelegram } from "./telegram";
 import { r2Upload, r2Delete, r2Url, urlToKey } from "../lib/r2";
 import { flushDylibCache, disableDylib, enableDylib, STORE_DYLIB_PATH } from "../lib/dylibs";
 import AdmZip from "adm-zip";
+import plist from "plist";
 
 const router: IRouter = Router();
 
@@ -1187,6 +1188,26 @@ router.put("/admin/groups/ipa-url-all", async (req, res): Promise<void> => {
 const SIGNED_STORE_DIR = path.join(process.cwd(), "uploads", "SignedStore");
 fs.mkdirSync(SIGNED_STORE_DIR, { recursive: true });
 
+/**
+ * Extract the bundle ID from a base64-encoded mobileprovision.
+ * Returns null for wildcard profiles (bundle ID = "*" or ends with ".*").
+ */
+function extractProfileBundleId(mpBase64: string): string | null {
+  try {
+    const buf  = Buffer.from(mpBase64, "base64");
+    const raw  = buf.toString("latin1");
+    const xmlMatch = raw.match(/<\?xml[\s\S]*?<\/plist>/);
+    if (!xmlMatch) return null;
+    const data = plist.parse(xmlMatch[0]) as Record<string, any>;
+    const ent  = data["Entitlements"] as Record<string, any> | undefined;
+    if (!ent) return null;
+    const appId = (ent["application-identifier"] as string | undefined)
+      ?.replace(/^[A-Z0-9]+\./, ""); // strip team prefix e.g. "ABCD1234."
+    if (!appId || appId === "*" || appId.endsWith(".*")) return null;
+    return appId;
+  } catch { return null; }
+}
+
 router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
   const { ipaUrl } = req.body as { ipaUrl?: string };
   if (!ipaUrl?.trim()) {
@@ -1306,6 +1327,13 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         for (const of3 of oldPersisted) fs.rmSync(path.join(DATA_SIGNED_DIR, of3), { force: true });
       } catch { /* ignore */ }
 
+      // Extract bundle ID from the provisioning profile so we can pass it
+      // explicitly to zsign via -b. Without this, the Info.plist keeps the
+      // original bundle ID while the signing uses the profile's ID → mismatch
+      // → iOS kills the app immediately on launch.
+      const profileBundleId = extractProfileBundleId(group.mobileprovisionData!);
+      if (profileBundleId) console.log(`[sign-all] group ${group.id} → bundle ID: ${profileBundleId}`);
+
       const args: string[] = [
         "-k", p12Path,
         "-p", group.p12Password || "",
@@ -1313,6 +1341,7 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
         "-o", outputPath,
         "-z", "6",
       ];
+      if (profileBundleId) { args.push("-b", profileBundleId); }
       // ⚠️ Do NOT inject dylib here — sign-all signs Mismari+ store app itself.
       // Dylib crashes React Native/Hermes on launch. Dylib is injected only in
       // apps downloaded FROM the store (sign/app, sign/clone, activate, personal).

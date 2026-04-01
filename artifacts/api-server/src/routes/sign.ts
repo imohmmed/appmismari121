@@ -593,12 +593,20 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     // ⚠️ Do NOT inject antirevoke.dylib here — it crashes React Native / Hermes at launch
     await ensureStoreDylibLocal();
     const storeDylibPath = getStoreDylibPath();
+    // Extract bundle ID from profile so Info.plist and signing entitlements match.
+    // Without explicit -b, Info.plist keeps the original bundle ID while entitlements
+    // use the profile's ID → iOS kills the app immediately on launch.
+    const _rawBundleId = readProvisioningBundleId(group.mobileprovisionData!);
+    const profileBundleId = (_rawBundleId && _rawBundleId !== "*" && !_rawBundleId.endsWith(".*"))
+      ? _rawBundleId
+      : undefined;
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
+      bundleId: profileBundleId,
       dylibPaths: storeDylibPath ? [storeDylibPath] : undefined,
     });
 
