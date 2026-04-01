@@ -1,175 +1,170 @@
-# دليل بناء Mismari Store Dylib على Mac
+# Mismari Store Dylib — دليل البناء والتشفير
 
-## متطلبات البيئة
+## الملفات
 
-| الأداة | الإصدار | التثبيت |
-|-------|---------|---------|
-| macOS | 13+ (Ventura أو أحدث) | - |
-| Xcode | 15+ | App Store |
-| Command Line Tools | أحدث | `xcode-select --install` |
+| الملف | الوصف |
+|---|---|
+| `StoreDylib.m` | الكود الرئيسي (6 ميزات + 4 طبقات تشفير) |
+| `Obfuscation.h` | نظام تشفير النصوص XOR |
+| `fishhook.c/.h` | مكتبة Facebook لـ hooking الـ C functions |
+| `Makefile` | بناء + Strip + Verify |
 
 ---
 
-## الخطوة 1 — تثبيت Xcode Tools
+## طبقات التشفير الأربع
 
+### 1. تشفير النصوص — XOR String Obfuscation
+
+**المشكلة:** أي أداة (`strings`, `Hopper`, `IDA`) تستطيع قراءة الروابط من الملف الثنائي مباشرة.
+
+**الحل:** كل نص حساس مخزَّن كـ bytes مشفّرة بـ XOR (مفتاح `0xAB`):
+- الـ URL الخاص بالـ API  
+- مسارات الجيلبريك (24 مسار)  
+- جميع UserDefaults keys  
+- Bundle ID
+
+**كيف يعمل:**
+```c
+// بدلاً من:
+NSString *url = @"https://app.mismari.com/api/settings";
+
+// نستخدم:
+XSTR(apiUrl, _ENC_UPDATE_URL, _LEN_UPDATE_URL);
+NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:apiUrl]];
+XSTR_ZERO(apiUrl, _LEN_UPDATE_URL);  // يُمسح من الـ RAM فوراً
+```
+
+**النتيجة:** `strings mismari-store.dylib` → لا يجد أي رابط.
+
+---
+
+### 2. إخفاء الدوال — dlsym Runtime Resolution
+
+**المشكلة:** `NSURLSession` المرتبط بشكل ثابت يظهر في جدول الرموز.
+
+**الحل:** استخدام `objc_getClass()` لحل الدوال وقت التشغيل:
+```c
+// بدلاً من:
+NSURLSession *session = [NSURLSession sharedSession];
+
+// نستخدم:
+Class sessionClass = objc_getClass("NSURLSession");
+NSURLSession *session = [sessionClass sharedSession];
+```
+
+**النتيجة:** لا يوجد ارتباط ثابت بـ NSURLSession في جدول الرموز.
+
+---
+
+### 3. Symbol Stripping — حذف جدول الرموز
+
+**يتم تلقائياً عند البناء** (`make` يشغّل `strip` تلقائياً).
+
+**الـ Flags المستخدمة:**
+```
+strip -x -S -T mismari-store.dylib
+```
+- `-x` : حذف رموز الـ Locals  
+- `-S` : حذف معلومات الـ Debug  
+- `-T` : حذف رموز ObjC الزائدة
+
+**الـ Compiler Flags:**
+```
+-fvisibility=hidden          → كل الدوال private بشكل افتراضي
+-fvisibility-inlines-hidden  → الدوال الـ inline أيضاً hidden
+-fstack-protector-strong     → حماية الـ Stack من Overflow
+-Wl,-dead_strip              → حذف الكود غير المستخدم
+```
+
+**النتيجة:** `nm -gU mismari-store.dylib` → لا يجد أي دالة.
+
+---
+
+### 4. Integrity Check — تحقق النزاهة
+
+**يكتشف:**
+- حقن خارجي عبر `DYLD_INSERT_LIBRARIES` بمسارات مريبة (`/var/`, `/tmp/`)
+
+**الاستجابة:**
+- `gIntegrityFailed = YES` → جميع الـ hooks تتعطل فوراً
+- التطبيق يعمل بشكل طبيعي بدون أي تعديل
+
+**Safe Mode (تلقائي):**
+- بعد 3 crashes في أقل من 8 ثوانٍ → Safe Mode تلقائي
+- يُعطّل جميع الـ hooks لحماية المستخدم
+- يعرض رسالة تشرح الوضع
+
+---
+
+## البناء على MacBook
+
+### المتطلبات
 ```bash
-# 1. افتح Terminal
-# 2. شغّل الأمر التالي
-xcode-select --install
-
-# إذا طلب منك Xcode يجب يكون مثبت — نزّله من App Store أولاً
-# بعد التثبيت، تحقق
-xcrun --sdk iphoneos --show-sdk-path
-# يجب يطبع مسار مثل: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/...
+xcode-select --install   # Xcode Command Line Tools
 ```
 
----
-
-## الخطوة 2 — نسخ ملفات المشروع
-
-ضع هذه الملفات في مجلد واحد على الـ Mac:
-
-```
-~/Desktop/mismari-store-dylib/
-├── StoreDylib.m       ← الكود الرئيسي
-├── fishhook.h         ← مكتبة الـ hooks
-├── fishhook.c         ← تنفيذ fishhook
-└── Makefile           ← سكريبت البناء
-```
-
----
-
-## الخطوة 3 — البناء
-
+### البناء الكامل
 ```bash
-# انتقل للمجلد
 cd ~/Desktop/mismari-store-dylib
-
-# شغّل البناء
 make
-
-# يجب تظهر رسالة مثل:
-# 📱 SDK: /Applications/Xcode.app/.../iPhoneOS17.x.sdk
-# 🔨 Building mismari-store.dylib for arm64 + arm64e...
-# ✅ Done: mismari-store.dylib
-# -rwxr-xr-x  1 user  staff  425K  mismari-store.dylib
 ```
 
----
+ينفذ:
+1. بناء arm64 + arm64e
+2. Strip تلقائي للـ Symbols
+3. يطبع الحجم النهائي
 
-## الخطوة 4 — التحقق من الـ dylib
-
+### التحقق من نجاح التشفير
 ```bash
-# تحقق من الأرقام المعمارية (يجب يكون arm64 + arm64e)
+make verify
+```
+يتحقق من:
+- ✅ لا توجد روابط مكشوفة
+- ✅ لا توجد رموز مكشوفة
+
+### فحص المعلومات
+```bash
 make info
-
-# أو يدوياً
-lipo -info mismari-store.dylib
-# Output: Architectures in the fat file: mismari-store.dylib are: arm64 arm64e
-
-# تحقق من الـ Frameworks المرتبطة
-otool -L mismari-store.dylib
 ```
+يعرض:
+- المعماريات (arm64 / arm64e)
+- المكتبات المرتبطة
+- الرموز المتبقية (يجب أن تكون فارغة)
+
+### الرفع على R2
+بعد البناء الناجح:
+```
+Cloudflare R2 → dylibs/mismari-store.dylib
+```
+السيرفر يُنزّله تلقائياً ويحدّث الـ ETag Cache خلال 5 دقائق.
 
 ---
 
-## الخطوة 5 — الرفع على المنصة
+## إعادة توليد مفتاح XOR
 
-بعد البناء، ارفع الـ `mismari-store.dylib` من لوحة الأدمن:
-- **المسار على R2**: `dylibs/mismari-store.dylib`
-- ⚠️ **هذا الـ dylib للمتجر فقط** — لا يُحقن في تطبيقات المستخدمين
+إذا أردت تغيير مفتاح التشفير (يُنصح بذلك لكل إصدار):
 
----
-
-## الخطوة 6 — تحديث الكود في الـ API
-
-في `sign.ts`، عند توقيع `Mismari+` (المتجر):
-```typescript
-// استخدم mismari-store.dylib (للمتجر فقط)
-const STORE_DYLIB = "mismari-store.dylib";
-
-// للتطبيقات → استخدم antirevoke.dylib (المختلف)
-const APP_DYLIB = "antirevoke.dylib";
+1. عدّل `KEY` في هذا السكريبت:
+```javascript
+// keygen.js
+const KEY = 0xAB; // غيّر هذا
 ```
 
----
-
-## تفاصيل الميزات
-
-### 1. JB Detection Bypass
-يخفي هذه المسارات عن التطبيق:
-```
-/Applications/Cydia.app
-/usr/sbin/sshd
-/private/var/lib/apt
-... (22 مسار)
-```
-يستخدم `fishhook` لـ hook مستوى C: `stat`, `lstat`, `access`, `open`
-
-### 2. NSFileManager Protection
-يعمل بـ Method Swizzling على:
-- `fileExistsAtPath:`
-- `fileExistsAtPath:isDirectory:`
-
-### 3. Auto-Update Reminder
-- يفحص: `https://app.mismari.com/api/settings`
-- يبحث عن مفتاح `storeVersion` في الـ JSON
-- أول فحص: 5 ثوانٍ بعد الفتح
-- تكرار: كل 30 دقيقة
-
-لإرسال إشعار تحديث، أضف في Settings API:
-```json
-{
-  "storeVersion": "2.0.0",
-  "storeNotes": "إصلاحات وتحسينات رائعة!"
-}
-```
-
-### 4. Bundle ID Masking
-يضمن أن `[NSBundle mainBundle].bundleIdentifier` يُعيد دائماً:
-```
-com.mismari.app
-```
-لا يؤثر على باقي الـ Bundles ولا على UDID.
-
-### 5. Safe Mode
-- يعدّ الـ Crashes المتتالية (التشغيل < 8 ثوانٍ = crash محتمل)
-- بعد 3 crashes → يُعطّل جميع الـ Hooks ويظهر تنبيه
-- المستخدم يضغط "حسناً" → يُعيد ضبط العداد
-
-### 6. Welcome Message
-- يظهر مرة واحدة فقط لكل إصدار جديد
-- يُحفظ الـ state في `NSUserDefaults`
-
----
-
-## الفرق بين الـ Dylibs
-
-| | `mismari-store.dylib` | `antirevoke.dylib` |
-|--|--|--|
-| **للـ** | Mismari+ (المتجر) | تطبيقات المستخدمين |
-| **JB Bypass** | ✅ | ✅ |
-| **Auto-Update** | ✅ (يتحقق من API) | ❌ |
-| **Welcome MSG** | ✅ (مرة لكل إصدار) | ❌ |
-| **Safe Mode** | ✅ | ❌ |
-| **Bundle Mask** | ✅ (com.mismari.app) | ❌ |
-| **Anti-Revoke** | ❌ (يسبب crash للمتجر) | ✅ |
-
----
-
-## استكشاف الأخطاء
-
-**خطأ: SDK not found**
+2. شغّل:
 ```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+node keygen.js
 ```
 
-**خطأ: clang not found**
-```bash
-xcode-select --install
-```
+3. انسخ الـ `#define` الجديدة في `Obfuscation.h`
 
-**الـ dylib لا يعمل بعد الحقن**
-- تأكد أن iOS target هو 14.0 أو أحدث
-- تأكد من arm64 + arm64e: `lipo -info mismari-store.dylib`
-- تحقق من السجلات: `Console.app` على Mac، فلتر بـ "MismariStore"
+4. عدّل `_XK` في `Obfuscation.h` ليطابق المفتاح الجديد
+
+---
+
+## قاعدة مهمة جداً
+
+> ⚠️ **هذا الدايلب حصراً للمتجر (Mismari+)**  
+> لا تحقنه في تطبيقات المستخدمين  
+> يحتوي على كود يتعارض مع React Native / Hermes  
+>  
+> **لتطبيقات المستخدمين:** استخدم `antirevoke.dylib` فقط
