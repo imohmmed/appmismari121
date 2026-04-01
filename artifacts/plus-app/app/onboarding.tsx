@@ -12,6 +12,10 @@ import {
   StatusBar,
   Alert,
   AppState,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,7 +43,25 @@ const WHITE = "#ffffff";
 
 
 
-type Step = "language" | "theme" | "landing" | "download" | "install" | "udid" | "checking" | "result";
+type Step = "language" | "theme" | "landing" | "download" | "install" | "udid" | "checking" | "result" | "subscriber" | "enroll";
+
+type SubscriberData = {
+  code: string;
+  subscriberName: string | null;
+  phone: string | null;
+  email: string | null;
+  udid: string | null;
+  deviceType: string | null;
+  groupName: string | null;
+  isActive: string;
+  balance: number;
+  activatedAt: string | null;
+  expiresAt: string | null;
+  planName: string | null;
+  planNameAr: string | null;
+};
+
+type Plan = { id: number; name: string; nameAr: string; price: number };
 
 const WORDS_AR = [
   { text: "سريع", icon: "zap" as const, color: BLUE },
@@ -197,6 +219,20 @@ export default function OnboardingScreen() {
   const [supportExpanded, setSupportExpanded] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
+  // ── Subscriber view state ────────────────────────────────────────────────────
+  const [subscriberData, setSubscriberData] = useState<SubscriberData | null>(null);
+
+  // ── Enroll form state ────────────────────────────────────────────────────────
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [enrollName, setEnrollName] = useState("");
+  const [enrollPhone, setEnrollPhone] = useState("");
+  const [enrollEmail, setEnrollEmail] = useState("");
+  const [enrollDeviceType, setEnrollDeviceType] = useState<"iPhone" | "iPad">("iPhone");
+  const [enrollPlanId, setEnrollPlanId] = useState<number | null>(null);
+  const [enrollNotes, setEnrollNotes] = useState("");
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollSubmitted, setEnrollSubmitted] = useState(false);
+
   // Support button animations
   const supportBtnScale = useRef(new Animated.Value(1)).current;
   const supportBtnOpacity = useRef(new Animated.Value(1)).current;
@@ -268,16 +304,7 @@ export default function OnboardingScreen() {
       const u = params.udid;
       setUdid(u);
       setDeviceUdid(u);
-      // Pre-load subscription code if available, then always show UDID step
-      fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.found && data.subscriber?.code) {
-            setSubscriptionCode(data.subscriber.code);
-          }
-        })
-        .catch(() => {})
-        .finally(() => transition("udid"));
+      checkUdidAndRoute(u);
     }
   }, [params.udid]);
 
@@ -288,16 +315,7 @@ export default function OnboardingScreen() {
         const u = parsed.queryParams.udid as string;
         setUdid(u);
         setDeviceUdid(u);
-        // Pre-load subscription code if available, then always show UDID step
-        fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data.found && data.subscriber?.code) {
-              setSubscriptionCode(data.subscriber.code);
-            }
-          })
-          .catch(() => {})
-          .finally(() => transition("udid"));
+        checkUdidAndRoute(u);
       }
     });
     return () => sub.remove();
@@ -329,6 +347,46 @@ export default function OnboardingScreen() {
     setIsPolling(false);
   }
 
+  // ── جلب تفاصيل المشترك الكاملة ───────────────────────────────────────────
+  async function fetchSubscriberDetails(code: string): Promise<void> {
+    try {
+      const r = await fetch(`https://app.mismari.com/api/subscriber/${encodeURIComponent(code)}`);
+      const data = await r.json();
+      if (data.subscriber) setSubscriberData(data.subscriber);
+    } catch {}
+  }
+
+  // ── جلب الباقات المتاحة ────────────────────────────────────────────────────
+  async function fetchPlansData(): Promise<void> {
+    try {
+      const r = await fetch(`https://app.mismari.com/api/subscriptions/plans`);
+      const data = await r.json();
+      if (data.plans && data.plans.length > 0) {
+        setPlans(data.plans);
+        setEnrollPlanId(data.plans[0].id);
+      }
+    } catch {}
+  }
+
+  // ── التحقق من UDID والتوجيه المباشر ──────────────────────────────────────
+  async function checkUdidAndRoute(u: string): Promise<void> {
+    try {
+      const r = await fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(u)}`);
+      const data = await r.json();
+      if (data.found && data.subscriber?.code) {
+        setSubscriptionCode(data.subscriber.code);
+        await fetchSubscriberDetails(data.subscriber.code);
+        transition("subscriber");
+      } else {
+        await fetchPlansData();
+        transition("enroll");
+      }
+    } catch {
+      await fetchPlansData();
+      transition("enroll");
+    }
+  }
+
   function startUdidPolling(token: string) {
     stopPolling();
     setIsPolling(true);
@@ -343,16 +401,7 @@ export default function OnboardingScreen() {
           stopPolling();
           setUdid(data.udid);
           setDeviceUdid(data.udid);
-          // Pre-load subscription code if available (will be used when user taps submit)
-          try {
-            const subRes = await fetch(`https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(data.udid)}`);
-            const subData = await subRes.json();
-            if (subData.found && subData.subscriber?.code) {
-              setSubscriptionCode(subData.subscriber.code);
-            }
-          } catch {}
-          // Always show UDID step so user sees their ID before entering the store
-          transition("udid");
+          await checkUdidAndRoute(data.udid);
         }
       } catch {}
     }, 2000);
@@ -370,30 +419,38 @@ export default function OnboardingScreen() {
   async function handleCheckDevice() {
     setStep("checking");
     fadeAnim.setValue(1);
+    await checkUdidAndRoute(udid);
+  }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
+  async function handleEnrollSubmit() {
+    if (!enrollName.trim()) { Alert.alert("", "الرجاء إدخال الاسم الكامل"); return; }
+    if (!enrollPhone.trim()) { Alert.alert("", "الرجاء إدخال رقم الهاتف"); return; }
+    setEnrollSubmitting(true);
     try {
-      const r = await fetch(
-        `https://app.mismari.com/api/enroll/check?udid=${encodeURIComponent(udid)}`,
-        { signal: controller.signal }
-      );
-      clearTimeout(timeout);
+      const r = await fetch(`https://app.mismari.com/api/enroll/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: enrollName.trim(),
+          phone: enrollPhone.trim(),
+          email: enrollEmail.trim() || undefined,
+          udid,
+          deviceType: enrollDeviceType,
+          planId: enrollPlanId || undefined,
+          notes: enrollNotes.trim() || undefined,
+        }),
+      });
       const data = await r.json();
-      if (data.found) {
-        setCheckResult({ success: true, message: "جهازك مسجّل وجاهز!" });
-        if (data.subscriber?.code) {
-          setSubscriptionCode(data.subscriber.code);
-        }
+      if (data.success) {
+        setEnrollSubmitted(true);
       } else {
-        setCheckResult({ success: false, message: "هذا الجهاز غير مسجّل. تواصل مع المسؤول." });
+        Alert.alert("", data.error || "حدث خطأ، حاول مجدداً");
       }
     } catch {
-      clearTimeout(timeout);
-      setCheckResult({ success: true, message: "تم تسجيل جهازك!" });
+      Alert.alert("", "تعذّر إرسال الطلب، تحقق من اتصالك");
+    } finally {
+      setEnrollSubmitting(false);
     }
-    setStep("result");
   }
 
   function handleFinish() {
@@ -410,6 +467,8 @@ export default function OnboardingScreen() {
     udid: [PURPLE, PURPLE_DARK],
     checking: [BLUE, BLUE_DARK],
     result: [GREEN, "#2DBE4E"],
+    subscriber: [GREEN, "#2DBE4E"],
+    enroll: [BLUE, BLUE_DARK],
   };
 
   const gradColors = stepColors[step] ?? stepColors.landing;
@@ -906,10 +965,309 @@ export default function OnboardingScreen() {
           </View>
         )}
 
+        {/* ═══ SUBSCRIBER — تفاصيل الاشتراك الكاملة ═══ */}
+        {step === "subscriber" && (
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 22, paddingTop: 8 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Logo + عنوان */}
+              <View style={{ alignItems: "center", marginBottom: 20 }}>
+                <Image
+                  source={logoUrl ? { uri: logoUrl } : require("../assets/images/mismari-logo.png")}
+                  style={{ width: 90, height: 44, resizeMode: "contain", marginBottom: 6 }}
+                />
+                <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), fontSize: 16, color: TC.textSub, textAlign: "center" }}>
+                  {isEn ? "Subscription Activation" : "تفعيل الاشتراك"}
+                </Text>
+              </View>
+
+              {/* Success card */}
+              <View style={[S.card, { backgroundColor: GREEN + "15", borderColor: GREEN + "40", marginBottom: 16 }]}>
+                <Feather name="check-circle" size={48} color={GREEN} style={{ marginBottom: 10, alignSelf: "center" }} />
+                <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), fontSize: 22, color: TC.text, textAlign: "center", marginBottom: 4 }}>
+                  {isEn ? "Registration Successful!" : "تم التسجيل بنجاح!"}
+                </Text>
+                {subscriberData?.subscriberName ? (
+                  <Text style={{ fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), fontSize: 15, color: TC.textSub, textAlign: "center", marginBottom: 10 }}>
+                    {isEn ? `Welcome, ${subscriberData.subscriberName}` : `مرحباً ${subscriberData.subscriberName}`}
+                  </Text>
+                ) : null}
+                {/* Apple badge */}
+                <View style={{ flexDirection: "row", alignSelf: "center", alignItems: "center", gap: 6, backgroundColor: TC.bgCard, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: TC.border }}>
+                  <Feather name="smartphone" size={13} color={BLUE} />
+                  <Text style={{ fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium"), fontSize: 13, color: BLUE }}>
+                    {isEn ? "Device registered with Apple" : "تم تسجيل الجهاز مع Apple"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* بيانات الاشتراك */}
+              <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, marginBottom: 20 }]}>
+                <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("Bold"), fontSize: 15, color: TC.text, textAlign: isEn ? "left" : "right", marginBottom: 14, borderBottomWidth: 1, borderBottomColor: TC.border, paddingBottom: 10 }}>
+                  {isEn ? "Subscription Details" : "بيانات الاشتراك"}
+                </Text>
+
+                {[
+                  { label: isEn ? "Name" : "الاسم", value: subscriberData?.subscriberName },
+                  { label: isEn ? "Phone" : "الهاتف", value: subscriberData?.phone },
+                  { label: isEn ? "Email" : "البريد", value: subscriberData?.email },
+                  { label: isEn ? "Code" : "الكود", value: subscriberData?.code, mono: true },
+                  { label: isEn ? "Plan" : "الباقة", value: subscriberData?.planNameAr || subscriberData?.planName },
+                  { label: isEn ? "Group" : "المجموعة", value: subscriberData?.groupName },
+                  {
+                    label: isEn ? "Status" : "الحالة",
+                    value: subscriberData?.isActive === "true"
+                      ? (isEn ? "✓ Active" : "✓ فعّال")
+                      : (isEn ? "✗ Inactive" : "✗ غير فعّال"),
+                    color: subscriberData?.isActive === "true" ? GREEN : "#FF3B30",
+                  },
+                ].map((row, i) =>
+                  row.value ? (
+                    <View key={i} style={{ flexDirection: isEn ? "row" : "row-reverse", justifyContent: "space-between", alignItems: "center", paddingVertical: 9, borderBottomWidth: i < 6 ? 1 : 0, borderBottomColor: TC.border + "55" }}>
+                      <Text style={{ fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), fontSize: 14, color: TC.textSub }}>{row.label}</Text>
+                      <Text style={{ fontFamily: row.mono ? "Inter_600SemiBold" : (isEn ? "Inter_500Medium" : fontAr("Medium")), fontSize: 14, color: row.color || TC.text, letterSpacing: row.mono ? 0.5 : 0 }}>
+                        {row.value}
+                      </Text>
+                    </View>
+                  ) : null
+                )}
+              </View>
+
+              {/* زر الدخول للمتجر */}
+              <TouchableOpacity
+                style={[S.bigBtn, { backgroundColor: GREEN }]}
+                activeOpacity={0.85}
+                onPress={handleFinish}
+              >
+                <Feather name={isEn ? "arrow-right" : "arrow-left"} size={18} color={WHITE} style={isEn ? { marginLeft: 0 } : { marginRight: 8 }} />
+                <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), fontSize: 16, color: WHITE }}>
+                  {isEn ? "Enter Store" : "الدخول للمتجر"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* رابط إرسال رابط التثبيت */}
+              <Text style={{ fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), fontSize: 12, color: TC.textMuted, textAlign: "center", marginTop: 14 }}>
+                {isEn ? "Installation link will be sent shortly" : "سيتم إرسال رابط التثبيت قريباً"}
+              </Text>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+
+        {/* ═══ ENROLL — نموذج طلب الاشتراك ═══ */}
+        {step === "enroll" && (
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 22, paddingTop: 8 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Logo + عنوان */}
+              <View style={{ alignItems: "center", marginBottom: 16 }}>
+                <Image
+                  source={logoUrl ? { uri: logoUrl } : require("../assets/images/mismari-logo.png")}
+                  style={{ width: 90, height: 44, resizeMode: "contain", marginBottom: 6 }}
+                />
+                <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), fontSize: 16, color: TC.textSub, textAlign: "center" }}>
+                  {isEn ? "Subscription Request" : "طلب اشتراك"}
+                </Text>
+              </View>
+
+              {/* UDID detected banner */}
+              {udid ? (
+                <View style={{ flexDirection: isEn ? "row" : "row-reverse", alignItems: "center", gap: 8, backgroundColor: GREEN + "18", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14, borderWidth: 1, borderColor: GREEN + "35" }}>
+                  <Feather name="check-circle" size={18} color={GREEN} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), fontSize: 13, color: GREEN, textAlign: isEn ? "left" : "right" }}>
+                      {isEn ? "Device Detected" : "تم التعرف على جهازك"}
+                    </Text>
+                    <Text style={{ fontFamily: "Inter_400Regular", fontSize: 11, color: GREEN + "cc", letterSpacing: 0.3, textAlign: isEn ? "left" : "right" }} numberOfLines={1}>
+                      {udid}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {enrollSubmitted ? (
+                /* ─── حالة الإرسال الناجح ─── */
+                <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, alignItems: "center", paddingVertical: 32, marginBottom: 16 }]}>
+                  <Feather name="check-circle" size={52} color={GREEN} style={{ marginBottom: 14 }} />
+                  <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Black"), fontSize: 20, color: TC.text, textAlign: "center", marginBottom: 6 }}>
+                    {isEn ? "Request Sent!" : "تم إرسال الطلب!"}
+                  </Text>
+                  <Text style={{ fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular"), fontSize: 14, color: TC.textMuted, textAlign: "center", lineHeight: 21 }}>
+                    {isEn ? "Your request has been submitted. We will contact you soon." : "تم إرسال طلبك. سيتم التواصل معك قريباً."}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {/* نموذج البيانات */}
+                  <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, marginBottom: 14 }]}>
+                    <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("Bold"), fontSize: 15, color: TC.text, textAlign: isEn ? "left" : "right", marginBottom: 14, borderBottomWidth: 1, borderBottomColor: TC.border, paddingBottom: 10 }}>
+                      {isEn ? "Subscription Request Details" : "بيانات طلب الاشتراك"}
+                    </Text>
+
+                    {/* الاسم الكامل */}
+                    <Text style={[S.fieldLabel, { color: TC.textSub, textAlign: isEn ? "left" : "right", fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                      {isEn ? "Full Name *" : "الاسم الكامل *"}
+                    </Text>
+                    <TextInput
+                      style={[S.input, { color: TC.text, backgroundColor: TC.bgCard, borderColor: TC.border, textAlign: isEn ? "left" : "right", fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}
+                      placeholder={isEn ? "Enter your full name" : "أدخل اسمك الكامل"}
+                      placeholderTextColor={TC.textMuted}
+                      value={enrollName}
+                      onChangeText={setEnrollName}
+                    />
+
+                    {/* رقم الهاتف */}
+                    <Text style={[S.fieldLabel, { color: TC.textSub, textAlign: isEn ? "left" : "right", fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                      {isEn ? "Phone Number *" : "رقم الهاتف *"}
+                    </Text>
+                    <TextInput
+                      style={[S.input, { color: TC.text, backgroundColor: TC.bgCard, borderColor: TC.border, textAlign: isEn ? "left" : "right", fontFamily: "Inter_400Regular" }]}
+                      placeholder={isEn ? "05XXXXXXXX" : "05XXXXXXXX"}
+                      placeholderTextColor={TC.textMuted}
+                      keyboardType="phone-pad"
+                      value={enrollPhone}
+                      onChangeText={setEnrollPhone}
+                    />
+
+                    {/* البريد الإلكتروني */}
+                    <Text style={[S.fieldLabel, { color: TC.textSub, textAlign: isEn ? "left" : "right", fontFamily: isEn ? "Inter_500Medium" : fontAr("Medium") }]}>
+                      {isEn ? "Email (Optional)" : "البريد الإلكتروني (اختياري)"}
+                    </Text>
+                    <TextInput
+                      style={[S.input, { color: TC.text, backgroundColor: TC.bgCard, borderColor: TC.border, textAlign: isEn ? "left" : "right", fontFamily: "Inter_400Regular" }]}
+                      placeholder="email@example.com"
+                      placeholderTextColor={TC.textMuted}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={enrollEmail}
+                      onChangeText={setEnrollEmail}
+                    />
+                  </View>
+
+                  {/* نوع الجهاز */}
+                  <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, marginBottom: 14 }]}>
+                    <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("Bold"), fontSize: 15, color: TC.text, textAlign: isEn ? "left" : "right", marginBottom: 12 }}>
+                      {isEn ? "Device Type" : "نوع الجهاز"}
+                    </Text>
+                    <View style={{ flexDirection: isEn ? "row" : "row-reverse", gap: 10 }}>
+                      {(["iPad", "iPhone"] as const).map(dt => (
+                        <TouchableOpacity
+                          key={dt}
+                          activeOpacity={0.8}
+                          style={{ flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: "center", borderWidth: 2, borderColor: enrollDeviceType === dt ? BLUE : TC.border, backgroundColor: enrollDeviceType === dt ? BLUE + "15" : TC.bgCard }}
+                          onPress={() => setEnrollDeviceType(dt)}
+                        >
+                          <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), fontSize: 15, color: enrollDeviceType === dt ? BLUE : TC.textSub }}>{dt}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* الباقة */}
+                  {plans.length > 0 && (
+                    <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, marginBottom: 14 }]}>
+                      <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("Bold"), fontSize: 15, color: TC.text, textAlign: isEn ? "left" : "right", marginBottom: 12 }}>
+                        {isEn ? "Plan" : "الباقة"}
+                      </Text>
+                      <View style={{ gap: 8 }}>
+                        {plans.map(plan => (
+                          <TouchableOpacity
+                            key={plan.id}
+                            activeOpacity={0.8}
+                            style={{ flexDirection: isEn ? "row" : "row-reverse", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 13, borderRadius: 14, borderWidth: 2, borderColor: enrollPlanId === plan.id ? BLUE : TC.border, backgroundColor: enrollPlanId === plan.id ? BLUE + "12" : TC.bgCard }}
+                            onPress={() => setEnrollPlanId(plan.id)}
+                          >
+                            <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("SemiBold"), fontSize: 15, color: enrollPlanId === plan.id ? BLUE : TC.text }}>{plan.nameAr || plan.name}</Text>
+                            <Text style={{ fontFamily: "Inter_600SemiBold", fontSize: 13, color: enrollPlanId === plan.id ? BLUE : TC.textSub }}>IQD {Number(plan.price).toLocaleString()}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* ملاحظات */}
+                  <View style={[S.card, { backgroundColor: TC.bgCard, borderColor: TC.border, marginBottom: 18 }]}>
+                    <Text style={{ fontFamily: isEn ? "Inter_600SemiBold" : fontAr("Bold"), fontSize: 15, color: TC.text, textAlign: isEn ? "left" : "right", marginBottom: 10 }}>
+                      {isEn ? "Notes (Optional)" : "ملاحظات (اختياري)"}
+                    </Text>
+                    <TextInput
+                      style={[S.input, { color: TC.text, backgroundColor: TC.bgCard, borderColor: TC.border, height: 72, textAlignVertical: "top", textAlign: isEn ? "left" : "right", fontFamily: isEn ? "Inter_400Regular" : fontAr("Regular") }]}
+                      placeholder={isEn ? "Any notes..." : "أي معلومات إضافية..."}
+                      placeholderTextColor={TC.textMuted}
+                      multiline
+                      value={enrollNotes}
+                      onChangeText={setEnrollNotes}
+                    />
+                  </View>
+
+                  {/* زر الإرسال */}
+                  <TouchableOpacity
+                    style={[S.bigBtn, { backgroundColor: enrollSubmitting ? BLUE + "80" : BLUE }]}
+                    activeOpacity={0.85}
+                    disabled={enrollSubmitting}
+                    onPress={handleEnrollSubmit}
+                  >
+                    {enrollSubmitting
+                      ? <ActivityIndicator color={WHITE} size="small" />
+                      : (
+                        <>
+                          <Feather name="send" size={16} color={WHITE} style={{ marginLeft: 8 }} />
+                          <Text style={{ fontFamily: isEn ? "Inter_700Bold" : fontAr("Bold"), fontSize: 16, color: WHITE }}>
+                            {isEn ? "Send Request" : "إرسال طلب الاشتراك"}
+                          </Text>
+                        </>
+                      )
+                    }
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+
       </Animated.View>
     </View>
   );
 }
+
+// ── Shared styles for subscriber & enroll steps ─────────────────────────────
+const S = StyleSheet.create({
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+    padding: 18,
+  },
+  bigBtn: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 50,
+    paddingVertical: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    marginBottom: 6,
+    marginTop: 2,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
