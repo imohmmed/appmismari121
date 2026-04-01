@@ -1208,6 +1208,23 @@ function extractProfileBundleId(mpBase64: string): string | null {
   } catch { return null; }
 }
 
+/** Build a minimal XML plist from a flat entitlements object. */
+function buildEntitlementsPlist(ent: Record<string, any>): string {
+  const xmlVal = (v: any): string => {
+    if (typeof v === "boolean") return v ? "<true/>" : "<false/>";
+    if (typeof v === "string")  return `<string>${v.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</string>`;
+    if (Array.isArray(v))       return `<array>${v.map(xmlVal).join("")}</array>`;
+    if (typeof v === "object" && v !== null) {
+      return `<dict>${Object.entries(v).map(([k2, v2]) => `<key>${k2}</key>${xmlVal(v2)}`).join("")}</dict>`;
+    }
+    return `<string>${String(v)}</string>`;
+  };
+  const body = Object.entries(ent)
+    .map(([k, v]) => `\t<key>${k}</key>\n\t${xmlVal(v)}`)
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n${body}\n</dict>\n</plist>\n`;
+}
+
 router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
   const { ipaUrl } = req.body as { ipaUrl?: string };
   if (!ipaUrl?.trim()) {
@@ -1420,6 +1437,58 @@ if not patched:
       // Expo SDK does NOT validate app.config.ios.bundleIdentifier against the actual
       // CFBundleIdentifier at runtime, so leaving app.config untouched is safe.
 
+      // ── Build minimal entitlements plist ────────────────────────────────────
+      // The provisioning profile may contain system-level entitlements
+      // (system-extension.install, networkextension, kernel.*, etc.) that iOS
+      // AMFI (AppleMobileFileIntegrity) rejects for sideloaded development apps →
+      // immediate crash with no UI before any code runs.
+      // We keep only the essential entitlements needed for a React Native / Expo app.
+      let entitlementsPath: string | null = null;
+      try {
+        const entExtractScript = `
+import subprocess, plistlib, sys, json
+
+mp_path = sys.argv[1]
+with open(mp_path, "rb") as f:
+    mp_data = f.read()
+
+result = subprocess.run(
+    ["openssl", "smime", "-inform", "der", "-verify", "-noverify", "-in", "/dev/stdin"],
+    input=mp_data, capture_output=True
+)
+profile = plistlib.loads(result.stdout)
+ent = profile.get("Entitlements", {})
+
+# Whitelist: only entitlements safe for sideloaded dev apps
+KEEP = {
+    "application-identifier",
+    "keychain-access-groups",
+    "com.apple.developer.team-identifier",
+    "get-task-allow",
+    "aps-environment",
+    "com.apple.security.application-groups",
+    "com.apple.developer.associated-domains",
+    "com.apple.developer.push-to-talk",
+}
+
+clean = {k: v for k, v in ent.items() if k in KEEP}
+print(json.dumps(clean))
+`;
+        const { stdout } = await execFileAsync("python3", ["-c", entExtractScript, mpPath], { timeout: 15000 });
+        const cleanEnt: Record<string, any> = JSON.parse(stdout.trim());
+        console.log(`[sign-all] group ${group.id} → minimal entitlements:`, Object.keys(cleanEnt).join(", "));
+
+        // Write minimal entitlements plist
+        const entPlistPath = path.join(tmpDir, "entitlements.plist");
+        // Build XML plist manually to avoid native plist dependency
+        const entXml = buildEntitlementsPlist(cleanEnt);
+        fs.writeFileSync(entPlistPath, entXml, "utf8");
+        entitlementsPath = entPlistPath;
+      } catch (entErr: any) {
+        console.warn("[sign-all] entitlements filter warning (using full profile):", entErr.message);
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
       const args: string[] = [
         "-k", p12Path,
         "-p", group.p12Password || "",
@@ -1427,6 +1496,7 @@ if not patched:
         "-o", outputPath,
         "-z", "6",
       ];
+      if (entitlementsPath) { args.push("-e", entitlementsPath); }
       if (profileBundleId) { args.push("-b", profileBundleId); }
       // ⚠️ Do NOT inject dylib here — sign-all signs Mismari+ store app itself.
       // Dylib crashes React Native/Hermes on launch. Dylib is injected only in
