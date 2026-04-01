@@ -22,8 +22,8 @@ function apiAppToDetail(app: ApiApp) {
   return {
     id: app.id,
     name: app.name,
-    descAr: app.descAr ?? undefined,
-    descEn: app.description ?? undefined,
+    descAr: app.descAr ?? app.descriptionAr ?? undefined,
+    descEn: app.descEn ?? app.descriptionEn ?? undefined,
     desc: app.description ?? undefined,
     category: app.categoryName,
     categoryNameAr: app.categoryNameAr ?? undefined,
