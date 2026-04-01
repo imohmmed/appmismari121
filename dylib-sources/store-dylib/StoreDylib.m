@@ -25,6 +25,9 @@
 #include "fishhook.h"
 #include "Obfuscation.h"
 
+// ─── Forward declarations ─────────────────────────────────────────────────────
+static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData);
+
 // ─── إعداد النصوص عبر XOR — لا يوجد أي نص صريح في الملف ────────────────────
 // جميع الروابط والـ keys مخزّنة كـ bytes مشفّرة، تُفكّ في الـ RAM فقط وقت الحاجة.
 
