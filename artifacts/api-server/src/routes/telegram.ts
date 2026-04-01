@@ -260,4 +260,98 @@ router.post("/admin/telegram/test", adminAuth, async (req, res): Promise<void> =
   }
 });
 
+/* ─── تسجيل Webhook مع Telegram ─────────────────────────────────────────── */
+router.post("/admin/telegram/register-webhook", adminAuth, async (req, res): Promise<void> => {
+  const { token, webhookUrl } = req.body;
+  const t = token || await getSetting("telegram_bot_token");
+  if (!t) { res.json({ ok: false, error: "توكن البوت مطلوب" }); return; }
+
+  const url = webhookUrl || `https://app.mismari.com/api/telegram/webhook`;
+  try {
+    const data = await tgApi(t, "setWebhook", {
+      url,
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: true,
+    }) as { ok: boolean; description?: string };
+    if (data.ok) {
+      await setSetting("telegram_webhook_url", url);
+    }
+    res.json(data.ok ? { ok: true, url } : { ok: false, error: data.description });
+  } catch (e) {
+    res.json({ ok: false, error: String(e) });
+  }
+});
+
+/* معلومات الـ Webhook الحالي */
+router.get("/admin/telegram/webhook-info", adminAuth, async (_req, res): Promise<void> => {
+  const token = await getSetting("telegram_bot_token");
+  if (!token) { res.json({ ok: false, error: "توكن البوت غير مضبوط" }); return; }
+  try {
+    const data = await tgApi(token, "getWebhookInfo") as {
+      ok: boolean;
+      result?: { url?: string; has_custom_certificate?: boolean; pending_update_count?: number; last_error_message?: string };
+    };
+    res.json(data);
+  } catch (e) {
+    res.json({ ok: false, error: String(e) });
+  }
+});
+
+/* ─── Webhook: استقبال رسائل Telegram (عام - بدون مصادقة) ──────────────── */
+router.post("/telegram/webhook", async (req: Request, res: Response): Promise<void> => {
+  res.sendStatus(200);
+
+  try {
+    const update = req.body as {
+      message?: {
+        chat?: { id: number; type?: string; username?: string; first_name?: string };
+        text?: string;
+        from?: { id: number; first_name?: string; username?: string };
+      };
+      callback_query?: {
+        id: string;
+        from?: { id: number; first_name?: string };
+        data?: string;
+        message?: { chat?: { id: number } };
+      };
+    };
+
+    const token = await getSetting("telegram_bot_token");
+    if (!token) return;
+
+    const msg = update.message;
+    if (!msg?.chat || !msg?.text) return;
+
+    const chatId = msg.chat.id;
+    const text = msg.text.trim();
+    const firstName = msg.from?.first_name || "مستخدم";
+
+    /* ── أوامر البوت ── */
+    if (text === "/start" || text.startsWith("/start ")) {
+      await tgApi(token, "sendMessage", {
+        chat_id: chatId,
+        text: `🌟 *أهلاً وسهلاً ${firstName}!*\n\n🏪 *مسماري | Mismari*\nمتجر التطبيقات المميزة لـ iOS\n\n🌐 *الموقع:* app.mismari.com\n📢 *القناة:* @imismari\n\n_للاستفسارات والدعم الفني، تواصل معنا عبر الموقع._`,
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "🌐 زيارة المتجر", url: "https://app.mismari.com" },
+            { text: "📢 القناة", url: "https://t.me/imismari" },
+          ]],
+        },
+      });
+      return;
+    }
+
+    if (text === "/help") {
+      await tgApi(token, "sendMessage", {
+        chat_id: chatId,
+        text: `📋 *الأوامر المتاحة:*\n\n/start — ترحيب ومعلومات المتجر\n/help — قائمة الأوامر`,
+        parse_mode: "Markdown",
+      });
+    }
+  } catch (e) {
+    console.error("[telegram-webhook] error:", e);
+  }
+});
+
 export default router;

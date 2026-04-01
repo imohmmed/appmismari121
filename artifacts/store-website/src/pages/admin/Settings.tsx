@@ -393,6 +393,8 @@ function TelegramBotSection() {
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [webhookInfo, setWebhookInfo] = useState<{ url?: string; pending_update_count?: number; last_error_message?: string } | null>(null);
 
   /* جلب الإعدادات الحالية */
   const loadSettings = async () => {
@@ -411,6 +413,11 @@ function TelegramBotSection() {
       const t = await adminFetch("/admin/telegram/template-info");
       setTemplateInfo(t);
     } catch { setTemplateInfo({ exists: false }); }
+
+    try {
+      const w = await adminFetch("/admin/telegram/webhook-info");
+      if (w?.ok && w.result) setWebhookInfo(w.result);
+    } catch { /* ignore */ }
 
     setLoading(false);
   };
@@ -485,6 +492,23 @@ function TelegramBotSection() {
     setTesting(false);
     if (d?.ok) toast({ title: "✅ تم إرسال رسالة اختبار للقناة!" });
     else toast({ title: "❌ " + (d?.error || "فشل الإرسال"), variant: "destructive" });
+  };
+
+  /* تسجيل Webhook */
+  const handleRegisterWebhook = async () => {
+    if (!botToken.trim()) { toast({ title: "أدخل توكن البوت أولاً", variant: "destructive" }); return; }
+    setRegistering(true);
+    const d = await adminFetch("/admin/telegram/register-webhook", {
+      method: "POST",
+      body: JSON.stringify({ token: botToken.trim() }),
+    });
+    setRegistering(false);
+    if (d?.ok) {
+      setWebhookInfo({ url: d.url, pending_update_count: 0 });
+      toast({ title: "✅ تم تفعيل Webhook بنجاح!" });
+    } else {
+      toast({ title: "❌ " + (d?.error || "فشل تفعيل Webhook"), variant: "destructive" });
+    }
   };
 
   return (
@@ -661,6 +685,34 @@ function TelegramBotSection() {
                   ارفع صورة خلفية (PNG/JPG) — سيتم تركيب أيقونة التطبيق في الزاوية العلوية اليمنى تلقائياً
                 </p>
                 <input ref={templateRef} type="file" accept="image/*" className="hidden" onChange={handleTemplateUpload} />
+              </div>
+
+              {/* حالة Webhook */}
+              <div className="rounded-xl border overflow-hidden" style={{ borderColor: webhookInfo?.url ? "#22c55e20" : "rgba(255,255,255,0.06)", background: webhookInfo?.url ? "#22c55e08" : "rgba(255,255,255,0.02)" }}>
+                <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${webhookInfo?.url ? "bg-green-500" : "bg-white/20"}`} />
+                    <div>
+                      <p className="text-xs font-bold text-white/70">Webhook</p>
+                      {webhookInfo?.url
+                        ? <p className="text-[11px] text-green-400/80 font-mono truncate max-w-[220px]">{webhookInfo.url}</p>
+                        : <p className="text-[11px] text-white/30">غير مفعّل — البوت لا يستقبل رسائل</p>
+                      }
+                      {webhookInfo?.last_error_message && (
+                        <p className="text-[10px] text-red-400/70 mt-0.5">خطأ: {webhookInfo.last_error_message}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRegisterWebhook}
+                    disabled={registering}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0"
+                    style={{ background: webhookInfo?.url ? "#22c55e18" : `${TG}25`, color: webhookInfo?.url ? "#22c55e" : TG }}
+                  >
+                    {registering ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                    {registering ? "جاري..." : webhookInfo?.url ? "تجديد" : "تفعيل"}
+                  </button>
+                </div>
               </div>
 
               {/* أزرار الحفظ والاختبار */}
