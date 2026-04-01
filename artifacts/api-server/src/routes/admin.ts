@@ -1334,6 +1334,33 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
       const profileBundleId = extractProfileBundleId(group.mobileprovisionData!);
       if (profileBundleId) console.log(`[sign-all] group ${group.id} → bundle ID: ${profileBundleId}`);
 
+      // ── Patch EXConstants.bundle/app.config ──────────────────────────────────
+      // Expo SDK reads app.config at runtime and validates that its
+      // ios.bundleIdentifier matches the actual iOS CFBundleIdentifier.
+      // If they differ (because zsign changed Info.plist via -b but left app.config
+      // untouched) Expo crashes immediately on launch.
+      if (profileBundleId) {
+        try {
+          const patchZip = new AdmZip(tmpIpaPath);
+          let configPatched = false;
+          for (const entry of patchZip.getEntries()) {
+            if (entry.entryName.includes("EXConstants.bundle/app.config")) {
+              const raw = entry.getData().toString("utf8");
+              const cfg = JSON.parse(raw);
+              if (cfg.ios) cfg.ios.bundleIdentifier = profileBundleId;
+              if (cfg.android) cfg.android.package = profileBundleId;
+              patchZip.updateFile(entry.entryName, Buffer.from(JSON.stringify(cfg)));
+              configPatched = true;
+              console.log(`[sign-all] patched app.config bundleIdentifier → ${profileBundleId}`);
+            }
+          }
+          if (configPatched) patchZip.writeZip(tmpIpaPath);
+        } catch (patchErr: any) {
+          console.warn("[sign-all] app.config patch warning:", patchErr.message);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       const args: string[] = [
         "-k", p12Path,
         "-p", group.p12Password || "",
