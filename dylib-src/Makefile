@@ -17,26 +17,26 @@ include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 after-all::
-        @DYLIB=$$(find .theos -name "MismariProtect.dylib" ! -path "*/arm64/*" ! -path "*/arm64e/*" 2>/dev/null | head -1); \
-        if [ -z "$$DYLIB" ]; then \
-                DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | tail -1); \
-        fi; \
-        if [ -n "$$DYLIB" ]; then \
-                cp "$$DYLIB" ./antirevoke.dylib && \
-                echo "" && \
-                echo "==> antirevoke.dylib ready" && \
-                ls -lh ./antirevoke.dylib; \
-        else \
-                echo "ERROR: MismariProtect.dylib not found"; \
-        fi
+	@DYLIB=$$(find .theos -name "MismariProtect.dylib" ! -path "*/arm64/*" ! -path "*/arm64e/*" 2>/dev/null | head -1); \
+	if [ -z "$$DYLIB" ]; then \
+		DYLIB=$$(find .theos -name "MismariProtect.dylib" 2>/dev/null | tail -1); \
+	fi; \
+	if [ -n "$$DYLIB" ]; then \
+		cp "$$DYLIB" ./antirevoke.dylib && \
+		echo "" && \
+		echo "==> antirevoke.dylib ready" && \
+		ls -lh ./antirevoke.dylib; \
+	else \
+		echo "ERROR: MismariProtect.dylib not found"; \
+	fi
 
 verify: antirevoke.dylib
-        @echo "--- Strings check (should be empty) ---"
-        @strings antirevoke.dylib | grep -E "ocsp\.apple|crl\.apple|frida|DYLD_INSERT" || echo "OK: no plain strings"
-        @echo "--- Architectures ---"
-        @lipo -info antirevoke.dylib
-        @echo "--- Linked libs ---"
-        @otool -L antirevoke.dylib
+	@echo "--- Strings check (should be empty) ---"
+	@strings antirevoke.dylib | grep -E "ocsp\.apple|crl\.apple|frida|DYLD_INSERT" || echo "OK: no plain strings"
+	@echo "--- Architectures ---"
+	@lipo -info antirevoke.dylib
+	@echo "--- Linked libs ---"
+	@otool -L antirevoke.dylib
 
 # ════════════════════════════════════════════════════════════════
 #  release — Production build مع FINALPACKAGE=1 (الإلزامي للنشر)
@@ -53,13 +53,13 @@ verify: antirevoke.dylib
 #    python3 tools/rotate_keys.py --build-ark --upload-ark ...
 # ════════════════════════════════════════════════════════════════
 release:
-        @echo ""
-        @echo "╔══════════════════════════════════════════════════════╗"
-        @echo "║   PRODUCTION BUILD — FINALPACKAGE=1                 ║"
-        @echo "║   Anti-Revoke · 9 modules · arm64 + arm64e          ║"
-        @echo "║   ⚠️  للتطبيقات فقط — لا للـ Store App              ║"
-        @echo "╚══════════════════════════════════════════════════════╝"
-        @echo ""
-        $(MAKE) FINALPACKAGE=1
-        @echo ""
-        @echo "✓ antirevoke.dylib جاهز — شغّل 'make verify' للتحقق"
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════╗"
+	@echo "║   PRODUCTION BUILD — FINALPACKAGE=1                 ║"
+	@echo "║   Anti-Revoke · 9 modules · arm64 + arm64e          ║"
+	@echo "║   ⚠️  للتطبيقات فقط — لا للـ Store App              ║"
+	@echo "╚══════════════════════════════════════════════════════╝"
+	@echo ""
+	$(MAKE) FINALPACKAGE=1
+	@echo ""
+	@echo "✓ antirevoke.dylib جاهز — شغّل 'make verify' للتحقق"
