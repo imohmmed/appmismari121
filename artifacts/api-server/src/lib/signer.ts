@@ -71,14 +71,31 @@ export function loadToken(token: string): TokenMeta | null {
 }
 
 /**
- * استخرج الـ Entitlements من ملف mobileprovision واحذف المفاتيح الخطيرة.
+ * Build MINIMAL safe entitlements from a mobileprovision.
  *
- * المفاتيح المحذوفة:
- *  - get-task-allow: true  ← يدلّ على Development profile → تكشفه تطبيقات البنوك فوراً
+ * WHITELIST approach: keeps ONLY the 8 entitlements that are safe and needed
+ * for React Native / Expo apps on sideloaded (development-signed) IPAs.
  *
- * يُعيد مسار ملف plist مؤقت يمرَّر لـ zsign بـ (-e) — يجب حذفه بعد التوقيع.
+ * Sideloading services generate provisioning profiles with 30–40 system-level
+ * entitlements (system-extension.install, networkextension, kernel.extended,
+ * healthkit, homekit, family-controls, etc.) that iOS AMFI immediately rejects
+ * for apps not registered with Apple → black screen crash before any JS runs.
+ *
+ * Returns path to the entitlements.plist temp file (delete after signing).
  */
 function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null {
+  // Safe entitlements whitelist — everything else is stripped
+  const SAFE_KEYS = new Set([
+    "application-identifier",
+    "keychain-access-groups",
+    "com.apple.developer.team-identifier",
+    "get-task-allow",
+    "aps-environment",
+    "com.apple.security.application-groups",
+    "com.apple.developer.associated-domains",
+    "com.apple.developer.push-to-talk",
+  ]);
+
   try {
     const mpBuf = Buffer.from(mpBase64, "base64");
     const raw = mpBuf.toString("binary");
@@ -89,18 +106,24 @@ function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null
     const entitlements = data["Entitlements"] as Record<string, any> | undefined;
     if (!entitlements) return null;
 
-    // ─── احذف المفاتيح التي تُطلق إنذار "Jailbroken" أو Crash في تطبيقات الدفع/البنوك ──
-    const clean: Record<string, any> = { ...entitlements };
-    delete clean["get-task-allow"];                                  // Development debug flag
-    delete clean["com.apple.security.get-task-allow"];               // نسخة بديلة
-    delete clean["com.apple.developer.icloud-container-identifiers"]; // iCloud — Crash إذا الشهادة لا تدعمه
-    delete clean["com.apple.developer.ubiquity-kvstore-identifier"];  // iCloud KV Store — نفس المشكلة
+    // Keep ONLY safe keys (whitelist)
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(entitlements)) {
+      if (SAFE_KEYS.has(k)) clean[k] = v;
+    }
+
+    const removed = Object.keys(entitlements).filter(k => !SAFE_KEYS.has(k));
+    if (removed.length > 0) {
+      console.log(`[signer] stripped ${removed.length} dangerous entitlements:`, removed.slice(0, 5).join(", ") + (removed.length > 5 ? "..." : ""));
+    }
+    console.log("[signer] minimal entitlements:", Object.keys(clean).join(", "));
 
     const entPath = path.join(tmpDir, "entitlements.plist");
     fs.writeFileSync(entPath, plist.build(clean));
     return entPath;
-  } catch {
-    return null; // إذا فشل أي شيء — zsign يستخدم entitlements الـ profile الأصلية
+  } catch (err: any) {
+    console.warn("[signer] buildCleanEntitlements failed:", err?.message);
+    return null; // fallback: zsign uses full profile entitlements
   }
 }
 

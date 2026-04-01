@@ -171,6 +171,7 @@ async function signIpa(opts: {
   bundleId?: string;
   bundleName?: string;
   dylibPaths?: string[];
+  minimalEntitlements?: boolean; // strip dangerous system entitlements before signing
 }): Promise<void> {
   await signLimit(async () => {
     const tmpDir = fs.mkdtempSync("/tmp/zsign-");
@@ -187,6 +188,51 @@ async function signIpa(opts: {
         "-o", opts.outputPath,
         "-z", "6",
       ];
+
+      // ── Minimal entitlements filter ──────────────────────────────────────────
+      // Provisioning profiles from sideloading services often contain dangerous
+      // system-level entitlements (system-extension.install, networkextension,
+      // kernel.*, healthkit, homekit, etc.) that iOS AMFI rejects for sideloaded
+      // apps → immediate crash before any UI shows (black screen → home screen).
+      // We extract only the safe subset needed for React Native / Expo apps.
+      if (opts.minimalEntitlements) {
+        try {
+          const { execFile: ef } = await import("child_process");
+          const { promisify } = await import("util");
+          const execFA = promisify(ef);
+          const script = `
+import subprocess, plistlib, sys, json
+with open(sys.argv[1], "rb") as f:
+    mp = f.read()
+r = subprocess.run(["openssl","smime","-inform","der","-verify","-noverify","-in","/dev/stdin"],
+    input=mp, capture_output=True)
+ent = plistlib.loads(r.stdout).get("Entitlements", {})
+KEEP = {"application-identifier","keychain-access-groups","com.apple.developer.team-identifier",
+        "get-task-allow","aps-environment","com.apple.security.application-groups",
+        "com.apple.developer.associated-domains","com.apple.developer.push-to-talk"}
+clean = {k:v for k,v in ent.items() if k in KEEP}
+print(json.dumps(clean))
+`;
+          const { stdout } = await execFA("python3", ["-c", script, mpPath], { timeout: 15000 });
+          const cleanEnt: Record<string, any> = JSON.parse(stdout.trim());
+          const xmlVal = (v: any): string => {
+            if (typeof v === "boolean") return v ? "<true/>" : "<false/>";
+            if (typeof v === "string")  return `<string>${v.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</string>`;
+            if (Array.isArray(v))       return `<array>${v.map(xmlVal).join("")}</array>`;
+            return `<string>${String(v)}</string>`;
+          };
+          const body = Object.entries(cleanEnt).map(([k, v]) => `\t<key>${k}</key>\n\t${xmlVal(v)}`).join("\n");
+          const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n${body}\n</dict>\n</plist>\n`;
+          const entPath = path.join(tmpDir, "entitlements.plist");
+          fs.writeFileSync(entPath, xml, "utf8");
+          args.push("-e", entPath);
+          console.log("[signIpa] minimal entitlements:", Object.keys(cleanEnt).join(", "));
+        } catch (entErr: any) {
+          console.warn("[signIpa] entitlements filter warning (using full profile):", entErr.message);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       if (opts.bundleId)   { args.push("-b", opts.bundleId); }
       if (opts.bundleName) { args.push("-n", opts.bundleName); }
       if (opts.dylibPaths) {
@@ -608,6 +654,10 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
       outputPath,
       bundleId: profileBundleId,
       dylibPaths: storeDylibPath ? [storeDylibPath] : undefined,
+      // ⚠️ CRITICAL: Strip dangerous system entitlements (system-extension,
+      // networkextension, kernel.*, healthkit, homekit, etc.) — iOS AMFI
+      // rejects sideloaded apps with these → immediate crash (black screen).
+      minimalEntitlements: true,
     });
 
     const meta: TokenMeta = {
