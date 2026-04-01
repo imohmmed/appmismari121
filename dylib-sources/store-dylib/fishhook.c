@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/mman.h>
+#include <mach/mach.h>
+#include <mach/vm_map.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -149,7 +152,7 @@ int rebind_symbols_image(void *header, intptr_t slide, struct rebinding rebindin
   struct rebindings_entry *rebindings_head = NULL;
   int retval = prepend_rebindings(&rebindings_head, rebindings, rebindings_nel);
   if (retval < 0) return retval;
-  rebind_symbols_for_image(rebindings_head, (mach_header_t *)header, slide);
+  rebind_symbols_for_image(rebindings_head, (const struct mach_header *)header, slide);
   if (rebindings_head->rebindings) free(rebindings_head->rebindings);
   free(rebindings_head);
   return retval;
