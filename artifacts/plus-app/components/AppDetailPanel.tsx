@@ -671,7 +671,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             )}
             <View style={[st.modalBtns, isArabic && { flexDirection: "row-reverse" }]}>
               <Pressable style={[st.modalCancelBtn, { borderColor: colors.separator }]} onPress={() => setShowCodeModal(false)}>
-                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>إلغاء</Text>
+                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>{isArabic ? "إلغاء" : "Cancel"}</Text>
               </Pressable>
               <Pressable style={[st.modalConfirmBtn, { backgroundColor: colors.tint }]} onPress={handleSaveCode}>
                 <Text style={[{ color: "#fff", fontFamily: fontAr("Bold") }]}>{t("saveCode")}</Text>
@@ -705,7 +705,7 @@ export default function AppDetailPanel({ app, onClose, onCategoryPress, relatedA
             />
             <View style={[st.modalBtns, isArabic && { flexDirection: "row-reverse" }]}>
               <Pressable style={[st.modalCancelBtn, { borderColor: colors.separator }]} onPress={() => setShowCloneModal(false)}>
-                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>إلغاء</Text>
+                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>{isArabic ? "إلغاء" : "Cancel"}</Text>
               </Pressable>
               <Pressable style={[st.modalConfirmBtn, { backgroundColor: colors.tint }]} onPress={handleCloneConfirm}>
                 <Text style={[{ color: "#fff", fontFamily: fontAr("Bold") }]}>{t("cloneBtn")}</Text>

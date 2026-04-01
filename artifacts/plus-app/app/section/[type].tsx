@@ -140,7 +140,7 @@ export default function SectionDetailScreen() {
               <View style={styles.emptyState}>
                 <Feather name="inbox" size={40} color={colors.textSecondary} />
                 <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium"), marginTop: 12, fontSize: 15 }]}>
-                  لا توجد تطبيقات
+                  {isArabic ? "لا توجد تطبيقات" : "No apps available"}
                 </Text>
               </View>
             )}
