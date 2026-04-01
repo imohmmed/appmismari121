@@ -67,7 +67,7 @@ export default function CategorySlideContent({
 
   return (
     <View style={[st.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
-      <View style={[st.header, isArabic && { flexDirection: "row", justifyContent: "flex-end" }]}>
+      <View style={[st.header, isArabic && { alignItems: "flex-end" }]}>
         <GlassBackButton onPress={onClose} />
       </View>
 
