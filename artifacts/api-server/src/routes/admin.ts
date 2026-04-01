@@ -1234,16 +1234,23 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
     // The IPA built on Mac may already contain the dylib. We must remove it
     // before signing so the store app (Mismari+) launches without crashing.
     try {
-      const cleanDir = fs.mkdtempSync("/tmp/ipa-clean-");
-      await execFileAsync("unzip", ["-q", tmpIpaPath, "-d", cleanDir], { timeout: 60_000 });
-      // Delete all antirevoke.dylib files recursively
       const { execSync } = await import("child_process");
+      // Resolve full paths for zip/unzip to avoid PATH issues in PM2
+      const UNZIP_BIN = ["/usr/bin/unzip", "/bin/unzip", "unzip"].find(p => {
+        try { execSync(`test -x ${p}`); return true; } catch { return false; }
+      }) ?? "unzip";
+      const ZIP_BIN = ["/usr/bin/zip", "/bin/zip", "zip"].find(p => {
+        try { execSync(`test -x ${p}`); return true; } catch { return false; }
+      }) ?? "zip";
+      const cleanDir = fs.mkdtempSync("/tmp/ipa-clean-");
+      await execFileAsync(UNZIP_BIN, ["-q", tmpIpaPath, "-d", cleanDir], { timeout: 60_000 });
+      // Delete all antirevoke.dylib files recursively
       try {
         execSync(`find "${cleanDir}" -name "antirevoke.dylib" -delete`, { timeout: 10_000 });
       } catch { /* no dylib found — fine */ }
       // Re-zip into a clean IPA
       const cleanIpaPath = tmpIpaPath.replace(".ipa", "_clean.ipa");
-      execSync(`cd "${cleanDir}" && zip -qr "${cleanIpaPath}" .`, { timeout: 60_000 });
+      execSync(`cd "${cleanDir}" && ${ZIP_BIN} -qr "${cleanIpaPath}" .`, { timeout: 60_000 });
       fs.rmSync(tmpIpaPath, { force: true });
       fs.rmSync(cleanDir, { recursive: true, force: true });
       tmpIpaPath = cleanIpaPath;
