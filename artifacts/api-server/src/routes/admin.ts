@@ -1297,6 +1297,71 @@ with zipfile.ZipFile(src, "r") as zin:
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Patch EXConstants.bundle/app.config with Python (safe — no corruption) ──
+    // Expo SDK with New Architecture reads app.config at startup and may crash
+    // if ios.bundleIdentifier doesn't match the actual CFBundleIdentifier.
+    // We use Python's zipfile module which copies ZipInfo metadata exactly
+    // (no re-compression, no corruption of binary files like main.jsbundle).
+    const sourceIpaForPatch = tmpIpaPath;
+    try {
+      const patchedIpaPath = sourceIpaForPatch.replace(/(_clean)?\.ipa$/, "_patched.ipa");
+      const bundleIdToPatch = (() => {
+        // Try to get the bundle ID from the provisioning profiles
+        for (const group of testGroups) {
+          if (group.mobileprovisionData) {
+            const bid = extractProfileBundleId(group.mobileprovisionData);
+            if (bid && !bid.startsWith("*")) return bid;
+          }
+        }
+        return null;
+      })();
+
+      if (bundleIdToPatch) {
+        const patchScript = `
+import zipfile, sys, json
+src, dst, bundle_id = sys.argv[1], sys.argv[2], sys.argv[3]
+patched = False
+with zipfile.ZipFile(src, "r") as zin:
+    with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if "EXConstants.bundle/app.config" in item.filename:
+                try:
+                    cfg = json.loads(data.decode("utf-8"))
+                    if isinstance(cfg.get("ios"), dict):
+                        cfg["ios"]["bundleIdentifier"] = bundle_id
+                    if isinstance(cfg.get("android"), dict):
+                        cfg["android"]["package"] = bundle_id
+                    data = json.dumps(cfg, ensure_ascii=False).encode("utf-8")
+                    patched = True
+                    print(f"[patch] app.config bundleIdentifier -> {bundle_id}", flush=True)
+                except Exception as e:
+                    print(f"[patch] warning: {e}", flush=True)
+            zout.writestr(item, data)
+if not patched:
+    print("[patch] app.config not found — skipped", flush=True)
+`;
+        const patchResult = await execFileAsync("python3", [
+          "-c", patchScript,
+          sourceIpaForPatch,
+          patchedIpaPath,
+          bundleIdToPatch
+        ], { timeout: 60000 });
+        if (patchResult.stdout) console.log("[sign-all] patch:", patchResult.stdout.trim());
+        if (fs.existsSync(patchedIpaPath) && fs.statSync(patchedIpaPath).size > 1000) {
+          fs.rmSync(sourceIpaForPatch, { force: true });
+          tmpIpaPath = patchedIpaPath;
+          console.log(`[sign-all] app.config patched safely → ${patchedIpaPath}`);
+        } else {
+          console.warn("[sign-all] patched IPA missing — using original");
+        }
+      }
+    } catch (patchErr: any) {
+      console.warn("[sign-all] app.config patch warning:", patchErr.message);
+      // Non-fatal — proceed with original IPA
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
   } catch (err: any) {
     if (tmpIpaPath && fs.existsSync(tmpIpaPath)) fs.rmSync(tmpIpaPath, { force: true });
     res.status(400).json({ error: `فشل تحميل IPA: ${err.message}` });
