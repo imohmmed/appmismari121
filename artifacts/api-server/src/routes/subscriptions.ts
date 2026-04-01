@@ -200,15 +200,13 @@ router.get("/subscriber/:code", subscriberProfileLimiter, async (req, res): Prom
   let storeDownloadLink: string | null = null;
   if (sub.groupName) {
     const [grp] = await db
-      .select({ storeIpaPath: groupsTable.storeIpaPath, certName: groupsTable.certName })
+      .select({ storeIpaPath: groupsTable.storeIpaPath, ipaUrl: groupsTable.ipaUrl, certName: groupsTable.certName })
       .from(groupsTable)
       .where(eq(groupsTable.certName, sub.groupName))
       .limit(1);
-    if (grp?.storeIpaPath) {
-      // Build itms-services download link — same logic as activate.ts
-      const proto = (req as any).headers["x-forwarded-proto"] || req.protocol || "https";
-      const host = (req as any).headers["x-forwarded-host"] || req.get("host") || "";
-      const base = `${proto}://${host}`;
+    if (grp && (grp.ipaUrl || grp.storeIpaPath)) {
+      // Use APP_BASE_URL env var (same as activate.ts) to avoid localhost:3000 from proxy headers
+      const base = (process.env.APP_BASE_URL || "https://app.mismari.com").replace(/\/$/, "");
       storeDownloadLink = `itms-services://?action=download-manifest&url=${encodeURIComponent(`${base}/api/groups/${encodeURIComponent(grp.certName)}/manifest.plist`)}`;
     }
   }
