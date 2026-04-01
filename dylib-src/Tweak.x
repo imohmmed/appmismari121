@@ -396,6 +396,8 @@ static BOOL msm_isJailbreakScheme(NSString *scheme) {
     return blocked;
 }
 
+%hook UIApplication
+
 - (BOOL)canOpenURL:(NSURL *)url {
     if (!url) return %orig;
     if (msm_isJailbreakScheme(url.scheme)) return NO;
