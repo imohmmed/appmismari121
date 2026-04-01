@@ -6,7 +6,8 @@ import crypto from "crypto";
 import multer from "multer";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable, adminAuditLogsTable } from "@workspace/db";
+import { auditLog } from "../lib/auditLog";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -215,6 +216,7 @@ router.post("/admin/login", loginLimiter, async (req, res): Promise<void> => {
       { expiresIn: "12h" }
     );
 
+    auditLog(req, "LOGIN", "admins", admin.id, { username: admin.username, role: admin.role }).catch(() => {});
     res.json({ success: true, token, username: admin.username, role: admin.role, permissions });
   } catch (err) {
     console.error("[admin/login] error:", err);
@@ -414,6 +416,7 @@ router.post("/admin/apps", async (req, res): Promise<void> => {
     .from(categoriesTable)
     .where(eq(categoriesTable.id, app.categoryId));
 
+  auditLog(req, "CREATE_APP", "apps", app.id, { name: app.name, bundleId: app.bundleId }).catch(() => {});
   res.status(201).json({ ...app, categoryName: category?.name ?? "Unknown", planIds: planIds || [] });
 
   // Fire-and-forget: send push notifications after responding
@@ -527,6 +530,7 @@ router.delete("/admin/apps/:id", async (req, res): Promise<void> => {
   tryDelete(app.ipaPath);
   tryDelete(app.iconPath);
 
+  auditLog(req, "DELETE_APP", "apps", params.data.id, { id: params.data.id }).catch(() => {});
   res.sendStatus(204);
 });
 
@@ -754,6 +758,7 @@ router.post("/admin/subscriptions", async (req, res): Promise<void> => {
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   }).returning();
 
+  auditLog(req, "CREATE_SUBSCRIPTION", "subscriptions", sub.id, { code, subscriberName, planId }).catch(() => {});
   res.status(201).json(sub);
 });
 
@@ -781,6 +786,7 @@ router.delete("/admin/subscriptions/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.delete(subscriptionsTable).where(eq(subscriptionsTable.id, id));
+  auditLog(req, "DELETE_SUBSCRIPTION", "subscriptions", id).catch(() => {});
   res.sendStatus(204);
 });
 
@@ -791,6 +797,7 @@ router.post("/admin/subscriptions/bulk-delete", async (req, res): Promise<void> 
   const numIds = ids.map(Number).filter(n => n > 0);
   if (numIds.length === 0) { res.status(400).json({ error: "invalid ids" }); return; }
   await db.delete(subscriptionsTable).where(inArray(subscriptionsTable.id, numIds));
+  auditLog(req, "BULK_DELETE_SUBSCRIPTIONS", "subscriptions", null, { ids: numIds, count: numIds.length }).catch(() => {});
   res.json({ deleted: numIds.length });
 });
 
@@ -1472,6 +1479,7 @@ router.post("/admin/notifications", async (req, res): Promise<void> => {
     .values({ type: "broadcast", title, body, target: resolvedTarget, recipientCount: pushCount })
     .returning();
 
+  auditLog(req, "SEND_NOTIFICATION", "notifications", notification.id, { title, target: resolvedTarget, recipientCount: pushCount }).catch(() => {});
   res.status(201).json({ success: true, notification });
 });
 
@@ -1479,6 +1487,7 @@ router.delete("/admin/notifications/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
   await db.delete(notificationsTable).where(eq(notificationsTable.id, id));
+  auditLog(req, "DELETE_NOTIFICATION", "notifications", id).catch(() => {});
   res.sendStatus(204);
 });
 
@@ -1581,6 +1590,7 @@ router.put("/admin/settings", async (req, res): Promise<void> => {
       .onConflictDoUpdate({ target: settingsTable.key, set: { value: sql`excluded.value`, updatedAt: new Date() } });
   }
   const updated = await db.select().from(settingsTable);
+  auditLog(req, "UPDATE_SETTINGS", "settings", null, { keys: rows.map((r: any) => r.key) }).catch(() => {});
   res.json({ settings: updated });
 });
 
@@ -1639,6 +1649,7 @@ router.post("/admin/admins", async (req, res): Promise<void> => {
       email: adminsTable.email,
       role: adminsTable.role,
     });
+    auditLog(req, "CREATE_ADMIN", "admins", admin.id, { username: admin.username, role: admin.role }).catch(() => {});
     res.json({ success: true, admin });
   } catch (err: any) {
     if (err.code === "23505") {
@@ -1674,6 +1685,7 @@ router.put("/admin/admins/:id", async (req, res): Promise<void> => {
   }
 
   await db.update(adminsTable).set(updates).where(eq(adminsTable.id, id));
+  auditLog(req, "UPDATE_ADMIN", "admins", id, { changedFields: Object.keys(updates).filter(k => k !== "passwordHash" && k !== "salt") }).catch(() => {});
   res.json({ success: true });
 });
 
@@ -1687,6 +1699,7 @@ router.delete("/admin/admins/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "لا يمكنك حذف حسابك الخاص" }); return;
   }
   await db.delete(adminsTable).where(eq(adminsTable.id, id));
+  auditLog(req, "DELETE_ADMIN", "admins", id).catch(() => {});
   res.json({ success: true });
 });
 
@@ -1975,6 +1988,7 @@ router.post("/admin/store-dylib/upload", adminAuth, storeDylibUpload.single("fil
     fs.copyFileSync(STORE_DYLIB_UPLOAD_PATH, STORE_DYLIB_PERSIST);
     const stat = fs.statSync(STORE_DYLIB_UPLOAD_PATH);
     r2Upload("dylibs/mismari-store.dylib", fs.readFileSync(STORE_DYLIB_UPLOAD_PATH), "application/octet-stream").catch(() => {});
+    auditLog(req, "UPLOAD_DYLIB", "dylib", "mismari-store.dylib", { size: stat.size }).catch(() => {});
     res.json({ success: true, size: stat.size });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل الرفع" });
@@ -1985,10 +1999,44 @@ router.delete("/admin/store-dylib", adminAuth, (_req, res): void => {
   try {
     if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) fs.unlinkSync(STORE_DYLIB_UPLOAD_PATH);
     if (fs.existsSync(STORE_DYLIB_PERSIST))     fs.unlinkSync(STORE_DYLIB_PERSIST);
+    auditLog(req as any, "DELETE_DYLIB", "dylib", "mismari-store.dylib").catch(() => {});
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل الحذف" });
   }
+});
+
+// ─── AUDIT LOGS ─────────────────────────────────────────────────────────────
+
+router.get("/admin/audit-logs", async (req, res): Promise<void> => {
+  const page  = Math.max(1, Number(req.query.page)  || 1);
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const offset = (page - 1) * limit;
+
+  const adminFilter   = req.query.adminId ? Number(req.query.adminId) : undefined;
+  const actionFilter  = req.query.action  ? String(req.query.action)  : undefined;
+  const resourceFilter = req.query.resource ? String(req.query.resource) : undefined;
+
+  const where = and(
+    adminFilter   ? eq(adminAuditLogsTable.adminId, adminFilter) : undefined,
+    actionFilter  ? eq(adminAuditLogsTable.action,  actionFilter) : undefined,
+    resourceFilter ? eq(adminAuditLogsTable.resource, resourceFilter) : undefined,
+  );
+
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(adminAuditLogsTable)
+    .where(where);
+
+  const logs = await db
+    .select()
+    .from(adminAuditLogsTable)
+    .where(where)
+    .orderBy(desc(adminAuditLogsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json({ logs, total, page, limit });
 });
 
 export default router;
