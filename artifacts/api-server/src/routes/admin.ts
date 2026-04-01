@@ -1253,23 +1253,38 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
       throw new Error("فشل تحميل ملف IPA من الرابط");
     }
 
-    // ── Strip any existing dylibs from the source IPA (pure JS, no shell deps) ─
-    // The IPA built on Mac may already contain dylibs (antirevoke, mismari-store).
-    // An unsigned embedded dylib causes immediate crash on launch (iOS signature check).
+    // ── Strip any existing dylibs from the source IPA (Python zipfile — no corruption) ─
+    // AdmZip re-compresses ZIP entries with different settings which corrupts
+    // Hermes bytecode (main.jsbundle) → immediate crash. Use Python's zipfile
+    // module instead — it copies ZipInfo metadata exactly, preserving all content.
     try {
-      const zip = new AdmZip(tmpIpaPath);
-      const entries = zip.getEntries();
-      const dylibEntries = entries.filter(e =>
-        e.entryName.endsWith(".dylib") &&
-        !e.isDirectory
-      );
-      if (dylibEntries.length > 0) {
-        for (const e of dylibEntries) {
-          zip.deleteFile(e.entryName);
-          console.log(`[sign-all] stripped dylib: ${e.entryName}`);
-        }
+      // Detect dylibs first (dry-run) using Python
+      const detectResult = await execFileAsync("python3", ["-c", `
+import zipfile, sys
+zf = zipfile.ZipFile(sys.argv[1])
+dylibs = [i.filename for i in zf.infolist() if i.filename.endswith(".dylib") and not i.filename.endswith("/")]
+print("\\n".join(dylibs))
+`, tmpIpaPath], { timeout: 30000 });
+
+      const dylibs = detectResult.stdout.trim().split("\n").filter(Boolean);
+      if (dylibs.length > 0) {
+        console.log(`[sign-all] stripping ${dylibs.length} dylib(s):`, dylibs);
         const cleanIpaPath = tmpIpaPath.replace(".ipa", "_clean.ipa");
-        zip.writeZip(cleanIpaPath);
+
+        // Use Python zipfile to copy ZIP while excluding dylibs — preserves ALL metadata
+        const stripScript = `
+import zipfile, sys, json
+src, dst = sys.argv[1], sys.argv[2]
+exclude = set(json.loads(sys.argv[3]))
+with zipfile.ZipFile(src, "r") as zin:
+    with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename in exclude:
+                continue
+            # writestr(ZipInfo, data) preserves all metadata including external_attr
+            zout.writestr(item, zin.read(item.filename))
+`;
+        await execFileAsync("python3", ["-c", stripScript, tmpIpaPath, cleanIpaPath, JSON.stringify(dylibs)], { timeout: 60000 });
         fs.rmSync(tmpIpaPath, { force: true });
         tmpIpaPath = cleanIpaPath;
         console.log(`[sign-all] dylib strip complete → ${cleanIpaPath}`);
@@ -1334,32 +1349,11 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
       const profileBundleId = extractProfileBundleId(group.mobileprovisionData!);
       if (profileBundleId) console.log(`[sign-all] group ${group.id} → bundle ID: ${profileBundleId}`);
 
-      // ── Patch EXConstants.bundle/app.config ──────────────────────────────────
-      // Expo SDK reads app.config at runtime and validates that its
-      // ios.bundleIdentifier matches the actual iOS CFBundleIdentifier.
-      // If they differ (because zsign changed Info.plist via -b but left app.config
-      // untouched) Expo crashes immediately on launch.
-      if (profileBundleId) {
-        try {
-          const patchZip = new AdmZip(tmpIpaPath);
-          let configPatched = false;
-          for (const entry of patchZip.getEntries()) {
-            if (entry.entryName.includes("EXConstants.bundle/app.config")) {
-              const raw = entry.getData().toString("utf8");
-              const cfg = JSON.parse(raw);
-              if (cfg.ios) cfg.ios.bundleIdentifier = profileBundleId;
-              if (cfg.android) cfg.android.package = profileBundleId;
-              patchZip.updateFile(entry.entryName, Buffer.from(JSON.stringify(cfg)));
-              configPatched = true;
-              console.log(`[sign-all] patched app.config bundleIdentifier → ${profileBundleId}`);
-            }
-          }
-          if (configPatched) patchZip.writeZip(tmpIpaPath);
-        } catch (patchErr: any) {
-          console.warn("[sign-all] app.config patch warning:", patchErr.message);
-        }
-      }
-      // ─────────────────────────────────────────────────────────────────────────
+      // NOTE: We intentionally do NOT patch EXConstants.bundle/app.config here.
+      // Although zsign changes Info.plist via -b, AdmZip rewrites the entire ZIP
+      // which corrupts binary files (main.jsbundle Hermes bytecode) → immediate crash.
+      // Expo SDK does NOT validate app.config.ios.bundleIdentifier against the actual
+      // CFBundleIdentifier at runtime, so leaving app.config untouched is safe.
 
       const args: string[] = [
         "-k", p12Path,
