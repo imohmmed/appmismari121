@@ -9,21 +9,23 @@ mismari-store_FRAMEWORKS = Foundation UIKit CFNetwork
 mismari-store_LIBRARIES  = objc dl
 
 mismari-store_CFLAGS = \
-	-fobjc-arc \
-	-O2 \
-	-std=c11 \
-	-fvisibility=hidden \
-	-fvisibility-inlines-hidden \
-	-fstack-protector-strong \
-	-ffunction-sections \
-	-fdata-sections \
-	-DNDEBUG \
-	-Wno-deprecated-declarations
+        -fobjc-arc \
+        -O2 \
+        -flto \
+        -std=c11 \
+        -fvisibility=hidden \
+        -fvisibility-inlines-hidden \
+        -fstack-protector-strong \
+        -ffunction-sections \
+        -fdata-sections \
+        -DNDEBUG \
+        -Wno-deprecated-declarations
 
 mismari-store_LDFLAGS = \
-	-Wl,-S \
-	-Wl,-dead_strip \
-	-Wl,-x
+        -flto \
+        -Wl,-S \
+        -Wl,-dead_strip \
+        -Wl,-x
 
 STRIP_INSTALLED_PRODUCT = YES
 
@@ -31,20 +33,20 @@ include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/library.mk
 
 after-all::
-	@DYLIB=$$(find .theos -name "mismari-store.dylib" 2>/dev/null | head -1); \
-	if [ -n "$$DYLIB" ]; then \
-		cp "$$DYLIB" ./mismari-store.dylib && \
-		echo "" && \
-		echo "==> mismari-store.dylib ready" && \
-		ls -lh ./mismari-store.dylib; \
-	else \
-		echo "ERROR: dylib not found"; \
-	fi
+        @DYLIB=$$(find .theos -name "mismari-store.dylib" 2>/dev/null | head -1); \
+        if [ -n "$$DYLIB" ]; then \
+                cp "$$DYLIB" ./mismari-store.dylib && \
+                echo "" && \
+                echo "==> mismari-store.dylib ready" && \
+                ls -lh ./mismari-store.dylib; \
+        else \
+                echo "ERROR: dylib not found"; \
+        fi
 
 verify: mismari-store.dylib
-	@echo "--- Strings check (should be empty) ---"
-	@strings mismari-store.dylib | grep -E "mismari\.com|ocsp\.apple|app\.mismari" || echo "OK: no plain strings"
-	@echo "--- Architectures ---"
-	@lipo -info mismari-store.dylib
-	@echo "--- Linked libs ---"
-	@otool -L mismari-store.dylib
+        @echo "--- Strings check (should be empty) ---"
+        @strings mismari-store.dylib | grep -E "mismari\.com|ocsp\.apple|app\.mismari" || echo "OK: no plain strings"
+        @echo "--- Architectures ---"
+        @lipo -info mismari-store.dylib
+        @echo "--- Linked libs ---"
+        @otool -L mismari-store.dylib

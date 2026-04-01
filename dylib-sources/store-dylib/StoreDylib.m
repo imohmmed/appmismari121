@@ -20,6 +20,7 @@
 #import <dlfcn.h>
 #import <mach/mach.h>
 #import <CFNetwork/CFNetwork.h>
+#import <CommonCrypto/CommonCryptor.h>
 
 #include "fishhook.h"
 #include "Obfuscation.h"
@@ -301,27 +302,66 @@ static void showUpdateAlert(NSString *newVersion, NSString *notes) {
     });
 }
 
+// ─── مساعد: قراءة NSDictionary من JSON مُشفَّر AES ──────────────────────────
+static NSDictionary *msm_decryptJSONResponse(NSData *responseData) {
+    if (!responseData) return nil;
+
+    NSError *parseErr = nil;
+    NSDictionary *outer = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:&parseErr];
+    if (!outer || parseErr) return nil;
+
+    // ─── مفاتيح msm_enc و msm_iv مُشفَّرة ──────────────────────────────────
+    XSTR(encKey, _ENC_MSM_ENC, _LEN_MSM_ENC); // "msm_enc"
+    XSTR(ivKey,  _ENC_MSM_IV,  _LEN_MSM_IV);  // "msm_iv"
+
+    NSString *encKeyStr = [NSString stringWithUTF8String:encKey];
+    NSString *ivKeyStr  = [NSString stringWithUTF8String:ivKey];
+    XSTR_ZERO(encKey, _LEN_MSM_ENC);
+    XSTR_ZERO(ivKey,  _LEN_MSM_IV);
+
+    NSString *encB64 = outer[encKeyStr];
+    NSString *ivB64  = outer[ivKeyStr];
+    if (![encB64 isKindOfClass:[NSString class]] ||
+        ![ivB64  isKindOfClass:[NSString class]]) return nil;
+
+    NSData *cipherData = [[NSData alloc] initWithBase64EncodedString:encB64 options:0];
+    NSData *ivData     = [[NSData alloc] initWithBase64EncodedString:ivB64  options:0];
+    if (!cipherData || !ivData || ivData.length != kCCBlockSizeAES128) return nil;
+
+    NSData *plain = msm_aesDecrypt(cipherData, ivData);
+    if (!plain) return nil;
+
+    NSDictionary *inner = [NSJSONSerialization JSONObjectWithData:plain options:0 error:nil];
+    return [inner isKindOfClass:[NSDictionary class]] ? inner : nil;
+}
+
 static void checkForUpdate(void) {
     if (gSafeModeEnabled || gIntegrityFailed) return;
 
-    // ─── URL مُشفَّر — يُفكَّ في الـ Stack فقط ──────────────────────────────
-    XSTR(apiUrl, _ENC_UPDATE_URL, _LEN_UPDATE_URL);
+    // ─── URL v2 مُشفَّر — يُفكَّ في الـ Stack فقط ───────────────────────────
+    XSTR(apiUrl, _ENC_UPDATE_URL_V2, _LEN_UPDATE_URL_V2);
     NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:apiUrl]];
-    XSTR_ZERO(apiUrl, _LEN_UPDATE_URL);
+    XSTR_ZERO(apiUrl, _LEN_UPDATE_URL_V2);
     if (!url) return;
 
     // ─── استدعاء NSURLSession عبر dlsym Runtime ──────────────────────────────
     NSURLSessionDataTask *task = rt_dataTask(url, ^(NSData *data, NSURLResponse *resp, NSError *err) {
         if (err || !data) return;
 
-        NSError *jsonErr = nil;
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
-        if (!json || jsonErr) return;
+        // ① محاولة فك تشفير AES أولاً (v2 endpoint)
+        NSDictionary *json = msm_decryptJSONResponse(data);
+
+        // ② fallback لـ JSON عادي إذا لم يكن مشفّراً (توافق خلفي)
+        if (!json) {
+            NSError *jsonErr = nil;
+            json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
+            if (!json || jsonErr) return;
+        }
 
         // ─── Keys مُشفَّرة ───────────────────────────────────────────────────
-        XSTR(updateKey,  _ENC_UPDATE_KEY,  _LEN_UPDATE_KEY);
-        XSTR(notesKey,   _ENC_STORE_NOTES, _LEN_STORE_NOTES);
-        XSTR(cfVersion,  _ENC_CF_VERSION,  _LEN_CF_VERSION);
+        XSTR(updateKey, _ENC_UPDATE_KEY,  _LEN_UPDATE_KEY);
+        XSTR(notesKey,  _ENC_STORE_NOTES, _LEN_STORE_NOTES);
+        XSTR(cfVersion, _ENC_CF_VERSION,  _LEN_CF_VERSION);
 
         NSString *remoteVersion = json[[NSString stringWithUTF8String:updateKey]];
         XSTR_ZERO(updateKey, _LEN_UPDATE_KEY);
@@ -332,11 +372,9 @@ static void checkForUpdate(void) {
             return;
         }
 
-        // فحص الإصدار
         NSDictionary *infoPlist = [[NSBundle mainBundle] infoDictionary];
-        NSString *currentBuild = infoPlist[[NSString stringWithUTF8String:cfVersion]];
+        NSString *currentBuild  = infoPlist[[NSString stringWithUTF8String:cfVersion]];
         XSTR_ZERO(cfVersion, _LEN_CF_VERSION);
-
         if (!currentBuild) { XSTR_ZERO(notesKey, _LEN_STORE_NOTES); return; }
 
         if (![remoteVersion isEqualToString:currentBuild]) {
@@ -350,36 +388,134 @@ static void checkForUpdate(void) {
     [task resume];
 }
 
-// ─── 4b. Anti-Proxy Check (يمنع Charles/HTTP Toolkit من التجسس) ───────────────
-static BOOL gProxyBlocked = NO;
+// ─── 4b. Smart Anti-Proxy (يميّز Charles/HTTP Toolkit عن VPN العادي) ──────────
 
-static BOOL msm_isProxyActive(void) {
-    // فحص إعدادات الـ Proxy من System Settings
-    CFDictionaryRef rawSettings = CFNetworkCopySystemProxySettings();
-    if (!rawSettings) return NO;
-    NSDictionary *settings = CFBridgingRelease(rawSettings);
+typedef enum : NSUInteger {
+    MSMProxyNone = 0,   // لا يوجد proxy
+    MSMProxySpy  = 1,   // أداة تجسس: localhost أو port 8888/8889/9090/8080/10002
+    MSMProxyVPN  = 2,   // VPN شرعي أو Proxy شركة — لا نمنع، نُبلّغ صامتاً
+} MSMProxyType;
 
-    XSTR(httpKey,  _ENC_HTTP_ENABLE,  _LEN_HTTP_ENABLE);
-    XSTR(httpsKey, _ENC_HTTPS_ENABLE, _LEN_HTTPS_ENABLE);
+static BOOL gProxyBlocked = NO;  // YES فقط عند MSMProxySpy
 
-    NSNumber *httpOn  = settings[[NSString stringWithUTF8String:httpKey]];
-    NSNumber *httpsOn = settings[[NSString stringWithUTF8String:httpsKey]];
-    XSTR_ZERO(httpKey,  _LEN_HTTP_ENABLE);
-    XSTR_ZERO(httpsKey, _LEN_HTTPS_ENABLE);
+static MSMProxyType msm_detectProxy(void) {
+    CFDictionaryRef raw = CFNetworkCopySystemProxySettings();
+    if (!raw) return MSMProxyNone;
+    NSDictionary *s = CFBridgingRelease(raw);
 
-    return ([httpOn boolValue] || [httpsOn boolValue]);
+    // ─── فك تشفير مفاتيح القراءة ────────────────────────────────────────────
+    XSTR(enableH,  _ENC_HTTP_ENABLE,  _LEN_HTTP_ENABLE);
+    XSTR(enableHS, _ENC_HTTPS_ENABLE, _LEN_HTTPS_ENABLE);
+    XSTR(keyH,     _ENC_HTTP_PROXY,   _LEN_HTTP_PROXY);
+    XSTR(keyHS,    _ENC_HTTPS_PROXY,  _LEN_HTTPS_PROXY);
+    XSTR(portH,    _ENC_HTTP_PORT,    _LEN_HTTP_PORT);
+    XSTR(portHS,   _ENC_HTTPS_PORT,   _LEN_HTTPS_PORT);
+    XSTR(loop1,    _ENC_LOOPBACK,     _LEN_LOOPBACK);
+    XSTR(loop2,    _ENC_LOCALHOST,    _LEN_LOCALHOST);
+
+    BOOL httpOn  = [s[[NSString stringWithUTF8String:enableH]]  boolValue];
+    BOOL httpsOn = [s[[NSString stringWithUTF8String:enableHS]] boolValue];
+
+    XSTR_ZERO(enableH,  _LEN_HTTP_ENABLE);
+    XSTR_ZERO(enableHS, _LEN_HTTPS_ENABLE);
+
+    if (!httpOn && !httpsOn) {
+        XSTR_ZERO(keyH, _LEN_HTTP_PROXY); XSTR_ZERO(keyHS, _LEN_HTTPS_PROXY);
+        XSTR_ZERO(portH,_LEN_HTTP_PORT);  XSTR_ZERO(portHS,_LEN_HTTPS_PORT);
+        XSTR_ZERO(loop1,_LEN_LOOPBACK);   XSTR_ZERO(loop2, _LEN_LOCALHOST);
+        return MSMProxyNone;
+    }
+
+    NSString *hHost  = s[[NSString stringWithUTF8String:keyH]]  ?: @"";
+    NSString *hsHost = s[[NSString stringWithUTF8String:keyHS]] ?: @"";
+    NSInteger hPort  = [s[[NSString stringWithUTF8String:portH]]  integerValue];
+    NSInteger hsPort = [s[[NSString stringWithUTF8String:portHS]] integerValue];
+    NSString *lb1    = [NSString stringWithUTF8String:loop1];
+    NSString *lb2    = [NSString stringWithUTF8String:loop2];
+
+    XSTR_ZERO(keyH, _LEN_HTTP_PROXY); XSTR_ZERO(keyHS, _LEN_HTTPS_PROXY);
+    XSTR_ZERO(portH,_LEN_HTTP_PORT);  XSTR_ZERO(portHS,_LEN_HTTPS_PORT);
+    XSTR_ZERO(loop1,_LEN_LOOPBACK);   XSTR_ZERO(loop2, _LEN_LOCALHOST);
+
+    // ① Localhost → أداة تجسس مؤكدة (Charles/mitmproxy/Proxyman/HTTP Toolkit)
+    if ([hHost  isEqualToString:lb1] || [hHost  isEqualToString:lb2] ||
+        [hsHost isEqualToString:lb1] || [hsHost isEqualToString:lb2])
+        return MSMProxySpy;
+
+    // ② Ports معروفة لأدوات التجسس
+    //    8888 = Charles | 8889 = Charles SSL | 9090 = Proxyman
+    //    8080 = mitmproxy / HTTP Toolkit | 10002 = Burp Suite default
+    static const NSInteger spyPorts[] = { 8888, 8889, 9090, 8080, 10002 };
+    for (size_t i = 0; i < sizeof(spyPorts)/sizeof(spyPorts[0]); i++) {
+        if (hPort == spyPorts[i] || hsPort == spyPorts[i])
+            return MSMProxySpy;
+    }
+
+    // ③ Proxy موجود لكن ليس محلياً ولا على port مشبوه → VPN شرعي
+    return MSMProxyVPN;
+}
+
+// يُرسل تقرير صامت للسيرفر عند اكتشاف VPN شرعي (لا يُعطّل الميزات)
+static void msm_reportVPNSilently(void) {
+    XSTR(teleUrl, _ENC_TELEMETRY_URL, _LEN_TELEMETRY_URL);
+    NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:teleUrl]];
+    XSTR_ZERO(teleUrl, _LEN_TELEMETRY_URL);
+    if (!url) return;
+
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+    [req setHTTPMethod:@"POST"];
+    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"type": @"vpn"} options:0 error:nil]];
+    [req setTimeoutInterval:8.0];
+    [[NSURLSession.sharedSession dataTaskWithRequest:req
+        completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+            (void)d; (void)r; (void)e; // fire-and-forget
+        }] resume];
+}
+
+// ─── AES-128-CBC Payload Decrypt ─────────────────────────────────────────────
+// يفكّ تشفير AES-128-CBC — المفتاح مُشفَّر XOR في الـ binary
+static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData) {
+    // فك تشفير المفتاح من الـ binary
+    static const unsigned char _aesEnc[] = _ENC_AESKEY;
+    unsigned char aesKey[_LEN_AESKEY];
+    for (int i = 0; i < _LEN_AESKEY; i++)
+        aesKey[i] = _aesEnc[i] ^ _XK;
+
+    size_t outLen = 0;
+    size_t bufSize = cipherData.length + kCCBlockSizeAES128;
+    void *outBuf = malloc(bufSize);
+    if (!outBuf) { memset(aesKey, 0, _LEN_AESKEY); return nil; }
+
+    CCCryptorStatus status = CCCrypt(
+        kCCDecrypt, kCCAlgorithmAES128, kCCOptionPKCS7Padding,
+        aesKey, _LEN_AESKEY,
+        ivData.bytes,
+        cipherData.bytes, cipherData.length,
+        outBuf, bufSize, &outLen);
+
+    memset(aesKey, 0, _LEN_AESKEY); // امسح المفتاح من الـ RAM فوراً
+
+    if (status != kCCSuccess) { free(outBuf); return nil; }
+    NSData *result = [NSData dataWithBytesNoCopy:outBuf length:outLen freeWhenDone:YES];
+    return result;
 }
 
 static void checkProxyAndBlock(void) {
-    if (msm_isProxyActive()) {
-        gProxyBlocked = YES;
+    MSMProxyType pt = msm_detectProxy();
 
-        // سجّل في UserDefaults لكي نعرف لاحقاً
+    if (pt == MSMProxySpy) {
+        gProxyBlocked = YES;
         XSTR(pk, _ENC_PROXY_KEY, _LEN_PROXY_KEY);
         NSString *pkStr = [NSString stringWithUTF8String:pk];
         XSTR_ZERO(pk, _LEN_PROXY_KEY);
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:pkStr];
         [[NSUserDefaults standardUserDefaults] synchronize];
+    } else if (pt == MSMProxyVPN) {
+        // VPN عادي — نُبلّغ بشكل صامت ولا نوقف الميزات
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            msm_reportVPNSilently();
+        });
     }
 }
 

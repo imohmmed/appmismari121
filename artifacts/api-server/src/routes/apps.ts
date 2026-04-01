@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, ilike, inArray } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable, appPlansTable, subscriptionsTable, notificationsTable } from "@workspace/db";
 import {
   ListAppsQueryParams,
@@ -302,6 +303,62 @@ router.get("/settings", async (_req, res): Promise<void> => {
 router.get("/banners", async (_req, res): Promise<void> => {
   const banners = await db.select().from(featuredBannersTable).where(eq(featuredBannersTable.isActive, true)).orderBy(featuredBannersTable.sortOrder);
   res.json({ banners });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API v2 — Dylib Endpoints (AES-128-CBC encrypted responses)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * يشفّر كائن JS إلى AES-128-CBC ويُعيد { msm_enc, msm_iv } بصيغة Base64.
+ * المفتاح: MSM_PAYLOAD_KEY من .env، أو القيمة الافتراضية لغرض التطوير فقط.
+ * ⚠️  غيّر MSM_PAYLOAD_KEY في الإنتاج وحدّث _ENC_AESKEY في Obfuscation.h معه.
+ */
+function msmEncrypt(payload: object): { msm_enc: string; msm_iv: string } {
+  const key = Buffer.from(
+    process.env.MSM_PAYLOAD_KEY ?? "Msm@Store#2026!K",
+    "utf8"
+  ).slice(0, 16);                          // AES-128 = 16 bytes
+  const iv  = crypto.randomBytes(16);      // IV عشوائي لكل response
+  const cipher = crypto.createCipheriv("aes-128-cbc", key, iv);
+  const json = JSON.stringify(payload);
+  const enc  = Buffer.concat([cipher.update(json, "utf8"), cipher.final()]);
+  return {
+    msm_enc: enc.toString("base64"),
+    msm_iv:  iv.toString("base64"),
+  };
+}
+
+// ─── GET /api/v2/dylib/settings ─────────────────────────────────────────────
+// يُستخدم من mismari-store.dylib فقط — الـ response مشفّر AES-128-CBC
+router.get("/v2/dylib/settings", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(settingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+
+  const payload = {
+    storeVersion:  map.store_version   || "1.0",
+    releaseNotes:  map.release_notes   || "تحسينات وإصلاحات.",
+    storeName:     map.store_name      || "مسماري",
+    minVersion:    map.min_version     || "1.0",
+    isMaintenanceMode: map.maintenance_mode === "true",
+  };
+
+  res.json(msmEncrypt(payload));
+});
+
+// ─── POST /api/v2/telemetry/proxy ───────────────────────────────────────────
+// يستقبل تقارير صامتة من الـ dylib عند اكتشاف VPN شرعي (ليس أداة تجسس)
+router.post("/v2/telemetry/proxy", async (req, res): Promise<void> => {
+  const type = req.body?.type ?? "unknown";           // "vpn" أو "unknown"
+  const ua   = req.headers["user-agent"] ?? "";
+  const ip   = (req.headers["x-forwarded-for"] as string | undefined)
+                  ?.split(",")[0]?.trim()
+               ?? req.socket.remoteAddress
+               ?? "0.0.0.0";
+  // سجّل فقط — لا إجراء مضاد على VPN العادي
+  console.log(`[telemetry/proxy] type=${type} ip=${ip} ua=${ua.slice(0, 60)}`);
+  res.status(204).end();
 });
 
 router.get("/admin/banner-image/:filename", (req, res): void => {
