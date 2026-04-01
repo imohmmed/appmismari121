@@ -89,10 +89,12 @@ function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null
     const entitlements = data["Entitlements"] as Record<string, any> | undefined;
     if (!entitlements) return null;
 
-    // ─── احذف المفاتيح التي تُطلق إنذار "Jailbroken" في تطبيقات البنوك ───────
+    // ─── احذف المفاتيح التي تُطلق إنذار "Jailbroken" أو Crash في تطبيقات الدفع/البنوك ──
     const clean: Record<string, any> = { ...entitlements };
-    delete clean["get-task-allow"];           // Development debug flag — خطير
-    delete clean["com.apple.security.get-task-allow"]; // نسخة بديلة
+    delete clean["get-task-allow"];                                  // Development debug flag
+    delete clean["com.apple.security.get-task-allow"];               // نسخة بديلة
+    delete clean["com.apple.developer.icloud-container-identifiers"]; // iCloud — Crash إذا الشهادة لا تدعمه
+    delete clean["com.apple.developer.ubiquity-kvstore-identifier"];  // iCloud KV Store — نفس المشكلة
 
     const entPath = path.join(tmpDir, "entitlements.plist");
     fs.writeFileSync(entPath, plist.build(clean));
