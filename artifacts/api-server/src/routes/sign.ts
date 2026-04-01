@@ -8,6 +8,7 @@ import crypto from "crypto";
 import { execFile, execSync } from "child_process";
 import { promisify } from "util";
 import plist from "plist";
+import bplist from "bplist-parser";
 import AdmZip from "adm-zip";
 import pLimit from "p-limit";
 import rateLimit from "express-rate-limit";
@@ -56,6 +57,15 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
 function randomHex(n = 16) {
   return crypto.randomBytes(n).toString("hex");
+}
+
+/** Parse a plist Buffer — handles both XML plists and binary plists (bplist00). */
+function parsePlistBuffer(buf: Buffer): Record<string, any> {
+  if (buf.length >= 6 && buf.slice(0, 6).toString("ascii") === "bplist") {
+    const parsed = bplist.parseBuffer(buf);
+    return (Array.isArray(parsed) ? parsed[0] : parsed) as Record<string, any>;
+  }
+  return plist.parse(buf.toString("utf8")) as Record<string, any>;
 }
 
 /** Validate that a token/filename is safe to use in path.join (hex-only, max 128 chars) */
@@ -203,8 +213,6 @@ async function ensureDylibLocal(): Promise<void>      { return ensureAppDylib();
  */
 async function resolveIpaForSigning(storedPath: string): Promise<{ path: string; cleanup: () => void }> {
   const noop = () => {};
-  // Build the download URL: if already a full URL use as-is, otherwise build from R2 key
-  const downloadUrl = storedPath.startsWith("http") ? storedPath : r2Url(storedPath);
 
   // Fast path: check local disk first (avoids unnecessary network download)
   const localPath = resolveLocalPath(storedPath);
@@ -212,10 +220,25 @@ async function resolveIpaForSigning(storedPath: string): Promise<{ path: string;
     return { path: localPath, cleanup: noop };
   }
 
-  // File not on local disk — download from R2/CDN
-  const tmpPath = `/tmp/ipa-sign-${randomHex(8)}.ipa`;
-  await downloadUrlToFile(downloadUrl, tmpPath);
-  return { path: tmpPath, cleanup: () => fs.rmSync(tmpPath, { force: true }) };
+  // Determine if the storedPath can be resolved via R2/CDN download
+  // - Full HTTP URL → download directly
+  // - R2 keys (FilesIPA/... or StoreIPA/...) → build dl.mismari.com URL
+  // - Local-only paths (/sign/store-files/...) → error, no R2 fallback
+  let downloadUrl: string | null = null;
+  if (storedPath.startsWith("http")) {
+    downloadUrl = storedPath;
+  } else if (!storedPath.startsWith("/")) {
+    // bare R2 key like "FilesIPA/IpaApp/xxx.ipa"
+    downloadUrl = r2Url(storedPath);
+  }
+
+  if (downloadUrl) {
+    const tmpPath = `/tmp/ipa-sign-${randomHex(8)}.ipa`;
+    await downloadUrlToFile(downloadUrl, tmpPath);
+    return { path: tmpPath, cleanup: () => fs.rmSync(tmpPath, { force: true }) };
+  }
+
+  throw new Error(`ملف IPA غير موجود: ${storedPath}`);
 }
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
@@ -273,10 +296,18 @@ function resolveLocalPath(storedPath: string): string {
   if (storedPath.startsWith("/admin/FilesIPA/IpaApp/")) {
     return path.join(process.cwd(), "uploads", "FilesIPA", "IpaApp", path.basename(storedPath));
   }
+  // Signed store IPA: "/sign/store-files/<filename>" → uploads/SignedStore/<filename>
+  if (storedPath.startsWith("/sign/store-files/")) {
+    return path.join(process.cwd(), "uploads", "SignedStore", path.basename(storedPath));
+  }
+  // SignedStore bare key: "SignedStore/<filename>" → uploads/SignedStore/<filename>
+  if (storedPath.startsWith("SignedStore/")) {
+    return path.join(process.cwd(), "uploads", storedPath);
+  }
   if (storedPath.startsWith("/")) {
     return path.join(process.cwd(), storedPath.slice(1));
   }
-  // Bare relative paths stored by new code: "FilesIPA/IpaApp/file.ipa" or "StoreIPA/file.ipa"
+  // Bare R2 keys: "FilesIPA/IpaApp/file.ipa" or "StoreIPA/file.ipa"
   if (storedPath.startsWith("FilesIPA/") || storedPath.startsWith("StoreIPA/")) {
     return path.join(process.cwd(), "uploads", storedPath);
   }
@@ -293,13 +324,8 @@ function readIpaInfo(ipaPath: string): { name: string; version: string; bundleId
     // Parse plist — handle both XML and binary formats
     let data: Record<string, any> = {};
     try {
-      data = plist.parse(plistEntry.getData().toString("utf8")) as Record<string, any>;
-    } catch {
-      // Binary plist: try raw buffer approach
-      try {
-        data = plist.parse(plistEntry.getData() as any) as Record<string, any>;
-      } catch { data = {}; }
-    }
+      data = parsePlistBuffer(plistEntry.getData());
+    } catch { data = {}; }
 
     const appFolder = plistEntry.entryName.replace("Info.plist", "");
 
