@@ -2035,7 +2035,7 @@ router.delete("/admin/store-dylib", adminAuth, (_req, res): void => {
   try {
     if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) fs.unlinkSync(STORE_DYLIB_UPLOAD_PATH);
     if (fs.existsSync(STORE_DYLIB_PERSIST))     fs.unlinkSync(STORE_DYLIB_PERSIST);
-    auditLog(req as any, "DELETE_DYLIB", "dylib", "mismari-store.dylib").catch(() => {});
+    auditLog(_req as any, "DELETE_DYLIB", "dylib", "mismari-store.dylib").catch(() => {});
     sendSecurityAlert("DELETE_DYLIB", (_req as any).admin?.username || "غير معروف", _req.ip || "", "تم حذف ملف mismari-store.dylib").catch(() => {});
     res.json({ success: true });
   } catch (err: any) {
