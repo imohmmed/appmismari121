@@ -78,14 +78,28 @@ export default function SectionDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: isWeb ? 20 : insets.top }]}>
-      <View style={[styles.header, isArabic && { flexDirection: "row-reverse" }]}>
-        <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-          <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
-          {title} {emoji}
-        </Text>
-        <View style={{ width: 40 }} />
+      <View style={styles.header}>
+        {isArabic ? (
+          <>
+            <View style={{ width: 40 }} />
+            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+              {title} {emoji}
+            </Text>
+            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
+              <Feather name="chevron-right" size={22} color={colors.text} />
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
+              <Feather name="chevron-left" size={22} color={colors.text} />
+            </Pressable>
+            <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
+              {title} {emoji}
+            </Text>
+            <View style={{ width: 40 }} />
+          </>
+        )}
       </View>
 
       {loading ? (
