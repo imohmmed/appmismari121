@@ -3,6 +3,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import plist from "plist";
 
 const execFileAsync = promisify(execFile);
 
@@ -69,6 +70,38 @@ export function loadToken(token: string): TokenMeta | null {
   }
 }
 
+/**
+ * استخرج الـ Entitlements من ملف mobileprovision واحذف المفاتيح الخطيرة.
+ *
+ * المفاتيح المحذوفة:
+ *  - get-task-allow: true  ← يدلّ على Development profile → تكشفه تطبيقات البنوك فوراً
+ *
+ * يُعيد مسار ملف plist مؤقت يمرَّر لـ zsign بـ (-e) — يجب حذفه بعد التوقيع.
+ */
+function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null {
+  try {
+    const mpBuf = Buffer.from(mpBase64, "base64");
+    const raw = mpBuf.toString("binary");
+    const xmlMatch = raw.match(/<\?xml[\s\S]*?<\/plist>/);
+    if (!xmlMatch) return null;
+
+    const data = plist.parse(xmlMatch[0]) as Record<string, any>;
+    const entitlements = data["Entitlements"] as Record<string, any> | undefined;
+    if (!entitlements) return null;
+
+    // ─── احذف المفاتيح التي تُطلق إنذار "Jailbroken" في تطبيقات البنوك ───────
+    const clean: Record<string, any> = { ...entitlements };
+    delete clean["get-task-allow"];           // Development debug flag — خطير
+    delete clean["com.apple.security.get-task-allow"]; // نسخة بديلة
+
+    const entPath = path.join(tmpDir, "entitlements.plist");
+    fs.writeFileSync(entPath, plist.build(clean));
+    return entPath;
+  } catch {
+    return null; // إذا فشل أي شيء — zsign يستخدم entitlements الـ profile الأصلية
+  }
+}
+
 export async function signIpa(opts: {
   p12Base64: string;
   p12Password: string;
@@ -86,6 +119,9 @@ export async function signIpa(opts: {
     fs.writeFileSync(p12Path, Buffer.from(opts.p12Base64, "base64"));
     fs.writeFileSync(mpPath, Buffer.from(opts.mpBase64, "base64"));
 
+    // ─── بناء entitlements نظيفة (بدون get-task-allow) ──────────────────────
+    const entPath = buildCleanEntitlements(opts.mpBase64, tmpDir);
+
     const args: string[] = [
       "-k", p12Path,
       "-p", opts.p12Password || "",
@@ -93,6 +129,10 @@ export async function signIpa(opts: {
       "-o", opts.outputPath,
       "-z", "6",
     ];
+
+    // مرّر الـ entitlements النظيفة إذا نجح استخراجها
+    if (entPath) { args.push("-e", entPath); }
+
     if (opts.bundleId)   { args.push("-b", opts.bundleId); }
     if (opts.bundleName) { args.push("-n", opts.bundleName); }
     if (opts.dylibPaths) {
