@@ -1,26 +1,62 @@
 # Mismari Deploy Config — انسخ هذا الملف إلى .deploy.conf واملأ القيم
 # .deploy.conf مُدرج في .gitignore ولن يُرفع لـ GitHub أبداً
 #
-# كيفية الاستخدام:
+# الإعداد الأول:
 #   cp tools/.deploy.conf.template tools/.deploy.conf
-#   ثم عدّل القيم بما يناسبك
+#   ثم عدّل القيم
 
+# ─────────────────────────────────────────────────
+# [vps] — إعدادات السيرفر
+# ─────────────────────────────────────────────────
 [vps]
 host     = 45.67.216.177
 user     = root
 port     = 22
 env_file = /opt/mismari/.env
 pm2_proc = mismari-api
-ssh_key  = ~/.ssh/id_rsa
-# ssh_password =            ← اتركها فارغة وأضف SSH key أفضل (أكثر أماناً)
 
+# SSH Key (الأفضل من Password — شغّل الأوامر أدناه مرة واحدة):
+#   ssh-keygen -t ed25519 -C "mismari-deploy" -f ~/.ssh/mismari_deploy
+#   ssh-copy-id -i ~/.ssh/mismari_deploy.pub root@45.67.216.177
+ssh_key  = ~/.ssh/mismari_deploy
+
+# كلمة المرور (اتركها فارغة إذا استخدمت SSH key):
+# ssh_password =
+
+# ─────────────────────────────────────────────────
+# [api] — Admin API
+# ─────────────────────────────────────────────────
 [api]
-admin_url   = https://app.mismari.com/api/admin
-# admin_token يُحصل عليه من تسجيل الدخول للوحة الإدارة
-# شغّل: curl -X POST https://app.mismari.com/api/admin/login -d '{"username":"...","password":"..."}'
+admin_url = https://app.mismari.com/api/admin
+
+# احصل على admin_token بهذا الأمر (يجدَّد عند انتهاء الصلاحية):
+#
+#   curl -s -X POST https://app.mismari.com/api/admin/login \
+#     -H "Content-Type: application/json" \
+#     -d '{"username":"USER","password":"PASS","totpCode":"TOTP"}' \
+#     | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])"
+#
+# ⚠️  الـ Token له تاريخ انتهاء — إذا ظهر 401 Unauthorized جدّده هنا
 admin_token =
 
+# ─────────────────────────────────────────────────
+# [dylib] — أسماء ملفات الدايلب
+# ─────────────────────────────────────────────────
 [dylib]
-r2_base_url = https://dl.mismari.com
+r2_base_url      = https://dl.mismari.com
 store_dylib_name = mismari-store.dylib
 antirevoke_name  = antirevoke.dylib
+
+# ─────────────────────────────────────────────────
+# [cloudflare] — Cloudflare R2 للرفع التلقائي
+# ─────────────────────────────────────────────────
+[cloudflare]
+# اسم الـ Bucket في R2:
+r2_bucket = mismari-dylib
+
+# إما سجّل دخول مرة واحدة: wrangler login
+# أو ضع API Token (من: Cloudflare → My Profile → API Tokens):
+# api_token  = YOUR_CF_API_TOKEN
+
+# Account ID (من: Cloudflare → Overview → يمين الصفحة):
+# account_id = YOUR_CF_ACCOUNT_ID

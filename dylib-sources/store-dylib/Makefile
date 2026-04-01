@@ -50,3 +50,25 @@ verify: mismari-store.dylib
         @lipo -info mismari-store.dylib
         @echo "--- Linked libs ---"
         @otool -L mismari-store.dylib
+
+# ════════════════════════════════════════════════════════════════
+#  release — Production build مع FINALPACKAGE=1 (الإلزامي للنشر)
+#
+#  ⚠️  لا ترفع أبداً نسخة Debug للمشتركين.
+#      FINALPACKAGE=1 يضمن: AES إلزامي · لا Symbols · lipo مُدمج
+#
+#  الاستخدام:
+#    make release
+#    # أو عبر السكريبت الكامل:
+#    python3 tools/rotate_keys.py --build --upload-r2 --update-api ...
+# ════════════════════════════════════════════════════════════════
+release:
+        @echo ""
+        @echo "╔══════════════════════════════════════════════════════╗"
+        @echo "║   PRODUCTION BUILD — FINALPACKAGE=1                 ║"
+        @echo "║   AES mandatory · No symbols · arm64 + arm64e       ║"
+        @echo "╚══════════════════════════════════════════════════════╝"
+        @echo ""
+        $(MAKE) FINALPACKAGE=1
+        @echo ""
+        @echo "✓ mismari-store.dylib جاهز للنشر — شغّل 'make verify' للتحقق"
