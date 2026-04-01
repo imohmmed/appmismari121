@@ -19,7 +19,7 @@
 #import <errno.h>
 #import <dlfcn.h>
 #import <mach/mach.h>
-#import <CommonCrypto/CommonDigest.h>
+#import <CFNetwork/CFNetwork.h>
 
 #include "fishhook.h"
 #include "Obfuscation.h"
@@ -350,17 +350,91 @@ static void checkForUpdate(void) {
     [task resume];
 }
 
+// ─── 4b. Anti-Proxy Check (يمنع Charles/HTTP Toolkit من التجسس) ───────────────
+static BOOL gProxyBlocked = NO;
+
+static BOOL msm_isProxyActive(void) {
+    // فحص إعدادات الـ Proxy من System Settings
+    CFDictionaryRef rawSettings = CFNetworkCopySystemProxySettings();
+    if (!rawSettings) return NO;
+    NSDictionary *settings = CFBridgingRelease(rawSettings);
+
+    XSTR(httpKey,  _ENC_HTTP_ENABLE,  _LEN_HTTP_ENABLE);
+    XSTR(httpsKey, _ENC_HTTPS_ENABLE, _LEN_HTTPS_ENABLE);
+
+    NSNumber *httpOn  = settings[[NSString stringWithUTF8String:httpKey]];
+    NSNumber *httpsOn = settings[[NSString stringWithUTF8String:httpsKey]];
+    XSTR_ZERO(httpKey,  _LEN_HTTP_ENABLE);
+    XSTR_ZERO(httpsKey, _LEN_HTTPS_ENABLE);
+
+    return ([httpOn boolValue] || [httpsOn boolValue]);
+}
+
+static void checkProxyAndBlock(void) {
+    if (msm_isProxyActive()) {
+        gProxyBlocked = YES;
+
+        // سجّل في UserDefaults لكي نعرف لاحقاً
+        XSTR(pk, _ENC_PROXY_KEY, _LEN_PROXY_KEY);
+        NSString *pkStr = [NSString stringWithUTF8String:pk];
+        XSTR_ZERO(pk, _LEN_PROXY_KEY);
+        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:pkStr];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+}
+
+// ─── 4. Auto-Update (يعمل في الـ Foreground فقط) ────────────────────────────
+static NSTimer *gUpdateTimer = nil;
+
+static void stopUpdateTimer(void) {
+    if (gUpdateTimer) {
+        [gUpdateTimer invalidate];
+        gUpdateTimer = nil;
+    }
+}
+
+static void startUpdateTimer(void) {
+    if (gUpdateTimer || gSafeModeEnabled || gIntegrityFailed || gProxyBlocked) return;
+    gUpdateTimer = [NSTimer
+        scheduledTimerWithTimeInterval:30 * 60
+        repeats:YES
+        block:^(NSTimer *t) {
+            if (gProxyBlocked) { stopUpdateTimer(); return; }
+            checkForUpdate();
+        }];
+    [[NSRunLoop mainRunLoop] addTimer:gUpdateTimer forMode:NSRunLoopCommonModes];
+}
+
 static void installAutoUpdateChecker(void) {
+    // فحص الـ Proxy أولاً قبل أي طلب شبكة
+    checkProxyAndBlock();
+    if (gProxyBlocked) return; // لا تُرسل أي طلب إذا كان الـ Proxy مفعّل
+
+    // أول فحص بعد 5 ثواني من التشغيل
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         checkForUpdate();
     });
-    NSTimer *timer = [NSTimer
-        scheduledTimerWithTimeInterval:30 * 60
-        target:[NSBlockOperation blockOperationWithBlock:^{ checkForUpdate(); }]
-        selector:@selector(main)
-        userInfo:nil
-        repeats:YES];
-    [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
+
+    // شغّل الـ Timer في الـ Foreground فقط
+    startUpdateTimer();
+
+    // عند الدخول في الخلفية — أوقف الـ Timer
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:UIApplicationDidEnterBackgroundNotification
+        object:nil queue:[NSOperationQueue mainQueue]
+        usingBlock:^(NSNotification *n) { stopUpdateTimer(); }];
+
+    // عند العودة للواجهة — أعد تشغيل الـ Timer
+    [[NSNotificationCenter defaultCenter]
+        addObserverForName:UIApplicationWillEnterForegroundNotification
+        object:nil queue:[NSOperationQueue mainQueue]
+        usingBlock:^(NSNotification *n) {
+            checkProxyAndBlock();
+            if (!gProxyBlocked) {
+                checkForUpdate(); // فحص فوري عند العودة
+                startUpdateTimer();
+            }
+        }];
 }
 
 // ─── 5. Safe Mode ─────────────────────────────────────────────────────────────

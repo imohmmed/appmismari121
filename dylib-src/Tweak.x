@@ -97,12 +97,29 @@ static BOOL msm_isRevocationHost(NSString *host) {
     return NO;
 }
 
+/* ── استجابة OCSP وهمية (iOS 17/18 لا يكرر الطلب إذا جاء 200 OK) ───────────── */
+/* OCSP "good" minimal DER response — الشهادة صالحة وفق OCSP RFC 6960       */
+static NSData *msm_fakeOCSPData(void) {
+    /* SEQUENCE { ENUMERATED { 0 } } = الشهادة سليمة (good status) */
+    static const uint8_t kOCSPGood[] = { 0x30, 0x03, 0x0A, 0x01, 0x00 };
+    return [NSData dataWithBytes:kOCSPGood length:sizeof(kOCSPGood)];
+}
+
+static NSHTTPURLResponse *msm_fakeOCSPResponse(NSURL *url) {
+    NSDictionary *headers = @{ @"Content-Type": @"application/ocsp-response",
+                               @"Cache-Control": @"max-age=86400" };
+    return [[NSHTTPURLResponse alloc] initWithURL:url
+                                       statusCode:200
+                                      HTTPVersion:@"HTTP/1.1"
+                                     headerFields:headers];
+}
+
 %hook NSURLSession
 
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
                             completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))handler {
     if (msm_isRevocationHost(request.URL.host)) {
-        if (handler) handler([NSData data], nil, nil);
+        if (handler) handler(msm_fakeOCSPData(), msm_fakeOCSPResponse(request.URL), nil);
         return nil;
     }
     return %orig;
@@ -111,7 +128,7 @@ static BOOL msm_isRevocationHost(NSString *host) {
 - (NSURLSessionDataTask *)dataTaskWithURL:(NSURL *)url
                         completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))handler {
     if (msm_isRevocationHost(url.host)) {
-        if (handler) handler([NSData data], nil, nil);
+        if (handler) handler(msm_fakeOCSPData(), msm_fakeOCSPResponse(url), nil);
         return nil;
     }
     return %orig;
@@ -120,7 +137,7 @@ static BOOL msm_isRevocationHost(NSString *host) {
 - (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request
                                     completionHandler:(void (^)(NSURL *, NSURLResponse *, NSError *))handler {
     if (msm_isRevocationHost(request.URL.host)) {
-        if (handler) handler(nil, nil, nil);
+        if (handler) handler(nil, msm_fakeOCSPResponse(request.URL), nil);
         return nil;
     }
     return %orig;
@@ -140,7 +157,7 @@ static BOOL msm_isRevocationHost(NSString *host) {
                           queue:(NSOperationQueue *)queue
               completionHandler:(void (^)(NSURLResponse *, NSData *, NSError *))handler {
     if (msm_isRevocationHost(request.URL.host)) {
-        if (handler) handler(nil, [NSData data], nil);
+        if (handler) handler(msm_fakeOCSPResponse(request.URL), msm_fakeOCSPData(), nil);
         return;
     }
     %orig;
@@ -215,7 +232,26 @@ static NSString *_msm_bundleID = nil;
 %hook UIDevice
 
 - (NSUUID *)identifierForVendor {
-    return nil;
+    /*
+     * nil يسبب Crash في تطبيقات تبني قاعدة بياناتها على IDFV.
+     * الحل: UUID عشوائي يتغير عند حذف التطبيق ويثبت خلال نفس التثبيت.
+     * مخزَّن في NSUserDefaults بـ key مشفَّر — لا يظهر في الـ binary.
+     */
+    MSM_STACK(idfvKey, S_IDFV_KEY); /* "__msm_idfv__" */
+    NSString *keyStr = [NSString stringWithUTF8String:idfvKey];
+
+    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
+    NSString *stored = [ud stringForKey:keyStr];
+    if (stored) {
+        NSUUID *cached = [[NSUUID alloc] initWithUUIDString:stored];
+        if (cached) return cached;
+    }
+
+    /* أنشئ UUID جديد واحفظه */
+    NSUUID *fake = [NSUUID UUID];
+    [ud setObject:[fake UUIDString] forKey:keyStr];
+    [ud synchronize];
+    return fake;
 }
 
 - (NSString *)name {
@@ -243,19 +279,30 @@ __attribute__((visibility("hidden")))
 static BOOL msm_isSuspiciousPath(const char *path) {
     if (!path) return NO;
 
+    /* ─── Classic JB paths ──────────────────────────────────────────────────── */
     MSM_STACK(p1, S_PATH1); /* /Library/MobileSubstrate */
-    MSM_STACK(p2, S_PATH2); /* /var/lib/cydia */
-    MSM_STACK(p3, S_PATH3); /* /usr/lib/tweaks */
-    MSM_STACK(p4, S_PATH4); /* /var/jb */
-    MSM_STACK(p5, S_PATH5); /* /usr/bin/cycript */
-    MSM_STACK(p6, S_PATH6); /* /var/mobile/Applications */
+    MSM_STACK(p2, S_PATH2); /* /var/lib/cydia           */
+    MSM_STACK(p3, S_PATH3); /* /usr/lib/tweaks           */
+    MSM_STACK(p4, S_PATH4); /* /var/jb                   */
+    MSM_STACK(p5, S_PATH5); /* /usr/bin/cycript          */
+    MSM_STACK(p6, S_PATH6); /* /var/mobile/Applications  */
 
-    return (strstr(path, p1) ||
-            strstr(path, p2) ||
-            strstr(path, p3) ||
-            strstr(path, p4) ||
-            strstr(path, p5) ||
-            strstr(path, p6));
+    /* ─── Rootless JB (Dopamine / Palera1n / unc0ver iOS 15+) ──────────────── */
+    MSM_STACK(p7,  S_PATH_PREBOOT); /* /private/preboot/        */
+    MSM_STACK(p8,  S_PATH_JB_USR);  /* /var/jb/usr/             */
+    MSM_STACK(p9,  S_PATH_JB_LIB);  /* /var/jb/Library/         */
+    MSM_STACK(p10, S_PATH_DOTFILE); /* /.file (Dopamine marker) */
+
+    return (strstr(path, p1)  ||
+            strstr(path, p2)  ||
+            strstr(path, p3)  ||
+            strstr(path, p4)  ||
+            strstr(path, p5)  ||
+            strstr(path, p6)  ||
+            strstr(path, p7)  ||
+            strstr(path, p8)  ||
+            strstr(path, p9)  ||
+            strstr(path, p10));
 }
 
 %hookf(int, access, const char *path, int mode) {

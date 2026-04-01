@@ -5,7 +5,7 @@ TARGET      = iphone:clang:16.5:14.0
 LIBRARY_NAME = mismari-store
 
 mismari-store_FILES      = StoreDylib.m fishhook.c
-mismari-store_FRAMEWORKS = Foundation UIKit
+mismari-store_FRAMEWORKS = Foundation UIKit CFNetwork
 mismari-store_LIBRARIES  = objc dl
 
 mismari-store_CFLAGS = \
