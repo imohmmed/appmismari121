@@ -475,7 +475,9 @@ static BOOL msm_isJailbreakEnvVar(const char *name) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /* Guard ضد الاستدعاء الدوراني (re-entrancy) */
-static _Thread_local BOOL msm_inSwizzleQuery = NO;
+/* ⚠️ NO _Thread_local — يولّد HAS_TLV_DESCRIPTORS → crash على أجهزة غير jailbreak */
+/* volatile كافية لمنع التكرار على نفس الـ thread */
+static volatile BOOL msm_inSwizzleQuery = NO;
 
 %hookf(IMP, method_getImplementation, Method m) {
     /* منع الاستدعاء الدوراني */
