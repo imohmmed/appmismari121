@@ -60,5 +60,9 @@ dylib-src/antirevoke.dylib    # ملف بناء ثنائي
 dylib-sources/store-dylib/mismari-store.dylib
 attached_assets/
 
+# Expo credentials — قوالب شهادات محلية فقط
+artifacts/plus-app/credentials.json
+artifacts/plus-app/certs/
+
 # GitHub workflows (manage separately)
 .github/

@@ -45,7 +45,7 @@
     "@types/node-forge": "^1.3.14",
     "@types/pdf-parse": "^1.1.5",
     "@types/plist": "^3.0.5",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.27.4",
     "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",
     "thread-stream": "3.1.0"

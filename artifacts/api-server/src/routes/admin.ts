@@ -41,12 +41,13 @@ function generateSalt(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// ─── Rate Limiter: max 10 login attempts per IP per 15 min ──────────────────
+// ─── Rate Limiter: max 5 login attempts per IP per 15 min ───────────────────
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   message: { error: "محاولات دخول كثيرة جداً — انتظر 15 دقيقة" },
 });
 
