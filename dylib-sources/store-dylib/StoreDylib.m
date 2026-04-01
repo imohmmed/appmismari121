@@ -348,15 +348,20 @@ static void checkForUpdate(void) {
     NSURLSessionDataTask *task = rt_dataTask(url, ^(NSData *data, NSURLResponse *resp, NSError *err) {
         if (err || !data) return;
 
-        // ① محاولة فك تشفير AES أولاً (v2 endpoint)
+        // ① فك تشفير AES-128-CBC — الإنتاج لا يقبل غير المشفَّر
         NSDictionary *json = msm_decryptJSONResponse(data);
 
-        // ② fallback لـ JSON عادي إذا لم يكن مشفّراً (توافق خلفي)
+#ifndef NDEBUG
+        // ② Fallback لـ JSON عادي — DEBUG فقط (للتطوير المحلي بدون مفتاح)
         if (!json) {
             NSError *jsonErr = nil;
             json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
             if (!json || jsonErr) return;
         }
+#else
+        // في الإنتاج: ارفض أي رد غير مشفَّر — لا fallback
+        if (!json) return;
+#endif
 
         // ─── Keys مُشفَّرة ───────────────────────────────────────────────────
         XSTR(updateKey, _ENC_UPDATE_KEY,  _LEN_UPDATE_KEY);
@@ -443,9 +448,10 @@ static MSMProxyType msm_detectProxy(void) {
         return MSMProxySpy;
 
     // ② Ports معروفة لأدوات التجسس
-    //    8888 = Charles | 8889 = Charles SSL | 9090 = Proxyman
-    //    8080 = mitmproxy / HTTP Toolkit | 10002 = Burp Suite default
-    static const NSInteger spyPorts[] = { 8888, 8889, 9090, 8080, 10002 };
+    //    8888  = Charles (HTTP)         | 8889  = Charles (SSL)
+    //    9090  = Proxyman               | 8080  = mitmproxy / HTTP Toolkit
+    //    10002 = Burp Suite             | 8081  = React Native Debugger
+    static const NSInteger spyPorts[] = { 8888, 8889, 9090, 8080, 10002, 8081 };
     for (size_t i = 0; i < sizeof(spyPorts)/sizeof(spyPorts[0]); i++) {
         if (hPort == spyPorts[i] || hsPort == spyPorts[i])
             return MSMProxySpy;
@@ -512,10 +518,13 @@ static void checkProxyAndBlock(void) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:pkStr];
         [[NSUserDefaults standardUserDefaults] synchronize];
     } else if (pt == MSMProxyVPN) {
-        // VPN عادي — نُبلّغ بشكل صامت ولا نوقف الميزات
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-            msm_reportVPNSilently();
-        });
+        // VPN عادي — نُبلّغ بشكل صامت بعد 12 ثانية
+        // (لا نرسل فوراً عند التشغيل حتى لا نؤثر على سرعة تحميل واجهة المتجر)
+        dispatch_after(
+            dispatch_time(DISPATCH_TIME_NOW, 12LL * NSEC_PER_SEC),
+            dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0),
+            ^{ msm_reportVPNSilently(); }
+        );
     }
 }
 
