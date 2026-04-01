@@ -28,6 +28,7 @@ import { adminAuth, JWT_SECRET } from "../middleware/adminAuth";
 import { notifyAppAdded, notifyAppUpdated, sendBroadcast, sendBroadcastToGroup } from "../lib/pushNotifications";
 import { postAppToTelegram } from "./telegram";
 import { r2Upload, r2Delete, r2Url, urlToKey } from "../lib/r2";
+import { flushDylibCache, disableDylib, enableDylib, STORE_DYLIB_PATH } from "../lib/dylibs";
 
 const router: IRouter = Router();
 
@@ -2020,6 +2021,8 @@ router.get("/admin/store-dylib/status", adminAuth, (_req, res): void => {
 router.post("/admin/store-dylib/upload", adminAuth, storeDylibUpload.single("file"), (req, res): void => {
   try {
     if (!req.file) { res.status(400).json({ error: "لم يُرسل أي ملف" }); return; }
+    // Remove .disabled sentinel so the new dylib will be used
+    enableDylib(STORE_DYLIB_PATH);
     fs.copyFileSync(STORE_DYLIB_UPLOAD_PATH, STORE_DYLIB_PERSIST);
     const stat = fs.statSync(STORE_DYLIB_UPLOAD_PATH);
     r2Upload("dylibs/mismari-store.dylib", fs.readFileSync(STORE_DYLIB_UPLOAD_PATH), "application/octet-stream").catch(() => {});
@@ -2033,8 +2036,11 @@ router.post("/admin/store-dylib/upload", adminAuth, storeDylibUpload.single("fil
 
 router.delete("/admin/store-dylib", adminAuth, (_req, res): void => {
   try {
-    if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) fs.unlinkSync(STORE_DYLIB_UPLOAD_PATH);
-    if (fs.existsSync(STORE_DYLIB_PERSIST))     fs.unlinkSync(STORE_DYLIB_PERSIST);
+    // Disable the dylib: delete local file + etag + create .disabled sentinel
+    // (prevents auto-re-download from R2 CDN on next sign request)
+    disableDylib(STORE_DYLIB_PATH);
+    // Attempt R2 delete as well (best-effort, may fail if credentials absent)
+    r2Delete("dylibs/mismari-store.dylib").catch(() => {});
     auditLog(_req as any, "DELETE_DYLIB", "dylib", "mismari-store.dylib").catch(() => {});
     sendSecurityAlert("DELETE_DYLIB", (_req as any).admin?.username || "غير معروف", _req.ip || "", "تم حذف ملف mismari-store.dylib").catch(() => {});
     res.json({ success: true });

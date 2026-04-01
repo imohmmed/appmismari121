@@ -88,17 +88,43 @@ async function downloadDylib(url: string, localPath: string): Promise<string | n
 
 // ─── Main API ─────────────────────────────────────────────────────────────────
 
+/** Sentinel file: if <localPath>.disabled exists, auto-download is permanently suppressed */
+function disabledFlagPath(localPath: string): string { return localPath + ".disabled"; }
+export function isDylibDisabled(localPath: string): boolean {
+  return fs.existsSync(disabledFlagPath(localPath));
+}
+export function disableDylib(localPath: string): void {
+  // Delete the dylib and its etag, create the .disabled sentinel
+  if (fs.existsSync(localPath)) fs.rmSync(localPath, { force: true });
+  const etag = etagFilePath(localPath);
+  if (fs.existsSync(etag)) fs.rmSync(etag, { force: true });
+  fs.writeFileSync(disabledFlagPath(localPath), new Date().toISOString(), "utf8");
+  console.log(`[dylib] 🚫 ${path.basename(localPath)} — disabled (won't auto-download)`);
+}
+export function enableDylib(localPath: string): void {
+  const flag = disabledFlagPath(localPath);
+  if (fs.existsSync(flag)) fs.rmSync(flag, { force: true });
+  console.log(`[dylib] ✅ ${path.basename(localPath)} — re-enabled`);
+}
+
 /**
  * Ensure a dylib is present locally and up-to-date with R2.
  * - Missing locally → download
  * - ETag check interval elapsed → compare ETags, re-download if stale
  * - Concurrent calls for the same filename are deduplicated
+ * - If .disabled sentinel exists → skip entirely
  */
 export async function ensureDylib(filename: string, localPath: string): Promise<void> {
   // Deduplicate concurrent calls for the same dylib
   if (dylibDownloadLock[filename]) return dylibDownloadLock[filename];
 
   const doWork = async () => {
+    // Admin disabled this dylib — do not download
+    if (isDylibDisabled(localPath)) {
+      if (fs.existsSync(localPath)) fs.rmSync(localPath, { force: true });
+      return;
+    }
+
     const url      = `${R2_DL()}/dylibs/${filename}`;
     const now      = Date.now();
     const lastCheck = dylibLastCheck[filename] ?? 0;
