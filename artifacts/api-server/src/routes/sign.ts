@@ -183,28 +183,53 @@ async function signIpa(opts: {
   });
 }
 
-// ─── Antirevoke dylib helper ──────────────────────────────────────────────────
-const DYLIB_DIR = path.join(process.cwd(), "uploads", "dylibs");
-const DYLIB_CACHE_PATH = path.join(DYLIB_DIR, "antirevoke.dylib");
+// ─── Dylib helpers ────────────────────────────────────────────────────────────
+// Two separate dylibs:
+//   antirevoke.dylib      → injected into USER APPS signed from the store
+//   mismari-store.dylib   → injected into the STORE APP (Mismari+) itself
+const DYLIB_DIR               = path.join(process.cwd(), "uploads", "dylibs");
+const ANTIREVOKE_DYLIB_PATH   = path.join(DYLIB_DIR, "antirevoke.dylib");
+const STORE_DYLIB_PATH        = path.join(DYLIB_DIR, "mismari-store.dylib");
 
-/** Download dylib from R2 if not available locally. Caches on disk. */
-async function ensureDylibLocal(): Promise<void> {
-  if (fs.existsSync(DYLIB_CACHE_PATH)) return;
+/** Download a named dylib from R2 if not cached locally */
+async function ensureDylibFromR2(filename: string, localPath: string): Promise<void> {
+  if (fs.existsSync(localPath)) return;
   const dlDomain = process.env.R2_DL_DOMAIN || "https://dl.mismari.com";
-  const r2Url = `${dlDomain}/dylibs/antirevoke.dylib`;
+  const r2Url = `${dlDomain}/dylibs/${filename}`;
   try {
     fs.mkdirSync(DYLIB_DIR, { recursive: true });
-    await downloadUrlToFile(r2Url, DYLIB_CACHE_PATH);
-    console.log(`[antirevoke] Downloaded dylib from R2 → ${DYLIB_CACHE_PATH}`);
+    await downloadUrlToFile(r2Url, localPath);
+    console.log(`[dylib] Downloaded ${filename} from R2 → ${localPath}`);
   } catch (e: any) {
-    console.warn(`[antirevoke] Could not download dylib from R2: ${e.message}`);
+    console.warn(`[dylib] Could not download ${filename} from R2: ${e.message}`);
   }
 }
 
+/** For user apps: antirevoke.dylib */
+async function ensureAppDylibLocal(): Promise<void> {
+  return ensureDylibFromR2("antirevoke.dylib", ANTIREVOKE_DYLIB_PATH);
+}
+
+/** For store app (Mismari+): mismari-store.dylib */
+async function ensureStoreDylibLocal(): Promise<void> {
+  return ensureDylibFromR2("mismari-store.dylib", STORE_DYLIB_PATH);
+}
+
 function getAntiRevokeDylibPath(): string | null {
-  const exists = fs.existsSync(DYLIB_CACHE_PATH);
-  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND — will inject" : "❌ NOT FOUND — skipping"} (${DYLIB_CACHE_PATH})`);
-  return exists ? DYLIB_CACHE_PATH : null;
+  const exists = fs.existsSync(ANTIREVOKE_DYLIB_PATH);
+  console.log(`[antirevoke] dylib check → ${exists ? "✅ FOUND" : "❌ NOT FOUND"} (${ANTIREVOKE_DYLIB_PATH})`);
+  return exists ? ANTIREVOKE_DYLIB_PATH : null;
+}
+
+function getStoreDylibPath(): string | null {
+  const exists = fs.existsSync(STORE_DYLIB_PATH);
+  console.log(`[store-dylib] check → ${exists ? "✅ FOUND" : "❌ NOT FOUND"} (${STORE_DYLIB_PATH})`);
+  return exists ? STORE_DYLIB_PATH : null;
+}
+
+// Legacy alias (used by ensureAppDylibLocal callers below)
+async function ensureDylibLocal(): Promise<void> {
+  return ensureAppDylibLocal();
 }
 
 /**
@@ -564,15 +589,17 @@ router.post("/sign/store/:code", signLimiter, async (req, res): Promise<void> =>
     const appInfo = readIpaInfo(inputPath);
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-    // ⚠️ Do NOT inject anti-revoke dylib into the store app (Mismari+).
-    // The dylib hooks (fork, NSFileManager, Hermes) crash the app at launch.
-    // Anti-revoke is applied only to apps downloaded FROM the store.
+    // ✅ Inject mismari-store.dylib (store-specific: JB bypass, safe mode, welcome, auto-update)
+    // ⚠️ Do NOT inject antirevoke.dylib here — it crashes React Native / Hermes at launch
+    await ensureStoreDylibLocal();
+    const storeDylibPath = getStoreDylibPath();
     await signIpa({
       p12Base64: group.p12Data!,
       p12Password: group.p12Password || "",
       mpBase64: group.mobileprovisionData!,
       inputPath,
       outputPath,
+      dylibPaths: storeDylibPath ? [storeDylibPath] : undefined,
     });
 
     const meta: TokenMeta = {

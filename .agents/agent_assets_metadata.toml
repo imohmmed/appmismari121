@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "WOBDivCvynExrCYtAocgw"
+uri = "file://dylib-sources/store-dylib/BUILD.md"
+type = "text"
+title = "دليل بناء Mismari Store Dylib على Mac"
