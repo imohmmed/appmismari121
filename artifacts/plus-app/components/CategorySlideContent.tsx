@@ -91,7 +91,9 @@ export default function CategorySlideContent({
           <View style={st.list}>
             {apps.map((app, idx) => {
               const tc = getTagColor(app.tag);
-              const desc = isArabic ? (app.descAr || app.descriptionAr || app.description || "") : (app.descEn || app.descriptionEn || app.description || "");
+              const desc = isArabic
+                ? (app.descAr || app.descriptionAr || app.description || "")
+                : (app.descEn || app.descriptionEn || "");
               return (
                 <View key={app.id}>
                   <Pressable
@@ -132,7 +134,7 @@ export default function CategorySlideContent({
               <View style={st.empty}>
                 <Feather name="inbox" size={40} color={colors.textSecondary} />
                 <Text style={{ color: colors.textSecondary, fontFamily: fontAr("Medium"), marginTop: 12, fontSize: 15 }}>
-                  لا توجد تطبيقات
+                  {isArabic ? "لا توجد تطبيقات" : "No apps available"}
                 </Text>
               </View>
             )}
