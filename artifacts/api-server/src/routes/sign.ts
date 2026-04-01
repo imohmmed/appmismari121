@@ -14,6 +14,7 @@ import rateLimit from "express-rate-limit";
 import multer from "multer";
 import { db, subscriptionsTable, groupsTable, appsTable, signJobsTable } from "@workspace/db";
 import { adminAuth } from "../middleware/adminAuth";
+import { r2Url } from "../lib/r2";
 import {
   DYLIB_DIR, ANTIREVOKE_DYLIB_PATH, STORE_DYLIB_PATH,
   ensureDylib, ensureAppDylib, ensureStoreDylib, getDylibPath,
@@ -202,19 +203,19 @@ async function ensureDylibLocal(): Promise<void>      { return ensureAppDylib();
  */
 async function resolveIpaForSigning(storedPath: string): Promise<{ path: string; cleanup: () => void }> {
   const noop = () => {};
-  // If it's an HTTP URL, download directly
-  if (storedPath.startsWith("http")) {
-    const tmpPath = `/tmp/ipa-sign-${randomHex(8)}.ipa`;
-    await downloadUrlToFile(storedPath, tmpPath);
-    return { path: tmpPath, cleanup: () => fs.rmSync(tmpPath, { force: true }) };
-  }
-  // Local path
+  // Build the download URL: if already a full URL use as-is, otherwise build from R2 key
+  const downloadUrl = storedPath.startsWith("http") ? storedPath : r2Url(storedPath);
+
+  // Fast path: check local disk first (avoids unnecessary network download)
   const localPath = resolveLocalPath(storedPath);
   if (fs.existsSync(localPath)) {
     return { path: localPath, cleanup: noop };
   }
-  // Local file missing — shouldn't happen but handle gracefully
-  throw new Error(`ملف IPA غير موجود: ${storedPath}`);
+
+  // File not on local disk — download from R2/CDN
+  const tmpPath = `/tmp/ipa-sign-${randomHex(8)}.ipa`;
+  await downloadUrlToFile(downloadUrl, tmpPath);
+  return { path: tmpPath, cleanup: () => fs.rmSync(tmpPath, { force: true }) };
 }
 
 // ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
@@ -274,6 +275,10 @@ function resolveLocalPath(storedPath: string): string {
   }
   if (storedPath.startsWith("/")) {
     return path.join(process.cwd(), storedPath.slice(1));
+  }
+  // Bare relative paths stored by new code: "FilesIPA/IpaApp/file.ipa" or "StoreIPA/file.ipa"
+  if (storedPath.startsWith("FilesIPA/") || storedPath.startsWith("StoreIPA/")) {
+    return path.join(process.cwd(), "uploads", storedPath);
   }
   return path.join(process.cwd(), storedPath);
 }
