@@ -52,6 +52,12 @@ Thumbs.db
 *.ipa
 artifacts/api-server/uploads/
 artifacts/store-website/public/ipa/
+
+# Mismari — أدوات التطوير والملفات الحساسة
+tools/rotate_keys.py          # يحتوي بيانات VPS — لا يُرفع لـ GitHub
+tools/.deploy.conf            # إعدادات SSH/API سرية — يُحفظ محلياً فقط
+dylib-src/antirevoke.dylib    # ملف بناء ثنائي
+dylib-sources/store-dylib/mismari-store.dylib
 attached_assets/
 
 # GitHub workflows (manage separately)

@@ -1,0 +1,26 @@
+# Mismari Deploy Config — انسخ هذا الملف إلى .deploy.conf واملأ القيم
+# .deploy.conf مُدرج في .gitignore ولن يُرفع لـ GitHub أبداً
+#
+# كيفية الاستخدام:
+#   cp tools/.deploy.conf.template tools/.deploy.conf
+#   ثم عدّل القيم بما يناسبك
+
+[vps]
+host     = 45.67.216.177
+user     = root
+port     = 22
+env_file = /opt/mismari/.env
+pm2_proc = mismari-api
+ssh_key  = ~/.ssh/id_rsa
+# ssh_password =            ← اتركها فارغة وأضف SSH key أفضل (أكثر أماناً)
+
+[api]
+admin_url   = https://app.mismari.com/api/admin
+# admin_token يُحصل عليه من تسجيل الدخول للوحة الإدارة
+# شغّل: curl -X POST https://app.mismari.com/api/admin/login -d '{"username":"...","password":"..."}'
+admin_token =
+
+[dylib]
+r2_base_url = https://dl.mismari.com
+store_dylib_name = mismari-store.dylib
+antirevoke_name  = antirevoke.dylib
