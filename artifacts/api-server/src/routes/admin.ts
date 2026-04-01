@@ -29,6 +29,7 @@ import { notifyAppAdded, notifyAppUpdated, sendBroadcast, sendBroadcastToGroup }
 import { postAppToTelegram } from "./telegram";
 import { r2Upload, r2Delete, r2Url, urlToKey } from "../lib/r2";
 import { flushDylibCache, disableDylib, enableDylib, STORE_DYLIB_PATH } from "../lib/dylibs";
+import AdmZip from "adm-zip";
 
 const router: IRouter = Router();
 
@@ -1231,30 +1232,29 @@ router.post("/admin/groups/sign-all", async (req, res): Promise<void> => {
       throw new Error("فشل تحميل ملف IPA من الرابط");
     }
 
-    // ── Strip any existing antirevoke.dylib from the source IPA ──────────────
-    // The IPA built on Mac may already contain the dylib. We must remove it
-    // before signing so the store app (Mismari+) launches without crashing.
+    // ── Strip any existing dylibs from the source IPA (pure JS, no shell deps) ─
+    // The IPA built on Mac may already contain dylibs (antirevoke, mismari-store).
+    // An unsigned embedded dylib causes immediate crash on launch (iOS signature check).
     try {
-      const { execSync } = await import("child_process");
-      // Resolve full paths for zip/unzip to avoid PATH issues in PM2
-      const UNZIP_BIN = ["/usr/bin/unzip", "/bin/unzip", "unzip"].find(p => {
-        try { execSync(`test -x ${p}`); return true; } catch { return false; }
-      }) ?? "unzip";
-      const ZIP_BIN = ["/usr/bin/zip", "/bin/zip", "zip"].find(p => {
-        try { execSync(`test -x ${p}`); return true; } catch { return false; }
-      }) ?? "zip";
-      const cleanDir = fs.mkdtempSync("/tmp/ipa-clean-");
-      await execFileAsync(UNZIP_BIN, ["-q", tmpIpaPath, "-d", cleanDir], { timeout: 60_000 });
-      // Delete all antirevoke.dylib files recursively
-      try {
-        execSync(`find "${cleanDir}" -name "antirevoke.dylib" -delete`, { timeout: 10_000 });
-      } catch { /* no dylib found — fine */ }
-      // Re-zip into a clean IPA
-      const cleanIpaPath = tmpIpaPath.replace(".ipa", "_clean.ipa");
-      execSync(`cd "${cleanDir}" && ${ZIP_BIN} -qr "${cleanIpaPath}" .`, { timeout: 60_000 });
-      fs.rmSync(tmpIpaPath, { force: true });
-      fs.rmSync(cleanDir, { recursive: true, force: true });
-      tmpIpaPath = cleanIpaPath;
+      const zip = new AdmZip(tmpIpaPath);
+      const entries = zip.getEntries();
+      const dylibEntries = entries.filter(e =>
+        e.entryName.endsWith(".dylib") &&
+        !e.isDirectory
+      );
+      if (dylibEntries.length > 0) {
+        for (const e of dylibEntries) {
+          zip.deleteFile(e.entryName);
+          console.log(`[sign-all] stripped dylib: ${e.entryName}`);
+        }
+        const cleanIpaPath = tmpIpaPath.replace(".ipa", "_clean.ipa");
+        zip.writeZip(cleanIpaPath);
+        fs.rmSync(tmpIpaPath, { force: true });
+        tmpIpaPath = cleanIpaPath;
+        console.log(`[sign-all] dylib strip complete → ${cleanIpaPath}`);
+      } else {
+        console.log("[sign-all] no dylibs found in IPA — skip strip step");
+      }
     } catch (cleanErr: any) {
       console.warn("[sign-all] dylib strip warning:", cleanErr.message);
       // Non-fatal — proceed with original IPA
