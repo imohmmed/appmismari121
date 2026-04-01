@@ -25,6 +25,7 @@ import {
 import { adminAuth, JWT_SECRET } from "../middleware/adminAuth";
 import { notifyAppAdded, notifyAppUpdated, sendBroadcast, sendBroadcastToGroup } from "../lib/pushNotifications";
 import { postAppToTelegram } from "./telegram";
+import { r2Upload, r2Delete, r2Url, urlToKey } from "../lib/r2";
 
 const router: IRouter = Router();
 
@@ -471,9 +472,11 @@ router.delete("/admin/apps/:id", async (req, res): Promise<void> => {
   const tryDelete = (relPath: string | null | undefined) => {
     if (!relPath) return;
     try {
-      const full = path.join(uploadsDir, relPath.replace(/^\/admin\/FilesIPA\//, "FilesIPA/"));
+      const full = path.join(uploadsDir, relPath.replace(/^\/admin\/FilesIPA\//, "FilesIPA/").replace(/^\//, ""));
       if (fs.existsSync(full)) fs.unlinkSync(full);
     } catch {}
+    const key = urlToKey(relPath) || relPath.replace(/^\//, "");
+    if (key) r2Delete(key).catch(() => {});
   };
   tryDelete(app.ipaPath);
   tryDelete(app.iconPath);
@@ -749,19 +752,18 @@ router.post("/admin/subscriptions/bulk-delete", async (req, res): Promise<void> 
 const bannerUploadDir = path.join(process.cwd(), "uploads", "banners");
 if (!fs.existsSync(bannerUploadDir)) fs.mkdirSync(bannerUploadDir, { recursive: true });
 
-const bannerStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, bannerUploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `banner_${crypto.randomBytes(8).toString("hex")}${ext}`);
-  },
-});
-const bannerUpload = multer({ storage: bannerStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+const bannerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-router.post("/admin/upload-banner", bannerUpload.single("image"), (req, res): void => {
+router.post("/admin/upload-banner", bannerUpload.single("image"), async (req, res): Promise<void> => {
   if (!req.file) { res.status(400).json({ error: "No file" }); return; }
-  const url = `/api/admin/banner-image/${req.file.filename}`;
-  res.json({ url });
+  try {
+    const ext = path.extname(req.file.originalname) || ".jpg";
+    const filename = `banner_${crypto.randomBytes(8).toString("hex")}${ext}`;
+    const url = await r2Upload(`banners/${filename}`, req.file.buffer, req.file.mimetype || "image/jpeg");
+    res.json({ url });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الرفع" });
+  }
 });
 
 router.get("/admin/banner-image/:filename", (req, res): void => {
@@ -1856,6 +1858,7 @@ router.post("/admin/dylib/upload", adminAuth, dylibUpload.single("file"), (req, 
     if (!req.file) { res.status(400).json({ error: "لم يُرسل أي ملف" }); return; }
     fs.copyFileSync(DYLIB_PATH, DYLIB_PERSIST);
     const stat = fs.statSync(DYLIB_PATH);
+    r2Upload("dylibs/antirevoke.dylib", fs.readFileSync(DYLIB_PATH), "application/octet-stream").catch(() => {});
     res.json({ success: true, size: stat.size });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل الرفع" });

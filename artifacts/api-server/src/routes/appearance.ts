@@ -5,29 +5,14 @@ import { adminAuth } from "../middleware/adminAuth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { r2Upload } from "../lib/r2";
 
 const router: IRouter = Router();
 
 const ASSETS_DIR = path.join(process.cwd(), "uploads", "appearance");
 fs.mkdirSync(ASSETS_DIR, { recursive: true });
 
-function makeStorage(subdir: string) {
-  fs.mkdirSync(path.join(ASSETS_DIR, subdir), { recursive: true });
-  return multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, path.join(ASSETS_DIR, subdir)),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || ".bin";
-      cb(null, `file${ext}`);
-    },
-  });
-}
-
-const logoUpload       = multer({ storage: makeStorage("logo"),         limits: { fileSize: 5 * 1024 * 1024 } });
-const faviconUpload    = multer({ storage: makeStorage("favicon"),      limits: { fileSize: 2 * 1024 * 1024 } });
-const ogUpload         = multer({ storage: makeStorage("og"),           limits: { fileSize: 5 * 1024 * 1024 } });
-const fontUpload       = multer({ storage: makeStorage("font"),         limits: { fileSize: 20 * 1024 * 1024 } });
-const aiAvatarLightUp  = multer({ storage: makeStorage("ai-avatar-light"), limits: { fileSize: 5 * 1024 * 1024 } });
-const aiAvatarDarkUp   = multer({ storage: makeStorage("ai-avatar-dark"),  limits: { fileSize: 5 * 1024 * 1024 } });
+const memUpload = (maxMB: number) => multer({ storage: multer.memoryStorage(), limits: { fileSize: maxMB * 1024 * 1024 } });
 
 /* ─── Public: جلب كل إعدادات المظهر ─────────────────────────────────────── */
 router.get("/appearance", async (_req: Request, res: Response): Promise<void> => {
@@ -66,7 +51,7 @@ router.get("/appearance", async (_req: Request, res: Response): Promise<void> =>
   res.json(out);
 });
 
-/* ─── Asset serving ──────────────────────────────────────────────────────── */
+/* ─── Asset serving (legacy local files) ─────────────────────────────────── */
 router.get("/appearance/assets/:type/:filename", (req: Request, res: Response): void => {
   const filePath = path.join(ASSETS_DIR, req.params.type, req.params.filename);
   if (!fs.existsSync(filePath)) { res.status(404).send("Not found"); return; }
@@ -80,52 +65,42 @@ async function saveSettingUrl(key: string, url: string) {
     .onConflictDoUpdate({ target: settingsTable.key, set: { value: url, updatedAt: new Date() } });
 }
 
-/* ─── رفع اللوغو ─────────────────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-logo", adminAuth, logoUpload.single("file"), async (req: Request, res: Response): Promise<void> => {
+/* ─── Helper: رفع ملف لـ R2 ─────────────────────────────────────────────── */
+async function uploadAsset(req: Request, res: Response, r2Prefix: string, settingKey: string): Promise<void> {
   if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/logo/${req.file.filename}`;
-  await saveSettingUrl("appearance_logo_url", url);
-  res.json({ ok: true, url });
-});
+  try {
+    const ext = path.extname(req.file.originalname) || ".bin";
+    const filename = `file${ext}`;
+    const url = await r2Upload(`appearance/${r2Prefix}/${filename}`, req.file.buffer, req.file.mimetype || "application/octet-stream");
+    await saveSettingUrl(settingKey, url);
+    res.json({ ok: true, url });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "فشل الرفع" });
+  }
+}
+
+/* ─── رفع اللوغو ─────────────────────────────────────────────────────────── */
+router.post("/admin/appearance/upload-logo", adminAuth, memUpload(5).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "logo", "appearance_logo_url"));
 
 /* ─── رفع الفافيكون ──────────────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-favicon", adminAuth, faviconUpload.single("file"), async (req: Request, res: Response): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/favicon/${req.file.filename}`;
-  await saveSettingUrl("appearance_favicon_url", url);
-  res.json({ ok: true, url });
-});
+router.post("/admin/appearance/upload-favicon", adminAuth, memUpload(2).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "favicon", "appearance_favicon_url"));
 
 /* ─── رفع صورة OG ────────────────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-og", adminAuth, ogUpload.single("file"), async (req: Request, res: Response): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/og/${req.file.filename}`;
-  await saveSettingUrl("appearance_og_image_url", url);
-  res.json({ ok: true, url });
-});
+router.post("/admin/appearance/upload-og", adminAuth, memUpload(5).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "og", "appearance_og_image_url"));
 
 /* ─── رفع ملف الخط ───────────────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-font", adminAuth, fontUpload.single("file"), async (req: Request, res: Response): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/font/${req.file.filename}`;
-  await saveSettingUrl("appearance_font_file_url", url);
-  res.json({ ok: true, url });
-});
+router.post("/admin/appearance/upload-font", adminAuth, memUpload(20).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "font", "appearance_font_file_url"));
 
 /* ─── رفع صورة AI (وضع نهاري) ────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-ai-avatar-light", adminAuth, aiAvatarLightUp.single("file"), async (req: Request, res: Response): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/ai-avatar-light/${req.file.filename}`;
-  await saveSettingUrl("appearance_ai_avatar_light_url", url);
-  res.json({ ok: true, url });
-});
+router.post("/admin/appearance/upload-ai-avatar-light", adminAuth, memUpload(5).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "ai-avatar-light", "appearance_ai_avatar_light_url"));
 
 /* ─── رفع صورة AI (وضع ليلي) ─────────────────────────────────────────────── */
-router.post("/admin/appearance/upload-ai-avatar-dark", adminAuth, aiAvatarDarkUp.single("file"), async (req: Request, res: Response): Promise<void> => {
-  if (!req.file) { res.status(400).json({ error: "لم يتم رفع ملف" }); return; }
-  const url = `/api/appearance/assets/ai-avatar-dark/${req.file.filename}`;
-  await saveSettingUrl("appearance_ai_avatar_dark_url", url);
-  res.json({ ok: true, url });
-});
+router.post("/admin/appearance/upload-ai-avatar-dark", adminAuth, memUpload(5).single("file"), (req: Request, res: Response) =>
+  uploadAsset(req, res, "ai-avatar-dark", "appearance_ai_avatar_dark_url"));
 
 export default router;

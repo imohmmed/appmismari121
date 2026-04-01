@@ -11,6 +11,7 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { db, appsTable } from "@workspace/db";
 import { adminAuth } from "../middleware/adminAuth";
+import { r2Upload, r2Delete, r2Url, urlToKey } from "../lib/r2";
 
 const execFileAsync = promisify(execFile);
 const router = Router();
@@ -26,16 +27,12 @@ function randomHex(n = 24) {
   return crypto.randomBytes(n).toString("hex");
 }
 
-function buildIpaUrl(req: any, filename: string): string {
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost";
-  return `${proto}://${host}/admin/FilesIPA/IpaApp/${filename}`;
+function buildIpaUrl(_req: any, filename: string): string {
+  return r2Url(`FilesIPA/IpaApp/${filename}`);
 }
 
-function buildIconUrl(req: any, filename: string): string {
-  const proto = req.headers["x-forwarded-proto"] || req.protocol || "http";
-  const host = req.headers["x-forwarded-host"] || req.get("host") || "localhost";
-  return `${proto}://${host}/admin/FilesIPA/Icons/${filename}`;
+function buildIconUrl(_req: any, filename: string): string {
+  return r2Url(`FilesIPA/Icons/${filename}`);
 }
 
 const memUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
@@ -292,8 +289,9 @@ router.post("/admin/ipa/upload-file", adminAuth, memUpload.single("file"), async
     const ipaFilename = `${randomHex(14)}.ipa`;
     const ipaFilePath = path.join(IPA_DIR, ipaFilename);
     fs.writeFileSync(ipaFilePath, buf);
+    r2Upload(`FilesIPA/IpaApp/${ipaFilename}`, buf, "application/octet-stream").catch(() => {});
     const ipaUrl = buildIpaUrl(req, ipaFilename);
-    const ipaRelPath = `/admin/FilesIPA/IpaApp/${ipaFilename}`;
+    const ipaRelPath = `FilesIPA/IpaApp/${ipaFilename}`;
 
     const iconBuf = extractIconFromZip(zip, appFolder, plistIconNames);
     const iconBase64 = iconBuf ? iconToBase64(iconBuf) : null;
@@ -340,8 +338,9 @@ router.post("/admin/ipa/save-from-url", adminAuth, async (req: any, res): Promis
     const ipaFilename = `${randomHex(14)}.ipa`;
     const ipaFilePath = path.join(IPA_DIR, ipaFilename);
     fs.writeFileSync(ipaFilePath, ipaBuf);
+    r2Upload(`FilesIPA/IpaApp/${ipaFilename}`, ipaBuf, "application/octet-stream").catch(() => {});
     const ipaUrl = buildIpaUrl(req, ipaFilename);
-    const ipaRelPath = `/admin/FilesIPA/IpaApp/${ipaFilename}`;
+    const ipaRelPath = `FilesIPA/IpaApp/${ipaFilename}`;
 
     // Try fast range-based extraction first
     let { iconBuf } = await extractIconFromUrl(url, entries, appFolder, plistIconNames);
@@ -466,9 +465,11 @@ router.post("/admin/apps/:id/clone", adminAuth, async (req: any, res): Promise<v
   const newIpaFilename = `clone_${randomHex(12)}.ipa`;
   const newIpaFilePath = path.join(IPA_DIR, newIpaFilename);
   zip.writeZip(newIpaFilePath);
+  const cloneBuf = fs.readFileSync(newIpaFilePath);
+  r2Upload(`FilesIPA/IpaApp/${newIpaFilename}`, cloneBuf, "application/octet-stream").catch(() => {});
 
   const newIpaUrl = buildIpaUrl(req, newIpaFilename);
-  const newIpaRelPath = `/admin/FilesIPA/IpaApp/${newIpaFilename}`;
+  const newIpaRelPath = `FilesIPA/IpaApp/${newIpaFilename}`;
 
   const [newApp] = await db.insert(appsTable).values({
     name: newName,
@@ -531,11 +532,14 @@ router.post("/admin/unsigned-ipa/upload", adminAuth, ipaUpload.single("ipa"), (r
     res.status(400).json({ error: "لم يتم استلام الملف" });
     return;
   }
-  // Also write to data/ for git-persistence
+  // Also write to data/ for persistence
   try {
     fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
     fs.copyFileSync(SERVE_IPA_PATH, DATA_IPA_PATH);
   } catch { /* data/ copy is best-effort */ }
+
+  // Upload to R2
+  r2Upload("ipa/Mismari-Plus-Unsigned.ipa", fs.readFileSync(SERVE_IPA_PATH), "application/octet-stream").catch(() => {});
 
   const stat = fs.statSync(SERVE_IPA_PATH);
   res.json({ success: true, size: stat.size, updatedAt: new Date().toISOString() });
