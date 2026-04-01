@@ -379,22 +379,28 @@ __attribute__((visibility("hidden")))
 static BOOL msm_isJailbreakEnvVar(const char *name) {
     if (!name) return NO;
 
-    MSM_STACK(e1, S_ENV_DYLD);       /* DYLD_INSERT_LIBRARIES */
-    MSM_STACK(e2, S_ENV_XCTEST);     /* _XCAppTest            */
-    MSM_STACK(e3, S_ENV_SUBSTRATE);  /* MobileSubstrate       */
-    MSM_STACK(e4, S_ENV_SUBSTITUTE); /* Substitute            */
-    MSM_STACK(e5, S_ENV_SAFEMODE);   /* _MSSafeMode           */
-    MSM_STACK(e6, S_ENV_LIBHOOKER);  /* LIBHOOKER             */
-    MSM_STACK(e7, S_ENV_INJECTION);  /* INJECTION_BUNDLE      */
+    MSM_STACK(e1, S_ENV_DYLD);         /* DYLD_INSERT_LIBRARIES */
+    MSM_STACK(e2, S_ENV_XCTEST);       /* _XCAppTest            */
+    MSM_STACK(e3, S_ENV_SUBSTRATE);    /* MobileSubstrate       */
+    MSM_STACK(e4, S_ENV_SUBSTITUTE);   /* Substitute            */
+    MSM_STACK(e5, S_ENV_SAFEMODE);     /* _MSSafeMode           */
+    MSM_STACK(e6, S_ENV_LIBHOOKER);    /* LIBHOOKER             */
+    MSM_STACK(e7, S_ENV_INJECTION);    /* INJECTION_BUNDLE      */
+    MSM_STACK(e8, S_ENV_FRIDA);        /* frida                 */
+    MSM_STACK(e9, S_ENV_FRIDA_SERVER); /* FRIDA_SERVER          */
+    MSM_STACK(e10, S_ENV_FRIDA_GADGET);/* FRIDA_GADGET          */
 
     /* مطابقة دقيقة أو جزئية (strstr) للمتغيرات المشبوهة */
-    return (strcasecmp(name, e1) == 0 ||
-            strcasecmp(name, e2) == 0 ||
+    return (strcasecmp(name, e1) == 0  ||
+            strcasecmp(name, e2) == 0  ||
             strstr(name, e3) != NULL   ||  /* أي متغير يحتوي MobileSubstrate */
             strstr(name, e4) != NULL   ||  /* أي متغير يحتوي Substitute */
-            strcasecmp(name, e5) == 0 ||
-            strcasecmp(name, e6) == 0 ||
-            strcasecmp(name, e7) == 0);
+            strcasecmp(name, e5) == 0  ||
+            strcasecmp(name, e6) == 0  ||
+            strcasecmp(name, e7) == 0  ||
+            strstr(name, e8) != NULL   ||  /* أي متغير يحتوي frida (case-sensitive أفضل لـ frida) */
+            strcasecmp(name, e9) == 0  ||  /* FRIDA_SERVER */
+            strcasecmp(name, e10) == 0);
 }
 
 %hookf(char *, getenv, const char *name) {
