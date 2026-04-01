@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Plus, Trash2, Edit2, X, Loader2, Eye, EyeOff, Link2, Image as ImageIcon, Globe, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -149,6 +150,7 @@ function LangField({ label, ar, en, onChangeAr, onChangeEn, placeholder, ltr = f
 }
 
 export default function AdminFeatured() {
+  usePageTitle("البنرات");
   const { toast } = useToast();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(true);

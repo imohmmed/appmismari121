@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { DollarSign, TrendingUp, Users, RefreshCw, Loader2, BarChart3 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -30,6 +31,7 @@ interface RevenueData {
 }
 
 export default function AdminPurchases() {
+  usePageTitle("المدفوعات");
   const [data, setData] = useState<RevenueData | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Save, Loader2, Upload, Trash2, RefreshCw,
   Globe, Palette, Type, Image as ImageIcon, Megaphone,
@@ -164,6 +165,7 @@ function ImageUploader({
    الصفحة الرئيسية
 ════════════════════════════════════════════════════════════════════════════ */
 export default function AdminAppearance() {
+  usePageTitle("المظهر");
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Plus, Trash2, Edit2, X, Loader2, Search, Check, ShoppingBag,
   Image as ImageIcon, Tag, ChevronDown, Eye, EyeOff, Layers, Bold,
@@ -345,6 +346,7 @@ function ImageSlot({ index, src, onUpload, onRemove }: {
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function AdminProducts() {
+  usePageTitle("المنتجات");
   const { toast } = useToast();
   const [tab, setTab] = useState<"products" | "categories">("products");
   const [categories, setCategories] = useState<Category[]>([]);

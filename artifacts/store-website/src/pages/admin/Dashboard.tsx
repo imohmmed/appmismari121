@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Smartphone, Users, Layers, Star, Shield, Package,
   Link2, TrendingUp, Activity, ArrowUpRight, Feather,
@@ -43,6 +44,7 @@ interface TopApp {
 }
 
 export default function AdminDashboard() {
+  usePageTitle("الرئيسية");
   const [stats, setStats] = useState<Stats | null>(null);
   const [groups, setGroups] = useState<GroupSummary | null>(null);
   const [topApps, setTopApps] = useState<TopApp[]>([]);

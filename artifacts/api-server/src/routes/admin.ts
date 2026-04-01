@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable, adminAuditLogsTable } from "@workspace/db";
 import { auditLog } from "../lib/auditLog";
+import { sendSecurityAlert } from "../lib/securityAlert";
 import {
   AdminListAppsQueryParams,
   AdminListAppsResponse,
@@ -1650,6 +1651,7 @@ router.post("/admin/admins", async (req, res): Promise<void> => {
       role: adminsTable.role,
     });
     auditLog(req, "CREATE_ADMIN", "admins", admin.id, { username: admin.username, role: admin.role }).catch(() => {});
+    sendSecurityAlert("CREATE_ADMIN", (req as any).admin?.username || "غير معروف", req.ip || "", `مشرف جديد: ${admin.username} (${admin.role})`).catch(() => {});
     res.json({ success: true, admin });
   } catch (err: any) {
     if (err.code === "23505") {
@@ -1686,6 +1688,11 @@ router.put("/admin/admins/:id", async (req, res): Promise<void> => {
 
   await db.update(adminsTable).set(updates).where(eq(adminsTable.id, id));
   auditLog(req, "UPDATE_ADMIN", "admins", id, { changedFields: Object.keys(updates).filter(k => k !== "passwordHash" && k !== "salt") }).catch(() => {});
+  const changedFields = Object.keys(updates).filter(k => k !== "passwordHash" && k !== "salt");
+  const hasPasswordChange = !!updates.passwordHash;
+  if (hasPasswordChange || changedFields.includes("role")) {
+    sendSecurityAlert("UPDATE_ADMIN", (req as any).admin?.username || "غير معروف", req.ip || "", `مشرف #${id} — الحقول: ${changedFields.join(", ")}${hasPasswordChange ? " + كلمة المرور" : ""}`).catch(() => {});
+  }
   res.json({ success: true });
 });
 
@@ -1700,6 +1707,7 @@ router.delete("/admin/admins/:id", async (req, res): Promise<void> => {
   }
   await db.delete(adminsTable).where(eq(adminsTable.id, id));
   auditLog(req, "DELETE_ADMIN", "admins", id).catch(() => {});
+  sendSecurityAlert("DELETE_ADMIN", (req as any).admin?.username || "غير معروف", req.ip || "", `تم حذف المشرف #${id}`).catch(() => {});
   res.json({ success: true });
 });
 
@@ -1989,6 +1997,7 @@ router.post("/admin/store-dylib/upload", adminAuth, storeDylibUpload.single("fil
     const stat = fs.statSync(STORE_DYLIB_UPLOAD_PATH);
     r2Upload("dylibs/mismari-store.dylib", fs.readFileSync(STORE_DYLIB_UPLOAD_PATH), "application/octet-stream").catch(() => {});
     auditLog(req, "UPLOAD_DYLIB", "dylib", "mismari-store.dylib", { size: stat.size }).catch(() => {});
+    sendSecurityAlert("UPLOAD_DYLIB", (req as any).admin?.username || "غير معروف", req.ip || "", `الحجم: ${(stat.size / 1024).toFixed(1)} KB`).catch(() => {});
     res.json({ success: true, size: stat.size });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل الرفع" });
@@ -2000,6 +2009,7 @@ router.delete("/admin/store-dylib", adminAuth, (_req, res): void => {
     if (fs.existsSync(STORE_DYLIB_UPLOAD_PATH)) fs.unlinkSync(STORE_DYLIB_UPLOAD_PATH);
     if (fs.existsSync(STORE_DYLIB_PERSIST))     fs.unlinkSync(STORE_DYLIB_PERSIST);
     auditLog(req as any, "DELETE_DYLIB", "dylib", "mismari-store.dylib").catch(() => {});
+    sendSecurityAlert("DELETE_DYLIB", (_req as any).admin?.username || "غير معروف", _req.ip || "", "تم حذف ملف mismari-store.dylib").catch(() => {});
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "فشل الحذف" });

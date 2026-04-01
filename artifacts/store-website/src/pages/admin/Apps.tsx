@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useAdminListApps, useAdminCreateApp, useAdminUpdateApp, useAdminDeleteApp, useAdminListCategories, getAdminListAppsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -1129,6 +1130,7 @@ function BulkMovePlanModal({
 }
 
 export default function AdminApps() {
+  usePageTitle("التطبيقات");
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();

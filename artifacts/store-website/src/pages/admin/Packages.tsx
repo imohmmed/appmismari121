@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Plus, X, Trash2, Edit2, Loader2, Star, Check, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,6 +44,7 @@ const blankPlan = {
 };
 
 export default function AdminPackages() {
+  usePageTitle("الباقات");
   const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);

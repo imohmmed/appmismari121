@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Edit2, Shield, ShieldCheck, X, Check, Loader2, KeyRound, UserX } from "lucide-react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -65,6 +66,7 @@ function FieldInput({ ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export default function AdminsList() {
+  usePageTitle("المشرفون");
   const { toast } = useToast();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);

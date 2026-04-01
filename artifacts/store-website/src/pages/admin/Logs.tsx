@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   ScrollText, Trash2, RefreshCw, Search, Filter, Circle, X,
   AlertTriangle, ShieldAlert, Activity, Terminal, Globe, ChevronLeft, ChevronRight,
@@ -250,6 +251,7 @@ const LIMIT = 50;
 
 /* ── الصفحة الرئيسية ────────────────────────────────────────────────────── */
 export default function AdminLogs() {
+  usePageTitle("السجلات");
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"requests" | "audit">("requests");
 

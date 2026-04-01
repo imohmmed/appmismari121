@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Search, Plus, X, Trash2, Edit2, CheckSquare, Square,
   Loader2, AlertCircle, Copy, RefreshCw, Bell, Link2,
@@ -543,6 +544,7 @@ function AiToggleModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => v
 }
 
 export default function AdminSubscribers() {
+  usePageTitle("المشتركون");
   const { toast } = useToast();
   const [subs, setSubs] = useState<Sub[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);

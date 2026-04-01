@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Save, Loader2, RefreshCw, Instagram, Phone,
   Settings as SettingsIcon, Link2,
@@ -379,6 +380,7 @@ function TelegramBotSection() {
 
   const [botToken, setBotToken] = useState("");
   const [channelId, setChannelId] = useState("");
+  const [ownerChatId, setOwnerChatId] = useState("");
   const [autoPost, setAutoPost] = useState(false);
 
   const [checking, setChecking] = useState(false);
@@ -401,6 +403,7 @@ function TelegramBotSection() {
       for (const s of d?.settings || []) map[s.key] = s.value;
       setBotToken(map["telegram_bot_token"] || "");
       setChannelId(map["telegram_channel_id"] || "");
+      setOwnerChatId(map["telegram_owner_chat_id"] || "");
       setAutoPost(map["telegram_auto_post"] === "true");
     } catch { /* ignore */ }
 
@@ -433,6 +436,7 @@ function TelegramBotSection() {
         settings: [
           { key: "telegram_bot_token", value: botToken.trim() },
           { key: "telegram_channel_id", value: channelId.trim() },
+          { key: "telegram_owner_chat_id", value: ownerChatId.trim() },
           { key: "telegram_auto_post", value: autoPost ? "true" : "false" },
         ],
       }),
@@ -549,7 +553,7 @@ function TelegramBotSection() {
 
               {/* معرف القناة */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium" style={{ color: `${TG}bb` }}>Chat ID للقناة</label>
+                <label className="text-xs font-medium" style={{ color: `${TG}bb` }}>Chat ID للقناة <span className="text-white/25">(للنشر التلقائي)</span></label>
                 <input
                   type="text"
                   value={channelId}
@@ -562,6 +566,26 @@ function TelegramBotSection() {
                 <p className="text-[11px] text-white/25">
                   للحصول على Chat ID: أرسل أي رسالة للقناة ← افتح @userinfobot أو @RawDataBot وأعد توجيه الرسالة إليه
                 </p>
+              </div>
+
+              {/* Chat ID المالك — التنبيهات الأمنية */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium flex items-center gap-1.5" style={{ color: "#f87171bb" }}>
+                  <span>🔐</span>
+                  Chat ID المالك <span className="text-white/25">(للتنبيهات الأمنية)</span>
+                </label>
+                <input
+                  type="text"
+                  value={ownerChatId}
+                  onChange={e => setOwnerChatId(e.target.value)}
+                  placeholder="معرفك الشخصي على تيليغرام (أرسل /start لـ @userinfobot)"
+                  dir="ltr"
+                  className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white font-mono focus:outline-none placeholder-white/20 focus:border-white/20"
+                  style={ownerChatId ? { borderColor: "#f8717130" } : {}}
+                />
+                <div className="rounded-lg px-3 py-2 text-[11px] text-white/40 leading-relaxed" style={{ background: "rgba(248,113,113,0.06)" }}>
+                  <strong style={{ color: "#f87171" }}>التنبيهات الأمنية:</strong> سيصلك إشعار فوري عند أي إجراء خطير مثل إضافة/حذف مشرف أو تغيير كلمة المرور أو رفع ملف ديناميكي.
+                </div>
               </div>
 
               {/* النشر التلقائي */}
@@ -835,6 +859,7 @@ function StoreDylibSection() {
 }
 
 export default function AdminSettings() {
+  usePageTitle("الإعدادات");
   const { toast } = useToast();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);

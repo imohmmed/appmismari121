@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Search, RefreshCw, Loader2, Trash2, Clock,
   CheckCircle2, XCircle, X, Smartphone, Tablet,
@@ -382,6 +383,7 @@ function RequestRow({ req, onApprove, onReject, onDelete }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminRequests() {
+  usePageTitle("طلبات الاشتراك");
   const { toast } = useToast();
   const [requests, setRequests] = useState<EnrollReq[]>([]);
   const [loading, setLoading] = useState(true);

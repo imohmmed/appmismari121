@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Plus, Trash2, Edit2, X, Loader2, Layers, Search, Grid, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -74,6 +75,7 @@ function FeatherIconPreview({ name, color, size = 16 }: { name: string; color: s
 }
 
 export default function AdminCategories() {
+  usePageTitle("الأقسام");
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);

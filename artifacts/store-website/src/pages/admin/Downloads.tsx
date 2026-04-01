@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { Download, TrendingUp, Smartphone, RefreshCw, Loader2 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -26,6 +27,7 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 export default function AdminDownloads() {
+  usePageTitle("التحميلات");
   const [apps, setApps] = useState<AppRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalDownloads, setTotalDownloads] = useState(0);

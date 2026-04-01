@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Search, TrendingUp, TrendingDown, Wallet, Users, RefreshCw,
   ChevronRight, ChevronLeft, Filter, ArrowUpCircle, ArrowDownCircle, ShoppingCart
@@ -77,6 +78,7 @@ function StatCard({ label, value, sub, color, Icon }: { label: string; value: st
 }
 
 export default function Balances() {
+  usePageTitle("الأرصدة");
   const { toast } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
   const [txs, setTxs] = useState<Tx[]>([]);

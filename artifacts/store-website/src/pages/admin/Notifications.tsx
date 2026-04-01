@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Send, Bell, Loader2, RefreshCw, Trash2, Users, ChevronDown, Check,
 } from "lucide-react";
@@ -136,6 +137,7 @@ function TargetPicker({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminNotifications() {
+  usePageTitle("الإشعارات");
   const { toast } = useToast();
   const [history, setHistory] = useState<NotifRecord[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Plus, Loader2, RefreshCw, X, Eye, EyeOff,
   Smartphone, Tablet, Monitor, Key,
@@ -1403,6 +1404,7 @@ function GroupCard({ group, onDelete, onEdit, onViewDevices, onRefresh }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminGroups() {
+  usePageTitle("المجموعات");
   const { toast } = useToast();
   const [groups, setGroups] = useState<GroupRecord[]>([]);
   const [loading, setLoading] = useState(true);

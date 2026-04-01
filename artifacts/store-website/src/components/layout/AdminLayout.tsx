@@ -133,7 +133,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const currentPage = navGroups.flatMap(g => g.items).find(i => i.href === location);
+  const ALL_PAGES = [
+    ...navGroups.flatMap(g => g.items),
+    { href: "/admin/settings", label: "الإعدادات", labelEn: "Settings" },
+  ];
+  const currentPage = ALL_PAGES.find(i => i.href === location);
   const breadcrumb = currentPage?.label || "الرئيسية";
 
   return (

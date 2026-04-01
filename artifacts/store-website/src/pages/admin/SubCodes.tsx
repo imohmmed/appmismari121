@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Plus, Search, CheckSquare, Square, Trash2, X,
   Loader2, Copy, RefreshCw, Download, Smartphone, Tablet, Shield,
@@ -56,6 +57,7 @@ function generateCode() {
 }
 
 export default function AdminSubCodes() {
+  usePageTitle("كودات الاشتراك");
   const { toast } = useToast();
   const [subs, setSubs] = useState<Sub[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
