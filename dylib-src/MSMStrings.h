@@ -138,8 +138,8 @@ static inline char *msm_dec(const uint8_t *enc, size_t len) {
 /* "/.file" (Dopamine) */
 #define S_PATH_DOTFILE     0x6D,0x6C,0x24,0x2B,0x2E,0x27
 
-/* ─── IDFV UserDefaults key ─────────────────────────────────────────────────── */
-/* "__msm_idfv__" */
+/* ─── IDFV Keychain account key (Module 5) ──────────────────────────────────── */
+/* "__msm_idfv__" — يُستخدم كـ kSecAttrAccount في Keychain (ليس NSUserDefaults) */
 #define S_IDFV_KEY         0x1D,0x1D,0x2F,0x31,0x2F,0x1D,0x2B,0x26,0x24,0x34,0x1D,0x1D
 
 /* ─── Theos internal names (Module 10) ─────────────────────────────────────── */

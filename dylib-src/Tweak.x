@@ -123,11 +123,13 @@ static BOOL msm_isRevocationHost(NSString *host) {
  * iOS اليمنى: يحتاج Content-Type وContent-Length الصحيحين
  * وإلا يتجاهل الـ response ويتصل بسيرفر Apple الحقيقي
  */
+__attribute__((visibility("hidden")))
 static NSData *msm_fakeOCSPData(void) {
     static const uint8_t kOCSPGood[] = { 0x30, 0x03, 0x0A, 0x01, 0x00 };
     return [NSData dataWithBytes:kOCSPGood length:sizeof(kOCSPGood)];
 }
 
+__attribute__((visibility("hidden")))
 static NSHTTPURLResponse *msm_fakeOCSPResponse(NSURL *url) {
     /* Content-Length يجب أن يتطابق مع حجم الـ data بالضبط */
     NSDictionary *headers = @{
@@ -242,7 +244,9 @@ static NSString *_msm_bundleID = nil;
 }
 
 - (NSDictionary *)infoDictionary {
-    NSMutableDictionary *info = [%orig mutableCopy];
+    NSDictionary *orig = %orig;
+    if (!orig) return orig; /* nil guard — بعض الـ bundles الداخلية ترجع nil */
+    NSMutableDictionary *info = [orig mutableCopy];
     if (_msm_bundleID) {
         info[@"CFBundleIdentifier"] = _msm_bundleID;
     }
@@ -647,13 +651,15 @@ static void msm_cacheSelfIndex(void) {
 
 %hook UIPasteboard
 
-/* المحتوى النصي
- * IMPORTANT: يجب إرجاع @"" وليس nil — بعض التطبيقات لا تفحص nil وتُكرَش
- * مثال: [pasteboardString length] على nil يعطي 0 لكن بعض التطبيقات تستخدم
- *        CFStringGetCharacters مباشرةً على القيمة بدون فحص null مسبقاً
+/*
+ * string  (singular) → @"" وليس nil — يمنع crash في CFStringGetCharacters
+ *   بعض التطبيقات تمرر القيمة مباشرةً لـ CF دون فحص null مسبقاً
+ *
+ * strings (plural)   → @[] — متسق مع numberOfItems=0 وhasStrings=NO
+ *   التطبيقات عادةً تفحص hasStrings أولاً ولا تصل لـ strings إطلاقاً
  */
 - (NSString *)string                        { return @""; }
-- (NSArray<NSString *> *)strings            { return @[@""]; }
+- (NSArray<NSString *> *)strings            { return @[];  }
 
 /* المحتوى المتنوع (items dictionary) */
 - (NSArray<NSDictionary *> *)items          { return @[]; }
@@ -734,8 +740,7 @@ static BOOL msm_isSafeModeActive(void) {
          * يُفعَّل/يُعطَّل من Mismari+ بدون إعادة تثبيت الدايلب
          */
         if (msm_isSafeModeActive()) {
-            NSLog(@"[Mismari] Safe Mode Active — Hooks Disabled for %@",
-                  [[NSBundle mainBundle] bundleIdentifier]);
+            /* لا NSLog هنا — "[Mismari]" في Console يكشف هوية الدايلب للباحثين */
             return;
         }
 
