@@ -20,8 +20,8 @@
  * ║      يُخفي الدايلب من قائمة المكتبات — يتجاوز Hybrid Detection         ║
  * ║  12. Clipboard Guard      — UIPasteboard hooks (Privacy Shield)       ║
  * ║      يمنع TikTok/Facebook من قراءة الحافظة تلقائياً                   ║
- * ║  13. Safe Mode Gesture    — 5× volume in 3s → toggles hooks ON/OFF   ║
- * ║      يُعطِّل الـ Hooks مؤقتاً عند التعارض — أعِد التشغيل للتطبيق     ║
+ * ║  13. Safe Mode            — يدوي عبر Mismari+ (بدون استهلاك بطارية) ║
+ * ║      ملف Documents/.msm_safemode موجود → لا hooks عند التشغيل        ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
  *
  * Memory Safety:
@@ -33,7 +33,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <Security/Security.h>
-#import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 
 #include <sys/types.h>
@@ -648,9 +647,13 @@ static void msm_cacheSelfIndex(void) {
 
 %hook UIPasteboard
 
-/* المحتوى النصي */
-- (NSString *)string                        { return nil; }
-- (NSArray<NSString *> *)strings            { return @[]; }
+/* المحتوى النصي
+ * IMPORTANT: يجب إرجاع @"" وليس nil — بعض التطبيقات لا تفحص nil وتُكرَش
+ * مثال: [pasteboardString length] على nil يعطي 0 لكن بعض التطبيقات تستخدم
+ *        CFStringGetCharacters مباشرةً على القيمة بدون فحص null مسبقاً
+ */
+- (NSString *)string                        { return @""; }
+- (NSArray<NSString *> *)strings            { return @[@""]; }
 
 /* المحتوى المتنوع (items dictionary) */
 - (NSArray<NSDictionary *> *)items          { return @[]; }
@@ -683,145 +686,74 @@ static void msm_cacheSelfIndex(void) {
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* MARK: 13 — SAFE MODE GESTURE                                               */
-/* يُفعِّل/يُعطِّل الـ Hooks بضغط زر الصوت 5 مرات في 3 ثوانٍ               */
+/* MARK: 13 — SAFE MODE (يدوي — بدون استهلاك بطارية)                         */
 /*                                                                             */
-/* التفعيل:                                                                    */
-/*   اضغط زر الصوت (أعلى أو أسفل) 5 مرات متتالية خلال 3 ثوانٍ               */
-/*   → رسالة تأكيد تظهر → أعِد تشغيل التطبيق                                 */
+/* كيفية التفعيل:                                                             */
+/*   من تطبيق Mismari+ — زر "Safe Mode" في إعدادات الحماية                  */
+/*   يُنشئ/يحذف ملف: Documents/.msm_safemode                                 */
+/*   أو من Terminal: touch ~/Documents/.msm_safemode                          */
 /*                                                                             */
-/* الحالة:                                                                     */
-/*   محفوظة في Documents/.msm_safemode                                        */
-/*   إذا كان الملف موجوداً عند التشغيل → كل الـ Hooks مُعطَّلة               */
+/* لماذا يدوي وليس Gesture؟                                                   */
+/*   الـ KVO على outputVolume يعمل باستمرار طوال حياة التطبيق               */
+/*   → يستهلك بطارية + يُعقّد الكود + يحتاج AVFoundation.framework إضافياً  */
+/*   → الملف أبسط وأكثر موثوقية — iOS لا يحذفه إلا مع حذف التطبيق          */
+/*                                                                             */
+/* الحالة عند التشغيل:                                                        */
+/*   ملف موجود → return فوراً من %ctor — لا hooks — التطبيق نظيف تماماً     */
+/*   ملف غير موجود → %init عادي                                               */
 /* ─────────────────────────────────────────────────────────────────────────── */
-
-__attribute__((visibility("hidden")))
-static NSString *msm_safeModeFilePath(void) {
-    MSM_STACK(flagName, S_SAFEMODE_FLAG); /* ".msm_safemode" */
-    NSString *docs = NSSearchPathForDirectoriesInDomains(
-        NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    return [docs stringByAppendingPathComponent:
-            [NSString stringWithUTF8String:flagName]];
-}
 
 __attribute__((visibility("hidden")))
 static BOOL msm_isSafeModeActive(void) {
-    return [[NSFileManager defaultManager] fileExistsAtPath:msm_safeModeFilePath()];
-}
-
-__attribute__((visibility("hidden")))
-static void msm_showSafeModeAlert(BOOL nowActive) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        /* نُنشئ UIWindow مستقلاً لعرض الرسالة فوق كل شيء */
-        UIWindow *win = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-        win.windowLevel    = UIWindowLevelAlert + 200;
-        win.backgroundColor = [UIColor clearColor];
-        UIViewController *vc = [UIViewController new];
-        win.rootViewController = vc;
-        [win makeKeyAndVisible];
-
-        NSString *title = nowActive ? @"🛡 Safe Mode مُفعَّل" : @"✅ Safe Mode مُعطَّل";
-        NSString *msg   = nowActive
-            ? @"الـ Hooks مُعطَّلة — أغلق التطبيق وأعِد فتحه لتطبيق التغيير."
-            : @"الـ Hooks مُفعَّلة — أغلق التطبيق وأعِد فتحه.";
-
-        UIAlertController *alert =
-            [UIAlertController alertControllerWithTitle:title
-                                               message:msg
-                                        preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"حسناً"
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *a) {
-            win.hidden = YES;
-        }]];
-        [vc presentViewController:alert animated:YES completion:nil];
-    });
-}
-
-__attribute__((visibility("hidden")))
-static void msm_toggleSafeMode(void) {
-    NSString *path = msm_safeModeFilePath();
-    NSFileManager *fm = [NSFileManager defaultManager];
-    BOOL willActivate = ![fm fileExistsAtPath:path];
-
-    if (willActivate) {
-        [fm createFileAtPath:path contents:nil attributes:nil];
-    } else {
-        [fm removeItemAtPath:path error:nil];
-    }
-    msm_showSafeModeAlert(willActivate);
-}
-
-/* ── KVO Observer لزر الصوت ─────────────────────────────────────────────── */
-
-@interface MSMVolumeObserver : NSObject
-@property (nonatomic, assign) int    pressCount;
-@property (nonatomic, assign) double firstPressTime;
-@end
-
-@implementation MSMVolumeObserver
-
-- (void)setup {
-    @try {
-        AVAudioSession *session = [AVAudioSession sharedInstance];
-        [session setActive:YES error:nil];
-        /* KVO على outputVolume — يُطلَق عند كل ضغط على زر الصوت */
-        [session addObserver:self
-                  forKeyPath:@"outputVolume"
-                     options:NSKeyValueObservingOptionNew
-                     context:nil];
-    } @catch (NSException *e) { /* إذا فشل KVO نتجاهله بصمت */ }
-}
-
-- (void)observeValueForKeyPath:(NSString *)kp
-                      ofObject:(id)obj
-                        change:(NSDictionary *)chg
-                       context:(void *)ctx {
-    double now = [[NSDate date] timeIntervalSinceReferenceDate];
-
-    if (self.pressCount == 0 || now - self.firstPressTime > 3.0) {
-        self.pressCount    = 1;
-        self.firstPressTime = now;
-    } else {
-        self.pressCount++;
-        if (self.pressCount >= 5) { /* 5 ضغطات خلال 3 ثوانٍ */
-            self.pressCount = 0;
-            msm_toggleSafeMode();
-        }
-    }
-}
-
-@end
-
-static MSMVolumeObserver *s_volObserver = nil;
-
-__attribute__((visibility("hidden")))
-static void msm_setupSafeModeGesture(void) {
-    s_volObserver = [MSMVolumeObserver new];
-    [s_volObserver setup];
+    MSM_STACK(flagName, S_SAFEMODE_FLAG); /* ".msm_safemode" */
+    NSString *docs = NSSearchPathForDirectoriesInDomains(
+        NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *path = [docs stringByAppendingPathComponent:
+                      [NSString stringWithUTF8String:flagName]];
+    return [[NSFileManager defaultManager] fileExistsAtPath:path];
 }
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* MARK: INIT — تفعيل جميع الـ Hooks                                          */
+/* MARK: INIT — تفعيل جميع الـ Hooks (Dynamic Injection)                     */
+/*                                                                             */
+/* %init(_ungrouped) = الحماية الأساسية دائماً (OCSP + SSL + Bundle ID)       */
+/* الـ Hooks الإضافية تُفعَّل بناءً على نوع التطبيق:                          */
+/*   → تطبيق ألعاب [game في الـ Bundle ID]: يحتاج File Path Shadow أكثر      */
+/*   → تطبيق عادي: يحتاج Stealth Mode الكامل                                  */
+/*                                                                             */
+/* ملاحظة: حالياً كل الـ Hooks في _ungrouped — الـ %init الواحد يكفي        */
+/* في المستقبل: يمكن تقسيمها لـ %group GameProtection و %group StealthMode   */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 %ctor {
     @autoreleasepool {
         /*
-         * Module 13 — Safe Mode: تحقق أولاً قبل أي Hook
-         * إذا كان الملف موجوداً → تخطّ جميع الـ Hooks تماماً
+         * STEP 1 — Safe Mode check (لا overhead — fstat() واحدة فقط)
+         * إذا كان الملف موجوداً → لا %init — التطبيق يعمل بدون أي Hook
+         * يُفعَّل/يُعطَّل من Mismari+ بدون إعادة تثبيت الدايلب
          */
         if (msm_isSafeModeActive()) {
-            msm_setupSafeModeGesture(); /* اسمح للمستخدم بإلغاء Safe Mode */
-            return; /* لا %init — لا hooks — التطبيق نظيف تماماً */
+            NSLog(@"[Mismari] Safe Mode Active — Hooks Disabled for %@",
+                  [[NSBundle mainBundle] bundleIdentifier]);
+            return;
         }
 
-        /* تفعيل Modules 2-12 */
+        /*
+         * STEP 2 — Dynamic Injection بناءً على نوع التطبيق
+         *
+         * الأمثل للمستقبل عند تقسيم الـ Hooks لـ Groups:
+         *
+         *   NSString *bid = [[NSBundle mainBundle] bundleIdentifier].lowercaseString;
+         *   %init(_ungrouped);   // الحماية الأساسية: OCSP + SSL + Bundle ID Guard
+         *   if ([bid containsString:@"game"] || [bid containsString:@"arcade"])
+         *       %init(GameProtection);
+         *   else
+         *       %init(StealthMode);
+         *
+         * حالياً: %init واحد يُفعِّل كل الـ Hooks (Modules 2-12)
+         */
         %init;
-
-        /* Module 13 — Gesture listener (يعمل دائماً حتى في الوضع الطبيعي) */
-        msm_setupSafeModeGesture();
 
         /* Module 1 (Anti-Debug) + Module 11 cache يعملان عبر __attribute__((constructor)) */
     }

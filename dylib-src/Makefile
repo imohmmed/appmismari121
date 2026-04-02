@@ -9,7 +9,7 @@ TWEAK_NAME    = MismariProtect
 # substrate_shim.m → يوفر MSHookFunction + MSHookMessageEx عبر fishhook + ObjC runtime
 MismariProtect_FILES      = Tweak.x fishhook.c substrate_shim.m
 
-MismariProtect_FRAMEWORKS = Foundation UIKit Security AVFoundation
+MismariProtect_FRAMEWORKS = Foundation UIKit Security
 
 # ── لا نربط بـ CydiaSubstrate —
 # substrate_shim.m يوفر MSHookFunction و MSHookMessageEx مباشرةً.
