@@ -3,7 +3,7 @@ import { eq, desc, sql, and, ilike, inArray } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable, appPlansTable, subscriptionsTable, notificationsTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, settingsTable, featuredBannersTable, appPlansTable, subscriptionsTable, notificationsTable, dylibEventsTable } from "@workspace/db";
 import {
   ListAppsQueryParams,
   ListAppsResponse,
@@ -354,22 +354,48 @@ router.get("/v2/dylib/settings", async (_req, res): Promise<void> => {
     // ─── Force Update: true = المستخدم مجبور على التحديث (زر "لاحقاً" يُغلق التطبيق) ──
     // غيّر قيمة `force_update` في جدول settings لتفعيل/إلغاء الإجبار
     isForceUpdate:     map.force_update           === "true",
+
+    // ─── Kill-Switch: true = تعطيل جميع الـ Hooks طارئاً (Modules 3-6) ──────────
+    disableHooks:      map.disable_hooks          === "true",
+
+    // ─── Welcome Message: نص رسالة الترحيب الديناميكية (Module 12) ─────────────
+    welcomeMessage:    map.welcome_message        || "",
   };
 
   res.json(msmEncrypt(payload));
 });
 
 // ─── POST /api/v2/telemetry/proxy ───────────────────────────────────────────
-// يستقبل تقارير صامتة من الـ dylib عند اكتشاف VPN شرعي (ليس أداة تجسس)
+// يستقبل تقارير صامتة من الـ dylib عند اكتشاف VPN أو Proxy تجسس
+// type = "vpn" | "spy" | "safe_mode" | "integrity_fail"
 router.post("/v2/telemetry/proxy", async (req, res): Promise<void> => {
-  const type = req.body?.type ?? "unknown";           // "vpn" أو "unknown"
-  const ua   = req.headers["user-agent"] ?? "";
-  const ip   = (req.headers["x-forwarded-for"] as string | undefined)
-                  ?.split(",")[0]?.trim()
-               ?? req.socket.remoteAddress
-               ?? "0.0.0.0";
-  // سجّل فقط — لا إجراء مضاد على VPN العادي
-  console.log(`[telemetry/proxy] type=${type} ip=${ip} ua=${ua.slice(0, 60)}`);
+  const type       = req.body?.type       ?? "unknown";
+  const subType    = req.body?.subType    ?? "";
+  const bundleId   = req.body?.bundleId   ?? "";
+  const appVersion = req.body?.appVersion ?? "";
+  const extra      = req.body?.extra      ?? {};
+  const ua         = req.headers["user-agent"] ?? "";
+  const ip         = (req.headers["x-forwarded-for"] as string | undefined)
+                        ?.split(",")[0]?.trim()
+                     ?? req.socket.remoteAddress
+                     ?? "0.0.0.0";
+
+  console.log(`[telemetry/proxy] type=${type} subType=${subType} ip=${ip} ua=${ua.slice(0, 60)}`);
+
+  try {
+    await db.insert(dylibEventsTable).values({
+      eventType:  type,
+      subType:    String(subType),
+      ip:         String(ip),
+      userAgent:  String(ua).slice(0, 300),
+      bundleId:   String(bundleId),
+      appVersion: String(appVersion),
+      extra:      JSON.stringify(extra),
+    });
+  } catch (err) {
+    console.error("[telemetry/proxy] DB insert error:", err);
+  }
+
   res.status(204).end();
 });
 

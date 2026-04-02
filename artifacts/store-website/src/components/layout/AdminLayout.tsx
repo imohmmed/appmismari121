@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Smartphone, ImageIcon, Users, UsersRound, Layers, Link2,
-  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag, ScrollText, Palette
+  FileText, Package, CreditCard, Bell, BarChart3, Settings, LogOut, ChevronLeft, Menu, X, ShieldCheck, Star, Wallet, ShoppingBag, ScrollText, Palette, ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -40,6 +40,7 @@ const navGroups = [
       { href: "/admin/admins", icon: ShieldCheck, label: "الأدمنية", labelEn: "Admins" },
       { href: "/admin/appearance", icon: Palette, label: "المظهر", labelEn: "Appearance" },
       { href: "/admin/logs", icon: ScrollText, label: "سجل الموقع", labelEn: "Logs" },
+      { href: "/admin/security", icon: ShieldAlert, label: "الحماية", labelEn: "Security" },
     ],
   },
 ];
@@ -136,6 +137,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const ALL_PAGES = [
     ...navGroups.flatMap(g => g.items),
     { href: "/admin/settings", label: "الإعدادات", labelEn: "Settings" },
+    { href: "/admin/security", label: "الحماية", labelEn: "Security" },
   ];
   const currentPage = ALL_PAGES.find(i => i.href === location);
   const breadcrumb = currentPage?.label || "الرئيسية";

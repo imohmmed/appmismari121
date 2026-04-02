@@ -6,7 +6,7 @@ import crypto from "crypto";
 import multer from "multer";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable, adminAuditLogsTable } from "@workspace/db";
+import { db, appsTable, categoriesTable, plansTable, subscriptionsTable, featuredBannersTable, settingsTable, groupsTable, notificationsTable, adminsTable, reviewsTable, balanceTransactionsTable, appPlansTable, adminAuditLogsTable, dylibEventsTable } from "@workspace/db";
 import { auditLog } from "../lib/auditLog";
 import { sendSecurityAlert } from "../lib/securityAlert";
 import {
@@ -2265,6 +2265,69 @@ router.get("/admin/audit-logs", async (req, res): Promise<void> => {
     .offset(offset);
 
   res.json({ logs, total, page, limit });
+});
+
+// ─── GET /admin/security/telemetry ──────────────────────────────────────────
+// جلب إحصائيات وأحداث الأمان من جدول dylib_events
+router.get("/admin/security/telemetry", adminAuth, async (req, res): Promise<void> => {
+  try {
+    const limitParam = Math.min(Number(req.query.limit) || 100, 500);
+    const typeFilter = req.query.type as string | undefined;
+
+    // جلب الأحداث
+    const eventsQuery = db
+      .select()
+      .from(dylibEventsTable)
+      .orderBy(desc(dylibEventsTable.createdAt))
+      .limit(limitParam);
+
+    const events = await eventsQuery;
+
+    // إحصائيات سريعة
+    const statsRows = await db
+      .select({
+        eventType: dylibEventsTable.eventType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(dylibEventsTable)
+      .groupBy(dylibEventsTable.eventType);
+
+    const stats: Record<string, number> = {};
+    for (const r of statsRows) stats[r.eventType] = r.count;
+
+    // آخر 7 أيام
+    const last7Days = await db
+      .select({
+        day: sql<string>`date_trunc('day', created_at)::date::text`,
+        eventType: dylibEventsTable.eventType,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(dylibEventsTable)
+      .where(sql`created_at >= now() - interval '7 days'`)
+      .groupBy(sql`date_trunc('day', created_at)`, dylibEventsTable.eventType)
+      .orderBy(sql`date_trunc('day', created_at)`);
+
+    const filtered = typeFilter
+      ? events.filter(e => e.eventType === typeFilter)
+      : events;
+
+    res.json({ events: filtered, stats, last7Days });
+  } catch (err) {
+    console.error("[security/telemetry]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── DELETE /admin/security/telemetry ───────────────────────────────────────
+// مسح جميع السجلات
+router.delete("/admin/security/telemetry", adminAuth, async (_req, res): Promise<void> => {
+  try {
+    await db.delete(dylibEventsTable);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[security/telemetry delete]", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 export default router;

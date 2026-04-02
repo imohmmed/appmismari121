@@ -33,6 +33,7 @@ import Download from "./pages/Download";
 import AdminProducts from "./pages/admin/Products";
 import AdminLogs from "./pages/admin/Logs";
 import AdminAppearance from "./pages/admin/Appearance";
+import AdminSecurity from "./pages/admin/Security";
 import ProductDetail from "./pages/ProductDetail";
 import { AppearanceProvider } from "./contexts/AppearanceContext";
 
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/admin/products">{() => <AdminRoute component={AdminProducts} />}</Route>
       <Route path="/admin/logs">{() => <AdminRoute component={AdminLogs} />}</Route>
       <Route path="/admin/appearance">{() => <AdminRoute component={AdminAppearance} />}</Route>
+      <Route path="/admin/security">{() => <AdminRoute component={AdminSecurity} />}</Route>
 
       <Route path="/products/:id" component={ProductDetail} />
       <Route path="/d/:slug" component={Download} />
