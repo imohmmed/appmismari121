@@ -1,0 +1,84 @@
+##
+## Mismari Anti-Revoke — Makefile.plain
+## بناء بدون Theos — xcrun clang مباشرة
+##
+## الاستخدام:
+##   make -f Makefile.plain          # debug
+##   make -f Makefile.plain release  # production (بدون symbols)
+##   make -f Makefile.plain verify   # تحقق من الناتج
+##
+
+SDK     := $(shell xcrun --sdk iphoneos --show-sdk-path)
+CC      := xcrun -sdk iphoneos clang
+STRIP   := xcrun strip
+LIPO    := xcrun lipo
+
+DYLIB   := antirevoke.dylib
+SRCS    := AntiRevoke.m fishhook.c
+ARCHS   := -arch arm64 -arch arm64e
+
+CFLAGS := \
+	-isysroot $(SDK) \
+	-miphoneos-version-min=14.0 \
+	-fobjc-arc \
+	-O2 \
+	-fvisibility=hidden \
+	-ffunction-sections \
+	-fdata-sections \
+	-DNDEBUG \
+	-Wno-deprecated-declarations \
+	-Wno-unused-function
+
+LDFLAGS := \
+	-dynamiclib \
+	-install_name @executable_path/antirevoke.dylib \
+	-framework Foundation \
+	-framework UIKit \
+	-framework Security \
+	-lobjc \
+	-Wl,-dead_strip \
+	-Wl,-x \
+	-Wl,-S
+
+# ─── Default target ──────────────────────────────────────────────────────────
+all: $(DYLIB)
+	@echo ""
+	@echo "✅ $(DYLIB) ready"
+	@ls -lh $(DYLIB)
+
+$(DYLIB): $(SRCS) fishhook.h MSMStrings.h
+	$(CC) $(ARCHS) $(CFLAGS) $(LDFLAGS) -o $@ $(SRCS)
+	@python3 patch_weak.py $@
+
+# ─── Release: strip all symbols ──────────────────────────────────────────────
+release: $(SRCS) fishhook.h MSMStrings.h
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════╗"
+	@echo "║   PRODUCTION BUILD — no Theos required              ║"
+	@echo "║   arm64 + arm64e · no symbols · LC_ID patched       ║"
+	@echo "╚══════════════════════════════════════════════════════╝"
+	@echo ""
+	$(CC) $(ARCHS) $(CFLAGS) $(LDFLAGS) -o $(DYLIB) $(SRCS)
+	$(STRIP) -x -S $(DYLIB)
+	@python3 patch_weak.py $(DYLIB)
+	@echo ""
+	@echo "✅ $(DYLIB) ready"
+	@ls -lh $(DYLIB)
+
+# ─── Verify ──────────────────────────────────────────────────────────────────
+verify: $(DYLIB)
+	@echo "--- Architectures ---"
+	@$(LIPO) -info $(DYLIB)
+	@echo "--- LC_ID_DYLIB ---"
+	@otool -l $(DYLIB) | grep -A3 LC_ID_DYLIB
+	@echo "--- Linked libs (no Substrate!) ---"
+	@otool -L $(DYLIB)
+	@echo "--- TLV check (must be empty) ---"
+	@otool -l $(DYLIB) | grep -i thread_vars || echo "OK: no TLV"
+	@echo "--- Constructor section ---"
+	@otool -l $(DYLIB) | grep -A5 "__mod_init_func\|__init_offsets"
+	@echo "--- Strings check ---"
+	@strings $(DYLIB) | grep -E "ocsp\.apple|mismari\.com|DYLD_INSERT" || echo "OK: no plain strings"
+
+clean:
+	rm -f $(DYLIB)

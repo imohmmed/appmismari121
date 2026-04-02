@@ -1,4 +1,4 @@
-# بناء Mismari Protect Dylib v4.1
+# بناء Mismari Protect Dylib v4.2
 
 ## الـ Modules (11 وحدة حماية)
 
@@ -26,7 +26,28 @@
 
 ---
 
-## المتطلبات (على الماك)
+## ⚡ الطريقة الجديدة (v4.2) — بدون Theos
+
+إذا كان Theos ينتج بايناري تالف (constructor pointer garbage)، استخدم هذا:
+
+```bash
+cd dylib-src
+
+# Debug
+make -f Makefile.plain
+
+# Production (بدون symbols — للنشر)
+make -f Makefile.plain release
+
+# التحقق
+make -f Makefile.plain verify
+```
+
+لا يحتاج Theos ولا Logos — `xcrun clang` المثبت مع Xcode يكفي.
+
+---
+
+## الطريقة القديمة (Theos) — إذا كانت تعمل عندك
 
 ```bash
 # تثبيت Theos (مرة واحدة)
