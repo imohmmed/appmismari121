@@ -106,7 +106,7 @@ export default function CategoryDetailScreen() {
         style={[
           styles.backButton,
           {
-            backgroundColor: isArabic ? "#FF0000" : colors.card,
+            backgroundColor: "#FF0000",
             position: "absolute",
             top: (isWeb ? 20 : insets.top) + 10,
             left: btnLeft,
