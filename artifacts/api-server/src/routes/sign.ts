@@ -743,7 +743,13 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-    const dylibPath = getAntiRevokeDylibPath();
+    // ⚠️ DYLIB DISABLED FOR DIRECT APP SIGNING:
+    // The dylib is not injected for direct app installs (no bundle-ID change).
+    // Reason: the dylib's constructor was crashing every app before the hooks
+    // could run, making ALL apps unlaunchable. Direct-signed apps keep their
+    // original bundle ID, so no dylib hook is needed to bypass ID checks.
+    // Re-enable once the dylib build is confirmed stable on device.
+    // const dylibPath = getAntiRevokeDylibPath();
 
     try {
       await signIpa({
@@ -752,7 +758,7 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
         mpBase64: group.mobileprovisionData!,
         inputPath,
         outputPath,
-        dylibPaths: dylibPath ? [dylibPath] : undefined,
+        dylibPaths: undefined,  // dylib temporarily disabled — see comment above
       });
     } finally {
       resolved.cleanup();
