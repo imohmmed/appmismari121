@@ -4,13 +4,13 @@ import AppIconImg from "@/components/AppIconImg";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,8 +18,6 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useApps, getTagColor, type ApiApp } from "@/hooks/useAppData";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import SlidePanel from "@/components/SlidePanel";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function apiAppToDetail(app: ApiApp) {
   return {
@@ -46,6 +44,9 @@ export default function CategoryDetailScreen() {
   const router = useRouter();
   const { colors, t, fontAr, isArabic } = useSettings();
   const isWeb = Platform.OS === "web";
+  const { width: screenWidth } = useWindowDimensions();
+  const btnLeft = isArabic ? screenWidth - 56 : 16;
+  console.log("[CAT] isArabic=", isArabic, "screenWidth=", screenWidth, "btnLeft=", btnLeft);
 
   const { apps, loading } = useApps({ categoryId: Number(id), limit: 100 });
   const [selectedApp, setSelectedApp] = useState<ApiApp | null>(null);
@@ -108,7 +109,7 @@ export default function CategoryDetailScreen() {
             backgroundColor: colors.card,
             position: "absolute",
             top: (isWeb ? 20 : insets.top) + 10,
-            left: isArabic ? SCREEN_WIDTH - 56 : 16,
+            left: btnLeft,
             zIndex: 100,
           },
         ]}
