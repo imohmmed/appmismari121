@@ -17,7 +17,9 @@
 #import <fcntl.h>
 #import <errno.h>
 #import <mach-o/dyld.h>
-#import <sys/ptrace.h>
+// ptrace غير موجود كـ header في iOS SDK — نُعرّفه يدوياً
+#define PT_DENY_ATTACH 31
+extern int ptrace(int, pid_t, caddr_t, int);
 
 #include "fishhook.h"
 #include "MSMStrings.h"
