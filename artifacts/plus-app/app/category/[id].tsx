@@ -101,18 +101,16 @@ export default function CategoryDetailScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: isWeb ? 20 : insets.top }]}>
       {/* Back button */}
       <View style={styles.header}>
-        {isArabic ? (
-          <>
-            <View style={{ flex: 1 }} />
-            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-              <Feather name="chevron-right" size={22} color={colors.text} />
-            </Pressable>
-          </>
-        ) : (
-          <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-            <Feather name="chevron-left" size={22} color={colors.text} />
-          </Pressable>
-        )}
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.backButton,
+            { backgroundColor: colors.card },
+            isArabic ? { position: "absolute", right: 16, zIndex: 10 } : { position: "absolute", left: 16, zIndex: 10 },
+          ]}
+        >
+          <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
+        </Pressable>
       </View>
       {/* Banner */}
       <View style={[styles.catBanner, { backgroundColor: tileColor }]}>
