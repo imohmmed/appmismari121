@@ -142,7 +142,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
       {cat.bannerImage ? (
         <ImageBackground
           source={{ uri: cat.bannerImage }}
-          style={[styles.catBanner, { backgroundColor: tagColor }]}
+          style={[styles.catBanner, { backgroundColor: tagColor, aspectRatio: 16 / 9 }]}
           imageStyle={{ borderRadius: 16 }}
           resizeMode="cover"
         >
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
-  catBannerOverlay: { width: "100%", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20 },
+  catBannerOverlay: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 16 },
   catBannerName: { fontSize: 22, color: "#FFF", textAlign: "center" },
   catBannerCount: { fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 4, textAlign: "center" },
   loadingCenter: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },
