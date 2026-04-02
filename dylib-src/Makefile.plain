@@ -10,7 +10,6 @@
 
 SDK     := $(shell xcrun --sdk iphoneos --show-sdk-path)
 CC      := xcrun -sdk iphoneos clang
-STRIP   := xcrun strip
 LIPO    := xcrun lipo
 
 DYLIB   := antirevoke.dylib
@@ -29,6 +28,11 @@ CFLAGS := \
 	-Wno-deprecated-declarations \
 	-Wno-unused-function
 
+# ملاحظة:
+#   -Wl,-no_fixup_chains  : يُجبر الـ linker على __DATA:__mod_init_func (الصيغة القديمة الآمنة)
+#                           بدلاً من __TEXT:__init_offsets (يتعطل مع strip في SDK الجديد)
+#   -Wl,-S                : يحذف debug info فقط (DWARF) — آمن
+#   لا -Wl,-x ولا strip  : كانا يُصفّران قيم constructor pointers
 LDFLAGS := \
 	-dynamiclib \
 	-install_name @executable_path/antirevoke.dylib \
@@ -37,7 +41,7 @@ LDFLAGS := \
 	-framework Security \
 	-lobjc \
 	-Wl,-dead_strip \
-	-Wl,-x \
+	-Wl,-no_fixup_chains \
 	-Wl,-S
 
 # ─── Default target ──────────────────────────────────────────────────────────
@@ -50,16 +54,15 @@ $(DYLIB): $(SRCS) fishhook.h MSMStrings.h
 	$(CC) $(ARCHS) $(CFLAGS) $(LDFLAGS) -o $@ $(SRCS)
 	@python3 patch_weak.py $@
 
-# ─── Release: strip all symbols ──────────────────────────────────────────────
+# ─── Release: production build ────────────────────────────────────────────────
 release: $(SRCS) fishhook.h MSMStrings.h
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════╗"
 	@echo "║   PRODUCTION BUILD — no Theos required              ║"
-	@echo "║   arm64 + arm64e · no symbols · LC_ID patched       ║"
+	@echo "║   arm64 + arm64e · -no_fixup_chains · LC_ID OK      ║"
 	@echo "╚══════════════════════════════════════════════════════╝"
 	@echo ""
 	$(CC) $(ARCHS) $(CFLAGS) $(LDFLAGS) -o $(DYLIB) $(SRCS)
-	$(STRIP) -x -S $(DYLIB)
 	@python3 patch_weak.py $(DYLIB)
 	@echo ""
 	@echo "✅ $(DYLIB) ready"
@@ -75,7 +78,7 @@ verify: $(DYLIB)
 	@otool -L $(DYLIB)
 	@echo "--- TLV check (must be empty) ---"
 	@otool -l $(DYLIB) | grep -i thread_vars || echo "OK: no TLV"
-	@echo "--- Constructor section ---"
+	@echo "--- Constructor section (must show __mod_init_func) ---"
 	@otool -l $(DYLIB) | grep -A5 "__mod_init_func\|__init_offsets"
 	@echo "--- Strings check ---"
 	@strings $(DYLIB) | grep -E "ocsp\.apple|mismari\.com|DYLD_INSERT" || echo "OK: no plain strings"
