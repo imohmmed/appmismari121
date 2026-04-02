@@ -36,6 +36,7 @@ static void showUpdateAlert(NSString *newVersion, NSString *notes, BOOL isForce)
 // ─── تعريفات دالة Safe Mode ───────────────────────────────────────────────────
 static BOOL gSafeModeEnabled   = NO;
 static BOOL gIntegrityFailed   = NO;
+static BOOL gHooksDisabled     = NO;  // Kill-Switch: مُرسَل من السيرفر عبر disableHooks
 
 // ─── ثوابت Safe Mode ──────────────────────────────────────────────────────────
 static const NSInteger kSafeModeCrashLimit = 3;
@@ -520,6 +521,34 @@ static void checkForUpdate(void) {
         BOOL isForce = [forceVal isKindOfClass:[NSNumber class]] && [forceVal boolValue];
         XSTR_ZERO(forceKey, _LEN_ISFORCEUPDATE);
 
+        // ─── Kill-Switch: disableHooks ────────────────────────────────────────
+        // إذا أرسل الأدمن disableHooks:true → أوقف جميع الـ hooks فوراً
+        // يعمل كـ Safe Mode: جميع الـ hooks تتجاهل التدخل وتُمرِّر للأصلي
+        XSTR(disableKey, _ENC_DISABLE_HOOKS, _LEN_DISABLE_HOOKS);
+        id disableVal = json[[NSString stringWithUTF8String:disableKey]];
+        XSTR_ZERO(disableKey, _LEN_DISABLE_HOOKS);
+        if ([disableVal isKindOfClass:[NSNumber class]] && [disableVal boolValue]) {
+            gSafeModeEnabled = YES; // يُعيد توظيف Safe Mode لتعطيل جميع الـ hooks
+            gHooksDisabled   = YES; // علم إضافي للتوثيق
+        }
+
+        // ─── Dynamic Welcome Message ──────────────────────────────────────────
+        // إذا أرسل الأدمن welcomeMessage → احفظه في UserDefaults
+        // سيُعرَض في أول إطلاق للتطبيق بعد تغيير الإصدار
+        XSTR(welcomeMsgKey, _ENC_WELCOME_MSG_KEY, _LEN_WELCOME_MSG_KEY);
+        NSString *serverMsg = json[[NSString stringWithUTF8String:welcomeMsgKey]];
+        XSTR_ZERO(welcomeMsgKey, _LEN_WELCOME_MSG_KEY);
+        if ([serverMsg isKindOfClass:[NSString class]] && serverMsg.length > 0) {
+            XSTR(dynKey, _ENC_DYN_MSG_KEY, _LEN_DYN_MSG_KEY);
+            NSString *dynKeyStr = [NSString stringWithUTF8String:dynKey];
+            XSTR_ZERO(dynKey, _LEN_DYN_MSG_KEY);
+            NSString *stored = [[NSUserDefaults standardUserDefaults] stringForKey:dynKeyStr];
+            if (![stored isEqualToString:serverMsg]) {
+                [[NSUserDefaults standardUserDefaults] setObject:serverMsg forKey:dynKeyStr];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+            }
+        }
+
         NSDictionary *infoPlist = [[NSBundle mainBundle] infoDictionary];
         NSString *currentBuild  = infoPlist[[NSString stringWithUTF8String:cfVersion]];
         XSTR_ZERO(cfVersion, _LEN_CF_VERSION);
@@ -617,22 +646,50 @@ static MSMProxyType msm_detectProxy(void) {
     return MSMProxyVPN;
 }
 
-// يُرسل تقرير صامت للسيرفر عند اكتشاف VPN شرعي (لا يُعطّل الميزات)
-static void msm_reportVPNSilently(void) {
+// ─── مُرسِل الأحداث الصامت — يُبلِّغ السيرفر بأي حدث أمني ──────────────────
+// يعمل بـ fire-and-forget — لا ينتظر رداً ولا يؤثر على واجهة المستخدم
+// type: "vpn" | "spy" | "safe_mode" | "integrity_fail"
+// subType: وصف إضافي اختياري (مثلاً: "charles", "crash", "frida")
+static void msm_reportEvent(NSString *type, NSString *subType) {
     XSTR(teleUrl, _ENC_TELEMETRY_URL, _LEN_TELEMETRY_URL);
     NSURL *url = [NSURL URLWithString:[NSString stringWithUTF8String:teleUrl]];
     XSTR_ZERO(teleUrl, _LEN_TELEMETRY_URL);
-    if (!url) return;
+    if (!url || !type) return;
+
+    // ─── بناء الـ JSON body ────────────────────────────────────────────────
+    NSMutableDictionary *body = [NSMutableDictionary dictionaryWithCapacity:4];
+    body[@"type"] = type;
+    if (subType.length > 0)    body[@"subType"]    = subType;
+
+    // ─── معلومات التطبيق (bundleId + appVersion) ─────────────────────────
+    NSDictionary *info = [[NSBundle mainBundle] infoDictionary];
+    XSTR(cfv, _ENC_CF_VERSION, _LEN_CF_VERSION);
+    NSString *ver = info[[NSString stringWithUTF8String:cfv]] ?: @"";
+    XSTR_ZERO(cfv, _LEN_CF_VERSION);
+    if (ver.length > 0) body[@"appVersion"] = ver;
+
+    XSTR(bid, _ENC_BUNDLE_ID, _LEN_BUNDLE_ID);
+    NSString *bundle = [NSString stringWithUTF8String:bid];
+    XSTR_ZERO(bid, _LEN_BUNDLE_ID);
+    if (bundle.length > 0) body[@"bundleId"] = bundle;
+
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+    if (!jsonData) return;
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     [req setHTTPMethod:@"POST"];
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setHTTPBody:[NSJSONSerialization dataWithJSONObject:@{@"type": @"vpn"} options:0 error:nil]];
+    [req setHTTPBody:jsonData];
     [req setTimeoutInterval:8.0];
     [[NSURLSession.sharedSession dataTaskWithRequest:req
         completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
             (void)d; (void)r; (void)e; // fire-and-forget
         }] resume];
+}
+
+// يُرسل تقرير صامت للسيرفر عند اكتشاف VPN شرعي (لا يُعطّل الميزات)
+static void msm_reportVPNSilently(void) {
+    msm_reportEvent(@"vpn", @"");
 }
 
 // ─── AES-128-CBC Payload Decrypt ─────────────────────────────────────────────
@@ -786,6 +843,12 @@ static void checkProxyAndBlock(void) {
         XSTR_ZERO(svc, _LEN_KEYCHAIN_SERVICE);
         XSTR_ZERO(acc, _LEN_KEYCHAIN_PROXY_ACC);
 
+        // ─── تبليغ السيرفر صامتاً: تجسس مكتشف ──────────────────────────────
+        // يُرسَل للـ API لتسجيله في لوحة الأدمن → قسم الحماية
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            msm_reportEvent(@"spy", @"charles_proxyman");
+        });
+
     } else if (pt == MSMProxyVPN) {
         // ─── VPN شرعي: Toast للمستخدم + تقرير صامت بعد 12 ثانية ─────────────
         dispatch_after(
@@ -904,6 +967,13 @@ static void evaluateSafeMode(void) {
 
     if (crashCount >= kSafeModeCrashLimit) {
         gSafeModeEnabled = YES;
+
+        // ─── تبليغ السيرفر صامتاً: تُفعَّل Safe Mode بسبب Crash متكرر ───────
+        // يُسجَّل في لوحة الأدمن → قسم الحماية → رادار المراقبة
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            msm_reportEvent(@"safe_mode", @"crash_loop");
+        });
+
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2LL * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             UIWindow *window = [UIApplication sharedApplication].keyWindow;
             if (!window || !window.rootViewController) return;
@@ -964,9 +1034,19 @@ static void showWelcomeIfNeeded(void) {
         }
         if (!window || !window.rootViewController) return;
 
-        NSString *msg = [NSString stringWithFormat:
-            @"أهلاً بك في مسماري بلس ✨\n\nالإصدار %@ جاهز.\nتم تحديث الشهادات بنجاح وكل التطبيقات متاحة لك الآن.\n\nاستمتع! 🚀",
-            currentBuild];
+        // ─── الرسالة الديناميكية من الأدمن أولاً، ثم النص الافتراضي ────────────
+        NSString *msg;
+        XSTR(dynKey2, _ENC_DYN_MSG_KEY, _LEN_DYN_MSG_KEY);
+        NSString *dynKeyStr2 = [NSString stringWithUTF8String:dynKey2];
+        XSTR_ZERO(dynKey2, _LEN_DYN_MSG_KEY);
+        NSString *dynMsg = [[NSUserDefaults standardUserDefaults] stringForKey:dynKeyStr2];
+        if (dynMsg.length > 0) {
+            msg = dynMsg; // ✅ رسالة الأدمن الديناميكية
+        } else {
+            msg = [NSString stringWithFormat:
+                @"أهلاً بك في مسماري بلس ✨\n\nالإصدار %@ جاهز.\nتم تحديث الشهادات بنجاح وكل التطبيقات متاحة لك الآن.\n\nاستمتع! 🚀",
+                currentBuild];
+        }
 
         UIAlertController *alert = [UIAlertController
             alertControllerWithTitle:@"مسماري+ | مرحباً بك"
@@ -997,6 +1077,14 @@ __attribute__((constructor))
 static void MismariStoreDylibInit(void) {
     // ① تحقق النزاهة — أول خطوة قبل أي شيء
     gIntegrityFailed = !checkIntegrity();
+
+    if (gIntegrityFailed) {
+        // ─── تبليغ السيرفر: حقن خارجي أو تعديل مشبوه ──────────────────────
+        // يُسجَّل في لوحة الأدمن → قسم الحماية → رادار المراقبة
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            msm_reportEvent(@"integrity_fail", @"suspicious_injection");
+        });
+    }
 
     // ② تقييم Safe Mode
     evaluateSafeMode();
