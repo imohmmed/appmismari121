@@ -85,6 +85,44 @@ function typeIcon(t: string) {
   return <Radio className="w-3 h-3" />;
 }
 
+// ─── parseDevice: يحلّل الـ User-Agent ويستخرج نوع الجهاز وإصدار iOS ─────────
+// NSURLSession UA مثال: "Mismari+/2.0 CFNetwork/1492.0.1 Darwin/23.2.0"
+// Darwin major → iOS version: 20→14, 21→15, 22→16, 23→17, 24→18, 25→19
+interface DeviceInfo {
+  iosVer: string;   // "iOS 17" أو ""
+  type:   "iphone" | "ipad" | "ios" | "unknown";
+  label:  string;   // "iPhone" | "iPad" | "iOS" | ""
+}
+function parseDevice(ua: string): DeviceInfo {
+  if (!ua) return { iosVer: "", type: "unknown", label: "" };
+  const uaL = ua.toLowerCase();
+
+  // ① Darwin major → iOS major
+  let iosVer = "";
+  const dm = ua.match(/Darwin\/(\d+)/);
+  if (dm) {
+    const darwin = parseInt(dm[1]);
+    const map: Record<number, string> = {
+      20: "14", 21: "15", 22: "16", 23: "17", 24: "18", 25: "19",
+    };
+    if (map[darwin]) iosVer = `iOS ${map[darwin]}`;
+  }
+
+  // ② نوع الجهاز من الـ UA
+  if (uaL.includes("ipad"))   return { iosVer, type: "ipad",    label: "iPad"   };
+  if (uaL.includes("iphone")) return { iosVer, type: "iphone",  label: "iPhone" };
+  if (ua.includes("CFNetwork") || ua.includes("Darwin"))
+                               return { iosVer, type: "ios",     label: "iOS"    };
+  return                              { iosVer, type: "unknown", label: ""       };
+}
+
+// ─── اختصار الـ Bundle ID (app.jet2368.lemon2149 → ···lemon2149) ───────────
+function shortBundle(b: string) {
+  if (!b) return "";
+  const parts = b.split(".");
+  return parts.length > 1 ? `···${parts[parts.length - 1]}` : b;
+}
+
 // ─── StatCard ──────────────────────────────────────────────────────────────
 function StatCard({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) {
   return (
@@ -267,33 +305,75 @@ function MonitoringSection({ telemetry, loading, onRefresh, onClear }: {
               لا توجد أحداث مسجَّلة
             </div>
           ) : (
-            <div className="space-y-1.5 max-h-80 overflow-y-auto">
-              {events.map(ev => (
-                <div
-                  key={ev.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-white/[0.02]"
-                  style={{ background: `${typeColor(ev.eventType)}06`, border: `1px solid ${typeColor(ev.eventType)}15` }}
-                >
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${typeColor(ev.eventType)}20` }}>
-                    <span style={{ color: typeColor(ev.eventType) }}>{typeIcon(ev.eventType)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold" style={{ color: typeColor(ev.eventType) }}>{typeLabel(ev.eventType)}</span>
-                      {ev.subType && <span className="text-[10px] text-white/30">{ev.subType}</span>}
-                      {ev.ip && <span className="text-[10px] font-mono text-white/40" dir="ltr">{ev.ip}</span>}
-                      {ev.appVersion && <span className="text-[10px] text-white/25">v{ev.appVersion}</span>}
+            <div className="space-y-1.5 max-h-80 overflow-y-auto pr-0.5">
+              {events.map(ev => {
+                const dev = parseDevice(ev.userAgent);
+                const clr = typeColor(ev.eventType);
+                return (
+                  <div
+                    key={ev.id}
+                    className="px-3 py-2.5 rounded-xl transition-colors hover:bg-white/[0.02]"
+                    style={{ background: `${clr}06`, border: `1px solid ${clr}15` }}
+                  >
+                    {/* ─── الصف الأول: نوع الحدث + وقت ─────────────────── */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${clr}20` }}>
+                        <span style={{ color: clr }}>{typeIcon(ev.eventType)}</span>
+                      </div>
+                      <span className="text-xs font-bold" style={{ color: clr }}>{typeLabel(ev.eventType)}</span>
+                      {ev.subType && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono" style={{ background: `${clr}10`, color: `${clr}99` }}>
+                          {ev.subType}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <div className="flex items-center gap-1 text-[10px] text-white/25">
+                        <Clock className="w-2.5 h-2.5" />
+                        <span>{relTime(ev.createdAt)}</span>
+                      </div>
                     </div>
-                    {ev.userAgent && (
-                      <p className="text-[10px] text-white/20 truncate mt-0.5">{ev.userAgent}</p>
-                    )}
+
+                    {/* ─── الصف الثاني: الجهاز + IP + Bundle ──────────── */}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap pr-8">
+                      {/* الجهاز + iOS */}
+                      {(dev.label || dev.iosVer) && (
+                        <div className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5"
+                          style={{ background: "rgba(159,188,255,0.08)", color: "#9fbcff99" }}>
+                          <Smartphone className="w-2.5 h-2.5" />
+                          <span>{[dev.label, dev.iosVer].filter(Boolean).join(" · ")}</span>
+                        </div>
+                      )}
+                      {/* الـ IP — يُبرَز في أحمر عند تجسس */}
+                      {ev.ip && (
+                        <div
+                          className="flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-mono"
+                          style={{
+                            background: ev.eventType === "spy" || ev.eventType === "integrity_fail"
+                              ? `${RED}15` : "rgba(255,255,255,0.04)",
+                            color: ev.eventType === "spy" || ev.eventType === "integrity_fail"
+                              ? RED : "rgba(255,255,255,0.35)",
+                          }}
+                          dir="ltr"
+                        >
+                          <Globe className="w-2.5 h-2.5" />
+                          <span>{ev.ip}</span>
+                        </div>
+                      )}
+                      {/* Bundle ID مختصر */}
+                      {ev.bundleId && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.25)" }}>
+                          {shortBundle(ev.bundleId)}
+                        </span>
+                      )}
+                      {/* إصدار التطبيق */}
+                      {ev.appVersion && (
+                        <span className="text-[10px] text-white/20">v{ev.appVersion}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-[10px] text-white/25 shrink-0">
-                    <Clock className="w-3 h-3" />
-                    <span>{relTime(ev.createdAt)}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
