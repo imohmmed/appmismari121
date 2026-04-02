@@ -139,14 +139,32 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
       <View style={[styles.catPageHeader, isArabic && { flexDirection: "row-reverse" }]}>
         <GlassBackButton onPress={onClose} />
       </View>
-      <View style={[styles.catBanner, { backgroundColor: tagColor }]}>
-        <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>
-          {catName}
-        </Text>
-        <Text style={[styles.catBannerCount, { fontFamily: fontAr("Regular") }]}>
-          {appCountText} {isArabic ? "تطبيق" : (Number(appCountText) === 1 ? "app" : "apps")}
-        </Text>
-      </View>
+      {cat.bannerImage ? (
+        <ImageBackground
+          source={{ uri: cat.bannerImage }}
+          style={[styles.catBanner, { backgroundColor: tagColor }]}
+          imageStyle={{ borderRadius: 16 }}
+          resizeMode="cover"
+        >
+          <View style={styles.catBannerOverlay}>
+            <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>
+              {catName}
+            </Text>
+            <Text style={[styles.catBannerCount, { fontFamily: fontAr("Regular") }]}>
+              {appCountText} {isArabic ? "تطبيق" : (Number(appCountText) === 1 ? "app" : "apps")}
+            </Text>
+          </View>
+        </ImageBackground>
+      ) : (
+        <View style={[styles.catBanner, { backgroundColor: tagColor }]}>
+          <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>
+            {catName}
+          </Text>
+          <Text style={[styles.catBannerCount, { fontFamily: fontAr("Regular") }]}>
+            {appCountText} {isArabic ? "تطبيق" : (Number(appCountText) === 1 ? "app" : "apps")}
+          </Text>
+        </View>
+      )}
       {loading ? (
         <View style={styles.loadingCenter}>
           <ActivityIndicator color={tagColor} />
@@ -673,6 +691,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
+  catBannerOverlay: { width: "100%", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20 },
   catBannerName: { fontSize: 22, color: "#FFF", textAlign: "center" },
   catBannerCount: { fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 4, textAlign: "center" },
   loadingCenter: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60 },

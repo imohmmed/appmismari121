@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { Plus, Trash2, Edit2, X, Loader2, Layers, Search, Grid, Check } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Loader2, Layers, Search, Grid, Check, ImageIcon, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.VITE_API_URL || "";
@@ -17,12 +17,27 @@ async function adminFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
+async function uploadImage(file: File): Promise<string> {
+  const token = localStorage.getItem("adminToken") || "";
+  const fd = new FormData();
+  fd.append("image", file);
+  const res = await fetch(`${API}/api/admin/upload-banner`, {
+    method: "POST",
+    headers: { "x-admin-token": token },
+    body: fd,
+  });
+  if (!res.ok) throw new Error("Upload failed");
+  const data = await res.json();
+  return data.url;
+}
+
 interface Category {
   id: number;
   name: string;
   nameAr: string | null;
   icon: string | null;
   appCount: number;
+  bannerImage?: string | null;
 }
 
 const FEATHER_ICONS = [
@@ -53,22 +68,17 @@ const EMOJI_ICONS = [
   "⭐", "🏆", "📚", "🔔", "🌙", "☀️", "🎪", "🧩", "🎲", "🔮",
 ];
 
-const blankForm = { name: "", nameAr: "", icon: "smartphone", iconType: "feather" as "feather" | "emoji" };
+const blankForm = {
+  name: "",
+  nameAr: "",
+  icon: "smartphone",
+  iconType: "feather" as "feather" | "emoji",
+  bannerImage: "" as string,
+};
 
-function renderIcon(icon: string | null, color: string, size = 20) {
-  if (!icon) return <Layers style={{ width: size, height: size, color }} />;
-  if (icon.match(/[\u{1F300}-\u{1FFFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[📱🎮🎵📸💬📁🌐⚡🔧🎯📊🎨🏥🛒📰🎬📺🔐💰🎁⭐🏆📚🔔🌙☀️🎪🧩🎲🔮]/u)) {
-    return <span style={{ fontSize: size }}>{icon}</span>;
-  }
-  return <span className="font-mono text-xs opacity-60" style={{ color, fontSize: 10 }}>{icon}</span>;
-}
-
-function FeatherIconPreview({ name, color, size = 16 }: { name: string; color: string; size?: number }) {
+function FeatherIconPreview({ name, color }: { name: string; color: string }) {
   return (
-    <span
-      className="font-mono opacity-80 select-none"
-      style={{ fontSize: 9, color, lineHeight: 1 }}
-    >
+    <span className="font-mono opacity-80 select-none" style={{ fontSize: 9, color, lineHeight: 1 }}>
       {name.length <= 6 ? name.substring(0, 6) : name.substring(0, 4) + ".."}
     </span>
   );
@@ -86,6 +96,8 @@ export default function AdminCategories() {
   const [iconTab, setIconTab] = useState<"feather" | "emoji">("feather");
   const [iconSearch, setIconSearch] = useState("");
   const [search, setSearch] = useState("");
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchCategories = async () => {
     setLoading(true);
@@ -102,6 +114,7 @@ export default function AdminCategories() {
     setIconSearch("");
     setModal("add");
   };
+
   const openEdit = (cat: Category) => {
     const isEmoji = cat.icon ? EMOJI_ICONS.includes(cat.icon) : false;
     setForm({
@@ -109,6 +122,7 @@ export default function AdminCategories() {
       nameAr: cat.nameAr || "",
       icon: cat.icon || "smartphone",
       iconType: isEmoji ? "emoji" : "feather",
+      bannerImage: cat.bannerImage || "",
     });
     setEditCat(cat);
     setIconTab(isEmoji ? "emoji" : "feather");
@@ -116,20 +130,41 @@ export default function AdminCategories() {
     setModal("edit");
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    try {
+      const url = await uploadImage(file);
+      setForm(f => ({ ...f, bannerImage: url }));
+      toast({ title: "تم رفع الصورة بنجاح" });
+    } catch {
+      toast({ title: "فشل رفع الصورة", variant: "destructive" });
+    }
+    setUploadingImg(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const body = {
+        name: form.name,
+        nameAr: form.nameAr,
+        icon: form.icon,
+        bannerImage: form.bannerImage || null,
+      };
       if (editCat) {
         await adminFetch(`/admin/categories/${editCat.id}`, {
           method: "PUT",
-          body: JSON.stringify({ name: form.name, nameAr: form.nameAr, icon: form.icon }),
+          body: JSON.stringify(body),
         });
         toast({ title: "تم تحديث التصنيف" });
       } else {
         await adminFetch("/admin/categories", {
           method: "POST",
-          body: JSON.stringify({ name: form.name, nameAr: form.nameAr, icon: form.icon }),
+          body: JSON.stringify(body),
         });
         toast({ title: "تمت إضافة التصنيف" });
       }
@@ -149,7 +184,6 @@ export default function AdminCategories() {
   };
 
   const filteredFeather = FEATHER_ICONS.filter(ic => !iconSearch || ic.includes(iconSearch.toLowerCase()));
-  const filteredEmoji = EMOJI_ICONS;
   const totalApps = categories.reduce((s, c) => s + c.appCount, 0);
 
   const filteredCats = search
@@ -176,7 +210,6 @@ export default function AdminCategories() {
           </button>
         </div>
 
-        {/* Search */}
         {categories.length > 4 && (
           <div className="relative max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
@@ -206,44 +239,54 @@ export default function AdminCategories() {
               return (
                 <div
                   key={cat.id}
-                  className="bg-[#111111] rounded-xl border border-white/8 p-5 group relative overflow-hidden hover:border-white/15 transition-all"
+                  className="bg-[#111111] rounded-xl border border-white/8 group relative overflow-hidden hover:border-white/15 transition-all"
                 >
-                  <div className="absolute top-0 left-0 w-1 h-full rounded-r-lg" style={{ background: color }} />
-                  <div className="flex items-start justify-between mb-4">
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: `${color}15` }}
-                    >
-                      {cat.icon && EMOJI_ICONS.includes(cat.icon)
-                        ? <span style={{ fontSize: 22 }}>{cat.icon}</span>
-                        : <Layers className="w-5 h-5" style={{ color }} />
-                      }
+                  {cat.bannerImage ? (
+                    <div className="relative h-20 overflow-hidden">
+                      <img src={cat.bannerImage} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40" />
+                      <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(cat)} className="p-1.5 rounded-lg bg-black/60 text-white/70 hover:text-white transition-colors">
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => handleDelete(cat.id)} className="p-1.5 rounded-lg bg-black/60 text-white/70 hover:text-red-400 transition-colors">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEdit(cat)}
-                        className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(cat.id)}
-                        className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-white font-semibold text-sm truncate">{cat.nameAr || cat.name}</p>
-                  {cat.nameAr && <p className="text-white/35 text-xs truncate mt-0.5">{cat.name}</p>}
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
-                    <div className="flex items-center gap-1">
-                      <Layers className="w-3 h-3" style={{ color: `${color}80` }} />
-                      <span className="text-xs" style={{ color: `${color}80` }}>{cat.appCount} تطبيق</span>
-                    </div>
-                    {cat.icon && !EMOJI_ICONS.includes(cat.icon) && (
-                      <span className="text-[10px] font-mono text-white/25">{cat.icon}</span>
+                  ) : (
+                    <div className="absolute top-0 left-0 w-1 h-full rounded-r-lg" style={{ background: color }} />
+                  )}
+                  <div className="p-4">
+                    {!cat.bannerImage && (
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: `${color}15` }}>
+                          {cat.icon && EMOJI_ICONS.includes(cat.icon)
+                            ? <span style={{ fontSize: 20 }}>{cat.icon}</span>
+                            : <Layers className="w-4 h-4" style={{ color }} />
+                          }
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEdit(cat)} className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(cat.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     )}
+                    <p className="text-white font-semibold text-sm truncate">{cat.nameAr || cat.name}</p>
+                    {cat.nameAr && <p className="text-white/35 text-xs truncate mt-0.5">{cat.name}</p>}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                      <div className="flex items-center gap-1">
+                        <Layers className="w-3 h-3" style={{ color: `${color}80` }} />
+                        <span className="text-xs" style={{ color: `${color}80` }}>{cat.appCount} تطبيق</span>
+                      </div>
+                      {cat.bannerImage && (
+                        <ImageIcon className="w-3 h-3 text-white/20" />
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -257,10 +300,7 @@ export default function AdminCategories() {
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
               <h3 className="text-base font-bold text-white">{editCat ? "تعديل قسم" : "إضافة قسم جديد"}</h3>
-              <button
-                onClick={() => setModal(null)}
-                className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-colors"
-              >
+              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -273,7 +313,7 @@ export default function AdminCategories() {
                   value={form.nameAr}
                   onChange={e => setForm({ ...form, nameAr: e.target.value })}
                   className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/20 focus:outline-none"
-                  placeholder="تطبيقات بلس"
+                  placeholder="تصميم"
                 />
               </div>
               <div>
@@ -283,9 +323,62 @@ export default function AdminCategories() {
                   value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
                   className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-white/20 focus:outline-none"
-                  placeholder="Plus Apps"
+                  placeholder="Design"
                   dir="ltr"
                 />
+              </div>
+
+              {/* Banner Image Upload */}
+              <div>
+                <label className="text-xs font-medium block mb-1.5" style={{ color: `${A}99` }}>
+                  صورة البانر (16:9) — اختياري
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                {form.bannerImage ? (
+                  <div className="relative rounded-xl overflow-hidden border border-white/10" style={{ aspectRatio: "16/9" }}>
+                    <img src={form.bannerImage} alt="banner" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-black/60 hover:bg-black/80 transition-colors"
+                      >
+                        تغيير
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, bannerImage: "" }))}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 bg-black/60 hover:bg-black/80 transition-colors"
+                      >
+                        حذف
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImg}
+                    className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-white/15 hover:border-white/30 transition-all text-white/30 hover:text-white/50"
+                    style={{ aspectRatio: "16/9" }}
+                  >
+                    {uploadingImg ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6" />
+                        <span className="text-xs">ارفع صورة 16:9</span>
+                        <span className="text-[10px] opacity-50">JPG · PNG · WebP</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -309,7 +402,6 @@ export default function AdminCategories() {
                   </div>
                 </div>
 
-                {/* Current icon preview */}
                 <div className="flex items-center gap-3 p-3 bg-black rounded-lg border border-white/8">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${A}15` }}>
                     {form.iconType === "emoji"
@@ -335,7 +427,7 @@ export default function AdminCategories() {
                         dir="ltr"
                       />
                     </div>
-                    <div className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto pr-1">
                       {filteredFeather.map(ic => (
                         <button
                           key={ic}
@@ -370,7 +462,7 @@ export default function AdminCategories() {
                   </>
                 ) : (
                   <div className="grid grid-cols-8 gap-1.5 max-h-44 overflow-y-auto">
-                    {filteredEmoji.map(ic => (
+                    {EMOJI_ICONS.map(ic => (
                       <button
                         key={ic}
                         type="button"
@@ -400,7 +492,7 @@ export default function AdminCategories() {
               <button
                 type="button"
                 onClick={handleSubmit as any}
-                disabled={saving}
+                disabled={saving || uploadingImg}
                 className="px-5 py-2 rounded-lg text-sm font-bold text-black disabled:opacity-50 flex items-center gap-1.5 transition-all"
                 style={{ background: A }}
               >

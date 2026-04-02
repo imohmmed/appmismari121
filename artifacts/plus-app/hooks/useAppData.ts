@@ -11,6 +11,7 @@ export interface ApiCategory {
   nameAr: string | null;
   icon: string | null;
   appCount: number;
+  bannerImage?: string | null;
 }
 
 export interface ApiApp {

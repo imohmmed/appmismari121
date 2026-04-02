@@ -152,6 +152,7 @@ export const ListCategoriesResponse = zod.object({
       nameAr: zod.string().optional(),
       icon: zod.string(),
       appCount: zod.number().optional(),
+      bannerImage: zod.string().nullable().optional(),
     }),
   ),
 });
@@ -315,6 +316,7 @@ export const AdminListCategoriesResponse = zod.object({
       nameAr: zod.string().optional(),
       icon: zod.string(),
       appCount: zod.number().optional(),
+      bannerImage: zod.string().nullable().optional(),
     }),
   ),
 });

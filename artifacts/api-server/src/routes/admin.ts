@@ -607,7 +607,7 @@ router.post("/admin/apps/bulk-category", async (req, res): Promise<void> => {
 
 router.get("/admin/categories", async (_req, res): Promise<void> => {
   const categories = await db
-    .select({ id: categoriesTable.id, name: categoriesTable.name, nameAr: categoriesTable.nameAr, icon: categoriesTable.icon })
+    .select({ id: categoriesTable.id, name: categoriesTable.name, nameAr: categoriesTable.nameAr, icon: categoriesTable.icon, bannerImage: categoriesTable.bannerImage })
     .from(categoriesTable);
 
   const counts = await db
@@ -636,8 +636,8 @@ router.post("/admin/categories", async (req, res): Promise<void> => {
 router.put("/admin/categories/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const { name, nameAr, icon } = req.body;
-  const [cat] = await db.update(categoriesTable).set({ name, nameAr, icon }).where(eq(categoriesTable.id, id)).returning();
+  const { name, nameAr, icon, bannerImage } = req.body;
+  const [cat] = await db.update(categoriesTable).set({ name, nameAr, icon, ...(bannerImage !== undefined && { bannerImage }) }).where(eq(categoriesTable.id, id)).returning();
   if (!cat) { res.status(404).json({ error: "Not found" }); return; }
   res.json(cat);
 });

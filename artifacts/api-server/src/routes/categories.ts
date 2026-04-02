@@ -12,6 +12,7 @@ router.get("/categories", async (_req, res): Promise<void> => {
       name: categoriesTable.name,
       nameAr: categoriesTable.nameAr,
       icon: categoriesTable.icon,
+      bannerImage: categoriesTable.bannerImage,
       appCount: count(appsTable.id),
     })
     .from(categoriesTable)
