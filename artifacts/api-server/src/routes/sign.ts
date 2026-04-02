@@ -422,6 +422,58 @@ function readIpaInfo(ipaPath: string): { name: string; version: string; bundleId
   }
 }
 
+// ─── patchIpaVersion ─────────────────────────────────────────────────────────
+// تُعدّل CFBundleShortVersionString و CFBundleVersion داخل Info.plist في الـ IPA
+// دون الحاجة لإعادة البناء من الـ MacBook.
+// الـ IPA عبارة عن ZIP — نفتحه، نُعدّل الـ plist، نُعيد تغليفه.
+// تُعيد مسار الـ IPA المُعدَّل (temp) + دالة cleanup لمسحه بعد التوقيع.
+async function patchIpaVersion(
+  inputPath: string,
+  newVersion: string,
+): Promise<{ patchedPath: string; cleanup: () => void }> {
+  const noop = () => {};
+  try {
+    const zip = new AdmZip(inputPath);
+    const entries = zip.getEntries();
+    const plistEntry = entries.find(e =>
+      /^Payload\/[^/]+\.app\/Info\.plist$/.test(e.entryName)
+    );
+    if (!plistEntry) return { patchedPath: inputPath, cleanup: noop };
+
+    // فك تشفير الـ plist (يدعم XML و binary)
+    let data: Record<string, any>;
+    try {
+      data = parsePlistBuffer(plistEntry.getData());
+    } catch {
+      return { patchedPath: inputPath, cleanup: noop };
+    }
+
+    // إذا كان الإصدار مطابقاً ما في حاجة لتعديل
+    const existing = data["CFBundleShortVersionString"] || data["CFBundleVersion"] || "";
+    if (existing === newVersion) return { patchedPath: inputPath, cleanup: noop };
+
+    // تحديث حقول الإصدار
+    data["CFBundleShortVersionString"] = newVersion;
+    data["CFBundleVersion"]            = newVersion;
+
+    // بناء XML plist جديد
+    const newPlistXml = plist.build(data as any);
+    zip.updateFile(plistEntry.entryName, Buffer.from(newPlistXml, "utf8"));
+
+    // كتابة الـ IPA المُعدَّل في مسار مؤقت
+    const tmpPath = path.join(path.dirname(inputPath), `_ver_patched_${Date.now()}.ipa`);
+    await fs.promises.writeFile(tmpPath, zip.toBuffer());
+    console.log(`[patchIpaVersion] ${existing} → ${newVersion} (${tmpPath})`);
+    return {
+      patchedPath: tmpPath,
+      cleanup: () => { try { fs.unlinkSync(tmpPath); } catch {} },
+    };
+  } catch (e: any) {
+    console.warn("[patchIpaVersion] skipped:", e.message);
+    return { patchedPath: inputPath, cleanup: noop };
+  }
+}
+
 async function getSubAndGroup(code: string) {
   const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.code, code));
   if (!sub) throw new Error("كود الاشتراك غير موجود");
@@ -711,9 +763,18 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
 
     await ensureDylibLocal();
     const resolved = await resolveIpaForSigning(app.ipaPath);
-    const inputPath = resolved.path;
+    let inputPath = resolved.path;
 
     const appInfo = readIpaInfo(inputPath);
+
+    // ── تحقيق إصدار مخصص: لو الأدمن غيّر الإصدار نُعدِّل Info.plist قبل التوقيع ──
+    let versionPatch: { patchedPath: string; cleanup: () => void } | null = null;
+    const targetVersion = app.version?.trim();
+    if (targetVersion && targetVersion !== appInfo.version) {
+      versionPatch = await patchIpaVersion(inputPath, targetVersion);
+      inputPath = versionPatch.patchedPath;
+    }
+
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
     const dylibPath = getAntiRevokeDylibPath();
@@ -729,11 +790,12 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
       });
     } finally {
       resolved.cleanup();
+      versionPatch?.cleanup();
     }
 
     const meta: TokenMeta = {
       appName: app.name || appInfo.name,
-      appVersion: app.version || appInfo.version,
+      appVersion: targetVersion || appInfo.version,
       bundleId: app.bundleId || appInfo.bundleId,
       ipaPath: outputPath,
       expiresAt: Date.now() + TOKEN_TTL_MS,
@@ -763,7 +825,7 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
       itmsUrl,
       manifestUrl,
       appName: app.name || appInfo.name,
-      appVersion: app.version || appInfo.version,
+      appVersion: targetVersion || appInfo.version,
       bundleId: app.bundleId || appInfo.bundleId,
       expiresAt: new Date(meta.expiresAt).toISOString(),
     });
