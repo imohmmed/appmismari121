@@ -22,7 +22,7 @@ MismariProtect_LDFLAGS = \
 	-flto \
 	-Wl,-S \
 	-Wl,-dead_strip \
-	-Wl,-x \
+	-Wl,-no_fixup_chains \
 	-Wl,-install_name,@executable_path/antirevoke.dylib
 
 STRIP_INSTALLED_PRODUCT = YES

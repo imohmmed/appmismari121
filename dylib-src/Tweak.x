@@ -57,21 +57,9 @@ extern int ptrace(int request, pid_t pid, caddr_t addr, int data);
 /* يمنع lldb / cycript / frida من الاتصال بالتطبيق — يعمل قبل main()         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-__attribute__((constructor)) __attribute__((visibility("hidden")))
-static void msm_antiDebug(void) {
-    /* ptrace(PT_DENY_ATTACH) — يمنع إرفاق debugger جديد */
-    /* آمن تماماً: يُعيد ENOTSUP على أجهزة non-jailbreak بدون أي crash */
+/* ptrace من constructor (قبل main) يسبب crash مبكر على iOS — نُؤجله */
+static void msm_doAntiDebug(void) {
     ptrace(PT_DENY_ATTACH, 0, 0, 0);
-
-    /*
-     * ⚠️  sysctl P_TRACED check محذوف عمداً — لا تُعِده
-     *
-     * السبب: أجهزة Developer Profile (get-task-allow: true) قد تُعلِّم
-     * العملية بـ P_TRACED حتى بدون debugger حقيقي مُرفَق.
-     * النتيجة: exit(0) فوري → التطبيق يُغلق مباشرة عند الفتح.
-     *
-     * ptrace(PT_DENY_ATTACH) وحده كافٍ لمنع الإرفاق اللاحق.
-     */
 }
 
 
@@ -763,6 +751,9 @@ static BOOL msm_isSafeModeActive(void) {
          */
         %init;
 
-        /* Module 1 (Anti-Debug) + Module 11 cache يعملان عبر __attribute__((constructor)) */
+        /* Module 1 — Anti-Debug: مُؤجَّل لما بعد main لتجنب crash مبكر */
+        dispatch_async(dispatch_get_main_queue(), ^{
+            msm_doAntiDebug();
+        });
     }
 }
