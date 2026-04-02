@@ -120,21 +120,11 @@ export function buildCleanEntitlements(mpBase64: string, tmpDir: string, newBund
       if (SAFE_KEYS.has(k)) clean[k] = v;
     }
 
-    // ─── إذا تم تحديد bundle ID جديد، حدّث application-identifier و keychain-access-groups
-    // حتى يتطابق مع bundle ID الجديد وإلا سيرفض iOS التطبيق بسبب AMFI mismatch
-    if (newBundleId && clean["application-identifier"]) {
-      const originalAppId = clean["application-identifier"] as string;
-      // استخرج team ID (الجزء قبل أول نقطة): "BBR3K56R59.com.app" → "BBR3K56R59"
-      const teamId = originalAppId.split(".")[0];
-      const updatedAppId = `${teamId}.${newBundleId}`;
-      clean["application-identifier"] = updatedAppId;
-      console.log(`[signer] application-identifier updated: ${originalAppId} → ${updatedAppId}`);
-
-      // حدّث keychain-access-groups أيضاً لتجنب تعارض keychain
-      if (Array.isArray(clean["keychain-access-groups"])) {
-        clean["keychain-access-groups"] = [`${teamId}.${newBundleId}`];
-      }
-    }
+    // NOTE: application-identifier must NOT be changed — it must exactly match
+    // the provisioning profile's application-identifier or iOS rejects installation
+    // with "integrity could not be verified". The profile only allows one specific
+    // bundle ID (e.g. BBR3K56R59.app.jet2368.lemon2149). Changing it causes 
+    // installation failure even though the actual CFBundleIdentifier differs.
 
     const removed = Object.keys(entitlements).filter(k => !SAFE_KEYS.has(k));
     if (removed.length > 0) {
