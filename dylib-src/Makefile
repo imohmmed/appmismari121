@@ -25,7 +25,7 @@ MismariProtect_LDFLAGS = \
 	-Wl,-no_fixup_chains \
 	-Wl,-install_name,@executable_path/antirevoke.dylib
 
-STRIP_INSTALLED_PRODUCT = YES
+STRIP_INSTALLED_PRODUCT = NO
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
