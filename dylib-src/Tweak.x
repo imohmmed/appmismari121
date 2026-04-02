@@ -59,16 +59,19 @@ extern int ptrace(int request, pid_t pid, caddr_t addr, int data);
 
 __attribute__((constructor)) __attribute__((visibility("hidden")))
 static void msm_antiDebug(void) {
+    /* ptrace(PT_DENY_ATTACH) — يمنع إرفاق debugger جديد */
+    /* آمن تماماً: يُعيد ENOTSUP على أجهزة non-jailbreak بدون أي crash */
     ptrace(PT_DENY_ATTACH, 0, 0, 0);
 
-    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
-    struct kinfo_proc info = {};
-    size_t sz = sizeof(info);
-    if (sysctl(mib, 4, &info, &sz, NULL, 0) == 0) {
-        if (info.kp_proc.p_flag & P_TRACED) {
-            exit(0);
-        }
-    }
+    /*
+     * ⚠️  sysctl P_TRACED check محذوف عمداً — لا تُعِده
+     *
+     * السبب: أجهزة Developer Profile (get-task-allow: true) قد تُعلِّم
+     * العملية بـ P_TRACED حتى بدون debugger حقيقي مُرفَق.
+     * النتيجة: exit(0) فوري → التطبيق يُغلق مباشرة عند الفتح.
+     *
+     * ptrace(PT_DENY_ATTACH) وحده كافٍ لمنع الإرفاق اللاحق.
+     */
 }
 
 
