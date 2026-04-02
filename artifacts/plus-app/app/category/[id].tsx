@@ -105,8 +105,12 @@ export default function CategoryDetailScreen() {
           onPress={() => router.back()}
           style={[
             styles.backButton,
-            { backgroundColor: colors.card },
-            isArabic ? { position: "absolute", right: 16, zIndex: 10 } : { position: "absolute", left: 16, zIndex: 10 },
+            {
+              backgroundColor: colors.card,
+              position: "absolute",
+              top: 10,
+              left: isArabic ? SCREEN_WIDTH - 16 - 40 : 16,
+            },
           ]}
         >
           <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
