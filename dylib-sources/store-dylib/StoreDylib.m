@@ -453,6 +453,24 @@ static NSDictionary *msm_decryptJSONResponse(NSData *responseData) {
     return [inner isKindOfClass:[NSDictionary class]] ? inner : nil;
 }
 
+// ─── مقارنة semantic versioning ("1.2.3" vs "2.0.0") ────────────────────────
+// تُعيد NSOrderedAscending إذا a < b، NSOrderedSame إذا a == b، NSOrderedDescending إذا a > b
+static NSComparisonResult msm_compareVersions(NSString *a, NSString *b) {
+    if (!a || !b) return NSOrderedSame;
+
+    NSArray<NSString *> *partsA = [a componentsSeparatedByString:@"."];
+    NSArray<NSString *> *partsB = [b componentsSeparatedByString:@"."];
+
+    NSUInteger count = MAX(partsA.count, partsB.count);
+    for (NSUInteger i = 0; i < count; i++) {
+        NSInteger numA = (i < partsA.count) ? [partsA[i] integerValue] : 0;
+        NSInteger numB = (i < partsB.count) ? [partsB[i] integerValue] : 0;
+        if (numA < numB) return NSOrderedAscending;
+        if (numA > numB) return NSOrderedDescending;
+    }
+    return NSOrderedSame;
+}
+
 static void checkForUpdate(void) {
     if (gSafeModeEnabled || gIntegrityFailed) return;
 
@@ -507,13 +525,26 @@ static void checkForUpdate(void) {
         XSTR_ZERO(cfVersion, _LEN_CF_VERSION);
         if (!currentBuild) { XSTR_ZERO(notesKey, _LEN_STORE_NOTES); return; }
 
-        if (![remoteVersion isEqualToString:currentBuild]) {
-            NSString *notes = json[[NSString stringWithUTF8String:notesKey]] ?: @"تحسينات وإصلاحات.";
+        // ─── مقارنة Semantic Versioning (لا string equality) ────────────────
+        // مثال: "2.5" == "2.5.0" بدل اعتبارهما مختلفَين
+        NSComparisonResult cmp = msm_compareVersions(currentBuild, remoteVersion);
+
+        if (cmp == NSOrderedSame) {
+            // المستخدم يملك النسخة الأحدث أو نفسها — لا تظهر شيئاً
+            // حتى لو isForceUpdate = true في السيرفر (Global flag لا يؤثر على المحدَّثين)
             XSTR_ZERO(notesKey, _LEN_STORE_NOTES);
-            showUpdateAlert(remoteVersion, notes, isForce);
-        } else {
-            XSTR_ZERO(notesKey, _LEN_STORE_NOTES);
+            return;
         }
+
+        NSString *notes = json[[NSString stringWithUTF8String:notesKey]] ?: @"تحسينات وإصلاحات.";
+        XSTR_ZERO(notesKey, _LEN_STORE_NOTES);
+
+        if (cmp == NSOrderedAscending) {
+            // currentVersion < remoteVersion → يوجد تحديث حقيقي
+            // isForce يُطبَّق فقط على المتخلفين عن الإصدار — ليس على من هو أمامه
+            showUpdateAlert(remoteVersion, notes, isForce);
+        }
+        // cmp == NSOrderedDescending: المستخدم على إصدار أحدث من السيرفر (beta) — لا شيء
     });
     [task resume];
 }
@@ -636,17 +667,35 @@ static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData) {
 // لا تقطع حبل أفكار المستخدم — تختفي بعد 3 ثواني مع fade out
 static void msm_showVPNToast(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        // ─── البحث عن الـ Window ──────────────────────────────────────────────
+        // ─── البحث عن الـ Window الأمامي الحقيقي ─────────────────────────────
+        // React Native يُنشئ UIWindows إضافية (Modal، Keyboard، إلخ).
+        // نختار الـ Window ذو أعلى windowLevel المرئي لضمان ظهور Toast فوق كل شيء.
         UIWindow *window = nil;
+        UIWindowLevel maxLevel = -1.0;
+
         if (@available(iOS 13.0, *)) {
             for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
-                if (scene.activationState == UISceneActivationStateForegroundActive) {
-                    window = scene.windows.lastObject; // lastObject للتأكد فوق كل شيء
-                    break;
+                if (scene.activationState != UISceneActivationStateForegroundActive) continue;
+                for (UIWindow *w in scene.windows) {
+                    if (w.isHidden) continue;
+                    // نختار الـ window الأعلى level، وعند التساوي نُفضّل الـ keyWindow
+                    if (w.windowLevel > maxLevel ||
+                        (w.windowLevel == maxLevel && w.isKeyWindow)) {
+                        maxLevel = w.windowLevel;
+                        window   = w;
+                    }
                 }
             }
         } else {
-            window = [UIApplication sharedApplication].keyWindow;
+            // iOS 12 وأقل
+            for (UIWindow *w in [UIApplication sharedApplication].windows) {
+                if (w.isHidden) continue;
+                if (w.windowLevel > maxLevel ||
+                    (w.windowLevel == maxLevel && w.isKeyWindow)) {
+                    maxLevel = w.windowLevel;
+                    window   = w;
+                }
+            }
         }
         if (!window) return;
 
