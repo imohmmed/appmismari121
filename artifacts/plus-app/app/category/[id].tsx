@@ -57,12 +57,13 @@ export default function CategoryDetailScreen() {
     : [];
 
   const renderAppRow = (app: ApiApp, index: number, list: ApiApp[]) => {
-    const tc = getTagColor(app.tag);
-    const textAlign = isArabic ? ("right" as const) : ("left" as const);
+    const descEn = app.descEn ?? app.descriptionEn ?? app.description ?? null;
+    const descAr = app.descAr ?? app.descriptionAr ?? descEn ?? null;
+    const desc = isArabic ? descAr : descEn;
     return (
       <View key={app.id}>
         <Pressable
-          style={[styles.appRow, !isArabic && { flexDirection: "row" }]}
+          style={styles.appRow}
           onPress={() => setSelectedApp(app)}
         >
           {isArabic ? (
@@ -71,7 +72,8 @@ export default function CategoryDetailScreen() {
                 <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
               </View>
               <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
-                <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                <Text style={[styles.appName, { color: colors.text, textAlign: "right" }]}>{app.name}</Text>
+                {desc ? <Text style={[styles.appDesc, { color: colors.textSecondary, textAlign: "right" }]} numberOfLines={1}>{desc}</Text> : null}
               </View>
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
             </>
@@ -79,7 +81,8 @@ export default function CategoryDetailScreen() {
             <>
               <AppIconImg icon={app.icon} size={52} borderRadius={14} />
               <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
-                <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
+                <Text style={[styles.appName, { color: colors.text, textAlign: "left" }]}>{app.name}</Text>
+                {desc ? <Text style={[styles.appDesc, { color: colors.textSecondary, textAlign: "left" }]} numberOfLines={1}>{desc}</Text> : null}
               </View>
               <View style={[styles.getButton, { backgroundColor: colors.card }]}>
                 <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
@@ -97,10 +100,19 @@ export default function CategoryDetailScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: isWeb ? 20 : insets.top }]}>
       {/* Back button */}
-      <View style={[styles.header, isArabic && { justifyContent: "flex-end" }]}>
-        <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-          <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
-        </Pressable>
+      <View style={styles.header}>
+        {isArabic ? (
+          <>
+            <View style={{ flex: 1 }} />
+            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
+              <Feather name="chevron-right" size={22} color={colors.text} />
+            </Pressable>
+          </>
+        ) : (
+          <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
+            <Feather name="chevron-left" size={22} color={colors.text} />
+          </Pressable>
+        )}
       </View>
       {/* Banner */}
       <View style={[styles.catBanner, { backgroundColor: tileColor }]}>
@@ -126,7 +138,7 @@ export default function CategoryDetailScreen() {
               <View style={styles.emptyState}>
                 <Feather name="inbox" size={48} color={colors.textSecondary} />
                 <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: fontAr("Medium") }]}>
-                  {isArabic ? "لا توجد تطبيقات في هذا التصنيف" : "No apps in this category"}
+                  {isArabic ? "لا توجد تطبيقات" : "No apps available"}
                 </Text>
               </View>
             )}

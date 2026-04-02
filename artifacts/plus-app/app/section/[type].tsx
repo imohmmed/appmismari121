@@ -121,29 +121,34 @@ export default function SectionDetailScreen() {
                     style={[styles.appRow, !isArabic && { flexDirection: "row" }]}
                     onPress={() => setSelectedApp(app)}
                   >
-                    {isArabic ? (
-                      <>
-                        <View style={[styles.getButton, { backgroundColor: colors.background }]}>
-                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
-                        </View>
-                        <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
-                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
-                          {(app.categoryNameAr || app.category) ? <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.categoryNameAr || app.category}</Text> : null}
-                        </View>
-                        <AppIconImg icon={app.icon} size={52} borderRadius={14} />
-                      </>
-                    ) : (
-                      <>
-                        <AppIconImg icon={app.icon} size={52} borderRadius={14} />
-                        <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
-                          <Text style={[styles.appName, { color: colors.text, textAlign }]}>{app.name}</Text>
-                          {app.category ? <Text style={[styles.appCategory, { color: colors.tint, fontFamily: fontAr("Regular"), textAlign }]}>{app.category}</Text> : null}
-                        </View>
-                        <View style={[styles.getButton, { backgroundColor: colors.background }]}>
-                          <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
-                        </View>
-                      </>
-                    )}
+                    {(() => {
+                      const descEn = app.descEn ?? app.descriptionEn ?? app.description ?? null;
+                      const descAr = app.descAr ?? app.descriptionAr ?? descEn ?? null;
+                      const desc = isArabic ? descAr : descEn;
+                      return isArabic ? (
+                        <>
+                          <View style={[styles.getButton, { backgroundColor: colors.background }]}>
+                            <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                          </View>
+                          <View style={[styles.appInfo, { alignItems: "flex-end" }]}>
+                            <Text style={[styles.appName, { color: colors.text, textAlign: "right" }]}>{app.name}</Text>
+                            {desc ? <Text style={[styles.appCategory, { color: colors.textSecondary, textAlign: "right" }]} numberOfLines={1}>{desc}</Text> : null}
+                          </View>
+                          <AppIconImg icon={app.icon} size={52} borderRadius={14} />
+                        </>
+                      ) : (
+                        <>
+                          <AppIconImg icon={app.icon} size={52} borderRadius={14} />
+                          <View style={[styles.appInfo, { alignItems: "flex-start" }]}>
+                            <Text style={[styles.appName, { color: colors.text, textAlign: "left" }]}>{app.name}</Text>
+                            {desc ? <Text style={[styles.appCategory, { color: colors.textSecondary, textAlign: "left" }]} numberOfLines={1}>{desc}</Text> : null}
+                          </View>
+                          <View style={[styles.getButton, { backgroundColor: colors.background }]}>
+                            <Text style={[styles.getButtonText, { color: colors.tint, fontFamily: fontAr("Bold") }]}>{t("download")}</Text>
+                          </View>
+                        </>
+                      );
+                    })()}
                   </Pressable>
                   {index < apps.length - 1 && <View style={[styles.divider, { backgroundColor: colors.separator }]} />}
                 </View>
