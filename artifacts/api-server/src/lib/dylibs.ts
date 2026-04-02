@@ -61,28 +61,67 @@ function fetchR2Etag(url: string): Promise<string | null> {
 
 // ─── Core download ────────────────────────────────────────────────────────────
 
+/** Max dylib size: 50 MB — protects against accidental oversized R2 responses */
+const MAX_DYLIB_BYTES = 50 * 1024 * 1024;
+
 async function downloadDylib(url: string, localPath: string): Promise<string | null> {
   const tmpPath = localPath + ".tmp";
-  return new Promise((resolve, reject) => {
+
+  return new Promise<string | null>((resolve, reject) => {
     const proto = url.startsWith("https") ? https : http;
-    const file = fs.createWriteStream(tmpPath);
+    const file  = fs.createWriteStream(tmpPath);
     let etag: string | null = null;
+    let settled = false;
+
+    /** Call once — prevents reject/resolve from firing more than once */
+    const fail = (e: Error) => {
+      if (settled) return;
+      settled = true;
+      file.destroy();
+      fs.rmSync(tmpPath, { force: true });
+      reject(e);
+    };
 
     proto.get(url, (res) => {
       if (!res.statusCode || res.statusCode !== 200) {
-        file.close();
-        fs.rmSync(tmpPath, { force: true });
-        return reject(new Error(`HTTP ${res.statusCode} from R2 (${url})`));
+        // IMPORTANT: consume the body so the connection returns to the pool
+        res.resume();
+        return fail(new Error(`HTTP ${res.statusCode} from R2 (${url})`));
       }
+
+      // Guard: reject if R2 claims file is larger than allowed limit
+      const contentLength = parseInt(res.headers["content-length"] ?? "0", 10);
+      if (contentLength > MAX_DYLIB_BYTES) {
+        res.resume();
+        return fail(new Error(`R2 Content-Length ${contentLength} exceeds ${MAX_DYLIB_BYTES} byte limit`));
+      }
+
       etag = (res.headers["etag"] || res.headers["last-modified"] || null) as string | null;
+
+      // Guard: count bytes received — reject if stream exceeds limit
+      let received = 0;
+      res.on("data", (chunk: Buffer) => {
+        received += chunk.length;
+        if (received > MAX_DYLIB_BYTES) {
+          fail(new Error(`Download exceeded ${MAX_DYLIB_BYTES} byte limit (received ${received} bytes)`));
+          res.destroy();
+        }
+      });
+
       res.pipe(file);
-      file.on("finish", () => { file.close(); resolve(etag); });
-      file.on("error", (e) => { fs.rmSync(tmpPath, { force: true }); reject(e); });
-      res.on("error", (e) => { fs.rmSync(tmpPath, { force: true }); reject(e); });
-    }).on("error", (e) => { fs.rmSync(tmpPath, { force: true }); reject(e); });
-  }).then((e) => {
+      file.on("finish", () => {
+        if (settled) return;
+        settled = true;
+        file.close(() => resolve(etag));
+      });
+      file.on("error", (e) => fail(e));
+      res.on("error",  (e) => fail(e));
+
+    }).on("error", (e) => fail(e));
+
+  }).then((etag) => {
     fs.renameSync(tmpPath, localPath);
-    return e as string | null;
+    return etag;
   });
 }
 
@@ -138,7 +177,7 @@ export async function ensureDylib(filename: string, localPath: string): Promise<
     dylibLastCheck[filename] = now;
 
     if (fileExists && needsCheck) {
-      // Compare ETag with R2
+      // Compare ETag with R2 — only re-download if ETag changed or unavailable
       const remoteEtag = await fetchR2Etag(url);
       const localEtag  = storedEtag(localPath);
 
@@ -148,15 +187,16 @@ export async function ensureDylib(filename: string, localPath: string): Promise<
       }
 
       if (remoteEtag && localEtag) {
+        // ETag changed — log old vs new before re-download
         console.log(`[dylib] ${filename} — ETag changed → refreshing ♻️`);
         console.log(`[dylib]   local : ${localEtag.slice(0, 16)}`);
         console.log(`[dylib]   remote: ${remoteEtag.slice(0, 16)}`);
-      } else if (!fileExists) {
-        console.log(`[dylib] ${filename} — not cached, downloading…`);
       } else {
+        // One or both ETags unavailable — re-download to be safe
         console.log(`[dylib] ${filename} — ETag unavailable, re-downloading to be safe…`);
       }
     } else if (!fileExists) {
+      // First time — file never downloaded
       console.log(`[dylib] ${filename} — not cached, downloading from R2…`);
     }
 
