@@ -194,7 +194,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
             {apps.length === 0 && (
               <View style={styles.emptyState}>
                 <Feather name="inbox" size={40} color={colors.textSecondary} />
-                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium"), marginTop: 12, fontSize: 15 }]}>لا توجد تطبيقات</Text>
+                <Text style={[{ color: colors.textSecondary, fontFamily: fontAr("Medium"), marginTop: 12, fontSize: 15 }]}>{isArabic ? "لا توجد تطبيقات" : "No apps"}</Text>
               </View>
             )}
           </View>
