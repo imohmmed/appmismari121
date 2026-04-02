@@ -21,12 +21,14 @@
 #import <mach/mach.h>
 #import <CFNetwork/CFNetwork.h>
 #import <CommonCrypto/CommonCryptor.h>
+#import <Security/Security.h>
 
 #include "fishhook.h"
 #include "Obfuscation.h"
 
 // ─── Forward declarations ─────────────────────────────────────────────────────
 static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData);
+static void showUpdateAlert(NSString *newVersion, NSString *notes, BOOL isForce);
 
 // ─── إعداد النصوص عبر XOR — لا يوجد أي نص صريح في الملف ────────────────────
 // جميع الروابط والـ keys مخزّنة كـ bytes مشفّرة، تُفكّ في الـ RAM فقط وقت الحاجة.
@@ -38,6 +40,68 @@ static BOOL gIntegrityFailed   = NO;
 // ─── ثوابت Safe Mode ──────────────────────────────────────────────────────────
 static const NSInteger kSafeModeCrashLimit = 3;
 static const NSTimeInterval kSafeModeResetSec = 8.0;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KEYCHAIN HELPERS — proxy block state (مقاوم لـ Filza / iBackupBot)
+// الـ Keychain لا يُمسح بحذف التطبيق ولا يمكن تعديله بدون Device Passcode
+// ══════════════════════════════════════════════════════════════════════════════
+
+static void msm_keychainWrite(const char *service, const char *account, BOOL value) {
+    NSString *svc = [NSString stringWithUTF8String:service];
+    NSString *acc = [NSString stringWithUTF8String:account];
+    NSData   *val = [NSData dataWithBytes:&value length:sizeof(value)];
+
+    NSDictionary *query = @{
+        (__bridge id)kSecClass:       (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService: svc,
+        (__bridge id)kSecAttrAccount: acc,
+    };
+    NSDictionary *attrs = @{
+        (__bridge id)kSecValueData:         val,
+        (__bridge id)kSecAttrAccessible:
+            (__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    };
+
+    OSStatus st = SecItemUpdate((__bridge CFDictionaryRef)query,
+                                (__bridge CFDictionaryRef)attrs);
+    if (st == errSecItemNotFound) {
+        NSMutableDictionary *add = [query mutableCopy];
+        [add addEntriesFromDictionary:attrs];
+        SecItemAdd((__bridge CFDictionaryRef)add, NULL);
+    }
+}
+
+static BOOL msm_keychainRead(const char *service, const char *account) {
+    NSString *svc = [NSString stringWithUTF8String:service];
+    NSString *acc = [NSString stringWithUTF8String:account];
+
+    NSDictionary *query = @{
+        (__bridge id)kSecClass:            (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService:      svc,
+        (__bridge id)kSecAttrAccount:      acc,
+        (__bridge id)kSecReturnData:       @YES,
+        (__bridge id)kSecMatchLimit:       (__bridge id)kSecMatchLimitOne,
+    };
+    CFDataRef result = NULL;
+    OSStatus  st = SecItemCopyMatching((__bridge CFDictionaryRef)query,
+                                       (CFTypeRef *)&result);
+    if (st != errSecSuccess || !result) return NO;
+    NSData *data = CFBridgingRelease(result);
+    BOOL val = NO;
+    if (data.length == sizeof(BOOL)) [data getBytes:&val length:sizeof(BOOL)];
+    return val;
+}
+
+static void msm_keychainDelete(const char *service, const char *account) {
+    NSString *svc = [NSString stringWithUTF8String:service];
+    NSString *acc = [NSString stringWithUTF8String:account];
+    NSDictionary *query = @{
+        (__bridge id)kSecClass:       (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService: svc,
+        (__bridge id)kSecAttrAccount: acc,
+    };
+    SecItemDelete((__bridge CFDictionaryRef)query);
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LAYER 1 — تشفير النصوص (XOR String Obfuscation)
@@ -93,34 +157,62 @@ static NSURLSessionDataTask *rt_dataTask(NSURL *url, void (^handler)(NSData *, N
 // الدايلب يُعطّل نفسه إذا اكتشف حقن خارجي غير شرعي.
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ─── أسماء مكتبات الحقن المشبوهة (بدون مسارات — تعمل مع أي مسار تثبيت) ────
+static const char * const kSuspiciousLibPatterns[] = {
+    "frida",            // Frida (الأكثر خطراً)
+    "cynject",          // Cydia Substrate injector
+    "substitute",       // Substitute (Procursus)
+    "libhooker",        // libhooker (Odyssey/Taurine)
+    "sideloadly",       // Sideloadly injection helper
+    "altinject",        // AltStore injection
+    "insertor",         // Insertor (ipa patching tool)
+    "flexloader",       // Flex 3 loader
+    "dylibloader",      // Generic dylib loader tools
+};
+static const int kSuspiciousLibCount = 9;
+
+static BOOL msm_hasSuspiciousInjection(void) {
+    uint32_t imgCount = _dyld_image_count();
+    for (uint32_t i = 0; i < imgCount; i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (!name) continue;
+        // تحويل لـ lowercase للمقارنة الآمنة
+        char lower[256];
+        int j = 0;
+        for (; name[j] && j < 255; j++)
+            lower[j] = (char)((name[j] >= 'A' && name[j] <= 'Z') ? name[j]+32 : name[j]);
+        lower[j] = '\0';
+        for (int k = 0; k < kSuspiciousLibCount; k++) {
+            if (strstr(lower, kSuspiciousLibPatterns[k])) return YES;
+        }
+    }
+    return NO;
+}
+
 static BOOL checkIntegrity(void) {
-    // 1. فحص DYLD_INSERT_LIBRARIES — المهاجم يستخدمها لحقن دايلبات إضافية
+    // 1. فحص DYLD_INSERT_LIBRARIES — يغطي أدوات التجسس القديمة (Cydia era)
     const char *dyldInsert = getenv("DYLD_INSERT_LIBRARIES");
     if (dyldInsert && strlen(dyldInsert) > 0) {
-        // موجود → محاولة حقن خارجية
-        // نتحمّل حضوره فقط إذا كان يحتوي على مسارنا فقط
-        // (التوقيع الشرعي يمكن أن يُعيّن DYLD_INSERT_LIBRARIES)
-        XSTR(ourLib, _ENC_STORE_URL, _LEN_STORE_URL); // placeholder للمقارنة
-        // إذا كان المسار لا يتضمّن أي مسار من مسارات النظام، نقبله
-        // أي إضافة خارجية = تحقق فاشل
+        // مسارات /var/ و /tmp/ دائماً مشبوهة
         if (strstr(dyldInsert, "/var/") || strstr(dyldInsert, "/tmp/")) {
-            XSTR_ZERO(ourLib, _LEN_STORE_URL);
-            return NO; // حقن خارجي مريب
+            return NO;
         }
-        XSTR_ZERO(ourLib, _LEN_STORE_URL);
+        // مسار التطبيق نفسه (@executable_path) — تستخدمه Sideloadly/AltStore
+        // نرفضه لأن Mismari+ لا يحقن شيئاً خارج الحزمة الرسمية
+        if (strstr(dyldInsert, "@executable_path") || strstr(dyldInsert, "@loader_path")) {
+            return NO;
+        }
     }
 
-    // 2. فحص وجود Cydia Substrate أو Substitute في الـ Process
+    // 2. فحص المكتبات المحملة في الـ Process (يغطي الأدوات الحديثة)
+    // Sideloadly / AltStore / Frida تحقن بدون DYLD_INSERT_LIBRARIES أحياناً
+    if (msm_hasSuspiciousInjection()) return NO;
+
+    // 3. Cydia Substrate / Substitute موجود — بيئة جيلبريك شرعية، مقبول
     void *substrate = dlopen("/Library/MobileSubstrate/MobileSubstrate.dylib", RTLD_NOLOAD);
-    if (substrate) {
-        // Substrate موجود — نحن في بيئة جيلبريك، نقبل ذلك (هذا متوقع)
-        dlclose(substrate);
-    }
+    if (substrate) dlclose(substrate);
 
-    // 3. فحص رمز CS_OPS للتحقق من أن التطبيق موقَّع
-    // (يمكن توسيعه لاحقاً بـ csops() system call)
-
-    return YES; // النزاهة سليمة
+    return YES;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -256,7 +348,8 @@ static void installBundleIDMask(void) {
 }
 
 // ─── 4. Auto-Update Check (عبر dlsym runtime) ────────────────────────────────
-static void showUpdateAlert(NSString *newVersion, NSString *notes) {
+// isForce = YES → زر "لاحقاً" يُغلق التطبيق فوراً (للإصدارات الحرجة)
+static void showUpdateAlert(NSString *newVersion, NSString *notes, BOOL isForce) {
     dispatch_async(dispatch_get_main_queue(), ^{
         UIWindow *window = nil;
         if (@available(iOS 13.0, *)) {
@@ -271,22 +364,33 @@ static void showUpdateAlert(NSString *newVersion, NSString *notes) {
         }
         if (!window || !window.rootViewController) return;
 
-        // ─── النصوص مُشفَّرة ──────────────────────────────────────────────────
+        // ─── URL مُشفَّر ──────────────────────────────────────────────────────
         XSTR(storeUrl, _ENC_STORE_URL, _LEN_STORE_URL);
+        NSString *urlStr = [NSString stringWithUTF8String:storeUrl];
+        XSTR_ZERO(storeUrl, _LEN_STORE_URL);
 
-        NSString *title   = @"🔔 تحديث جديد لمسماري+";
-        NSString *message = [NSString stringWithFormat:
-            @"الإصدار %@ متاح الآن.\n%@\n\nهل تريد التحديث؟",
-            newVersion, notes ?: @""];
+        // ─── عنوان ورسالة مختلفة لـ Force Update ────────────────────────────
+        NSString *title, *message, *laterTitle;
+        if (isForce) {
+            title      = @"⚠️ تحديث إلزامي";
+            message    = [NSString stringWithFormat:
+                @"الإصدار %@ مطلوب للاستمرار.\n%@\n\nيجب التحديث الآن.",
+                newVersion, notes ?: @""];
+            laterTitle = @"لاحقاً (سيُغلق التطبيق)";
+        } else {
+            title      = @"🔔 تحديث جديد لمسماري+";
+            message    = [NSString stringWithFormat:
+                @"الإصدار %@ متاح الآن.\n%@\n\nهل تريد التحديث؟",
+                newVersion, notes ?: @""];
+            laterTitle = @"لاحقاً";
+        }
 
         UIAlertController *alert = [UIAlertController
             alertControllerWithTitle:title
             message:message
             preferredStyle:UIAlertControllerStyleAlert];
 
-        NSString *urlStr = [NSString stringWithUTF8String:storeUrl];
-        XSTR_ZERO(storeUrl, _LEN_STORE_URL);
-
+        // ─── زر "تحديث الآن" ─────────────────────────────────────────────────
         [alert addAction:[UIAlertAction
             actionWithTitle:@"تحديث الآن"
             style:UIAlertActionStyleDefault
@@ -295,9 +399,20 @@ static void showUpdateAlert(NSString *newVersion, NSString *notes) {
                 if ([[UIApplication sharedApplication] canOpenURL:url]) {
                     [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
                 }
+                if (isForce) exit(0); // Force: إغلاق حتى بعد فتح المتجر
             }]];
 
-        [alert addAction:[UIAlertAction actionWithTitle:@"لاحقاً" style:UIAlertActionStyleCancel handler:nil]];
+        // ─── زر "لاحقاً" ─────────────────────────────────────────────────────
+        UIAlertActionStyle laterStyle = isForce
+            ? UIAlertActionStyleDestructive
+            : UIAlertActionStyleCancel;
+
+        [alert addAction:[UIAlertAction
+            actionWithTitle:laterTitle
+            style:laterStyle
+            handler:^(UIAlertAction *a) {
+                if (isForce) exit(0); // Force Update: إغلاق التطبيق إلزامياً
+            }]];
 
         UIViewController *top = window.rootViewController;
         while (top.presentedViewController) top = top.presentedViewController;
@@ -367,9 +482,10 @@ static void checkForUpdate(void) {
 #endif
 
         // ─── Keys مُشفَّرة ───────────────────────────────────────────────────
-        XSTR(updateKey, _ENC_UPDATE_KEY,  _LEN_UPDATE_KEY);
-        XSTR(notesKey,  _ENC_STORE_NOTES, _LEN_STORE_NOTES);
-        XSTR(cfVersion, _ENC_CF_VERSION,  _LEN_CF_VERSION);
+        XSTR(updateKey,  _ENC_UPDATE_KEY,    _LEN_UPDATE_KEY);
+        XSTR(notesKey,   _ENC_STORE_NOTES,   _LEN_STORE_NOTES);
+        XSTR(cfVersion,  _ENC_CF_VERSION,    _LEN_CF_VERSION);
+        XSTR(forceKey,   _ENC_ISFORCEUPDATE, _LEN_ISFORCEUPDATE);
 
         NSString *remoteVersion = json[[NSString stringWithUTF8String:updateKey]];
         XSTR_ZERO(updateKey, _LEN_UPDATE_KEY);
@@ -377,8 +493,14 @@ static void checkForUpdate(void) {
         if (!remoteVersion || ![remoteVersion isKindOfClass:[NSString class]]) {
             XSTR_ZERO(notesKey,  _LEN_STORE_NOTES);
             XSTR_ZERO(cfVersion, _LEN_CF_VERSION);
+            XSTR_ZERO(forceKey,  _LEN_ISFORCEUPDATE);
             return;
         }
+
+        // ─── استخراج isForceUpdate ───────────────────────────────────────────
+        id forceVal = json[[NSString stringWithUTF8String:forceKey]];
+        BOOL isForce = [forceVal isKindOfClass:[NSNumber class]] && [forceVal boolValue];
+        XSTR_ZERO(forceKey, _LEN_ISFORCEUPDATE);
 
         NSDictionary *infoPlist = [[NSBundle mainBundle] infoDictionary];
         NSString *currentBuild  = infoPlist[[NSString stringWithUTF8String:cfVersion]];
@@ -388,7 +510,7 @@ static void checkForUpdate(void) {
         if (![remoteVersion isEqualToString:currentBuild]) {
             NSString *notes = json[[NSString stringWithUTF8String:notesKey]] ?: @"تحسينات وإصلاحات.";
             XSTR_ZERO(notesKey, _LEN_STORE_NOTES);
-            showUpdateAlert(remoteVersion, notes);
+            showUpdateAlert(remoteVersion, notes, isForce);
         } else {
             XSTR_ZERO(notesKey, _LEN_STORE_NOTES);
         }
@@ -510,24 +632,93 @@ static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData) {
     return result;
 }
 
+// ─── VPN Toast — تنبيه المستخدم برفق عند اكتشاف VPN شرعي ────────────────────
+static void msm_showVPNToast(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIWindow *window = nil;
+        if (@available(iOS 13.0, *)) {
+            for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if (scene.activationState == UISceneActivationStateForegroundActive) {
+                    window = scene.windows.firstObject;
+                    break;
+                }
+            }
+        } else {
+            window = [UIApplication sharedApplication].keyWindow;
+        }
+        if (!window || !window.rootViewController) return;
+
+        UIAlertController *toast = [UIAlertController
+            alertControllerWithTitle:nil
+            message:@"لأداء أفضل، يُفضَّل إغلاق الـ VPN أثناء الاستخدام"
+            preferredStyle:UIAlertControllerStyleAlert];
+
+        [toast addAction:[UIAlertAction
+            actionWithTitle:@"حسناً"
+            style:UIAlertActionStyleCancel
+            handler:nil]];
+
+        UIViewController *top = window.rootViewController;
+        while (top.presentedViewController) top = top.presentedViewController;
+        [top presentViewController:toast animated:YES completion:nil];
+    });
+}
+
 static void checkProxyAndBlock(void) {
+    // ─── تهجير: امسح قيمة NSUserDefaults القديمة لو موجودة ──────────────────
+    // (إزالة آثار الإصدار القديم)
+    XSTR(oldKey, _ENC_PROXY_KEY, _LEN_PROXY_KEY);
+    NSString *oldKeyStr = [NSString stringWithUTF8String:oldKey];
+    XSTR_ZERO(oldKey, _LEN_PROXY_KEY);
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:oldKeyStr]) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:oldKeyStr];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+
     MSMProxyType pt = msm_detectProxy();
 
     if (pt == MSMProxySpy) {
         gProxyBlocked = YES;
-        XSTR(pk, _ENC_PROXY_KEY, _LEN_PROXY_KEY);
-        NSString *pkStr = [NSString stringWithUTF8String:pk];
-        XSTR_ZERO(pk, _LEN_PROXY_KEY);
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:pkStr];
-        [[NSUserDefaults standardUserDefaults] synchronize];
+        // ─── تخزين في Keychain (مقاوم لـ Filza / iBackupBot) ────────────────
+        XSTR(svc, _ENC_KEYCHAIN_SERVICE,   _LEN_KEYCHAIN_SERVICE);
+        XSTR(acc, _ENC_KEYCHAIN_PROXY_ACC, _LEN_KEYCHAIN_PROXY_ACC);
+        msm_keychainWrite(svc, acc, YES);
+        XSTR_ZERO(svc, _LEN_KEYCHAIN_SERVICE);
+        XSTR_ZERO(acc, _LEN_KEYCHAIN_PROXY_ACC);
+
     } else if (pt == MSMProxyVPN) {
-        // VPN عادي — نُبلّغ بشكل صامت بعد 12 ثانية
-        // (لا نرسل فوراً عند التشغيل حتى لا نؤثر على سرعة تحميل واجهة المتجر)
+        // ─── VPN شرعي: Toast للمستخدم + تقرير صامت بعد 12 ثانية ─────────────
+        dispatch_after(
+            dispatch_time(DISPATCH_TIME_NOW, 3LL * NSEC_PER_SEC),
+            dispatch_get_main_queue(),
+            ^{ msm_showVPNToast(); }
+        );
         dispatch_after(
             dispatch_time(DISPATCH_TIME_NOW, 12LL * NSEC_PER_SEC),
             dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0),
             ^{ msm_reportVPNSilently(); }
         );
+
+    } else {
+        // ─── لا proxy — امسح أي block قديم من الـ Keychain ──────────────────
+        XSTR(svc, _ENC_KEYCHAIN_SERVICE,   _LEN_KEYCHAIN_SERVICE);
+        XSTR(acc, _ENC_KEYCHAIN_PROXY_ACC, _LEN_KEYCHAIN_PROXY_ACC);
+        // فقط إذا كان محفوظاً من جلسة سابقة مع Charles — نمسحه (المستخدم أغلق Charles)
+        if (msm_keychainRead(svc, acc)) {
+            msm_keychainDelete(svc, acc);
+            gProxyBlocked = NO; // أُزيل الـ Charles → السماح بالشبكة مجدداً
+        }
+        XSTR_ZERO(svc, _LEN_KEYCHAIN_SERVICE);
+        XSTR_ZERO(acc, _LEN_KEYCHAIN_PROXY_ACC);
+    }
+
+    // ─── قراءة الـ block المحفوظ من Keychain (من جلسات سابقة) ─────────────
+    if (!gProxyBlocked) {
+        XSTR(svc, _ENC_KEYCHAIN_SERVICE,   _LEN_KEYCHAIN_SERVICE);
+        XSTR(acc, _ENC_KEYCHAIN_PROXY_ACC, _LEN_KEYCHAIN_PROXY_ACC);
+        gProxyBlocked = msm_keychainRead(svc, acc);
+        XSTR_ZERO(svc, _LEN_KEYCHAIN_SERVICE);
+        XSTR_ZERO(acc, _LEN_KEYCHAIN_PROXY_ACC);
     }
 }
 
@@ -720,9 +911,19 @@ static void MismariStoreDylibInit(void) {
     installNSFileManagerProtection();
     installBundleIDMask();
 
-    // ④ ميزات UI — بعد تحميل الـ App
-    dispatch_async(dispatch_get_main_queue(), ^{
-        showWelcomeIfNeeded();
-        installAutoUpdateChecker();
-    });
+    // ④ ميزات UI — مع تأخير 0.5 ثانية لضمان استقرار React Native
+    // dispatch_async وحدها لا تكفي: الـ Main Queue قد تكون مشغولة
+    // بتحميل JS Bundle من React Native عند انطلاق التطبيق.
+    // 0.5 ثانية تضمن:
+    //   a) اكتمال تهيئة UIWindow و rootViewController
+    //   b) عدم ظهور Alert فوق شاشة البداية (splash screen)
+    //   c) عدم تعارض checkForUpdate مع handshake SSL الأولي للتطبيق
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+        dispatch_get_main_queue(),
+        ^{
+            showWelcomeIfNeeded();
+            installAutoUpdateChecker();
+        }
+    );
 }

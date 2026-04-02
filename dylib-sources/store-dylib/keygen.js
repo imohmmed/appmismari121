@@ -11,16 +11,19 @@ console.log(`\nXOR Key: 0x${KEY.toString(16).toUpperCase().padStart(2,"0")}\n`);
 
 // ─── النصوص الحساسة ────────────────────────────────────────────────────────
 const strings = {
-  UPDATE_URL:  "https://app.mismari.com/api/settings",
-  STORE_URL:   "https://app.mismari.com",
-  UPDATE_KEY:  "storeVersion",
-  VERSION_KEY: "MSStoreDylibVersion",
-  CRASH_KEY:   "MSStoreCrashCount",
-  LASTRUN_KEY: "MSStoreLastRunSuccess",
-  WELCOME_KEY: "MSStoreWelcomedVersion",
-  BUNDLE_ID:   "com.mismari.app",
-  STORE_NOTES: "storeNotes",
-  CF_VERSION:  "CFBundleShortVersionString",
+  UPDATE_URL:          "https://app.mismari.com/api/settings",
+  STORE_URL:           "https://app.mismari.com",
+  UPDATE_KEY:          "storeVersion",
+  VERSION_KEY:         "MSStoreDylibVersion",
+  CRASH_KEY:           "MSStoreCrashCount",
+  LASTRUN_KEY:         "MSStoreLastRunSuccess",
+  WELCOME_KEY:         "MSStoreWelcomedVersion",
+  BUNDLE_ID:           "com.mismari.app",
+  STORE_NOTES:         "storeNotes",
+  CF_VERSION:          "CFBundleShortVersionString",
+  ISFORCEUPDATE:       "isForceUpdate",
+  KEYCHAIN_SERVICE:    "com.mismari.keystore",
+  KEYCHAIN_PROXY_ACC:  "proxy_block",
 };
 
 // ─── مسارات الجيلبريك ──────────────────────────────────────────────────────

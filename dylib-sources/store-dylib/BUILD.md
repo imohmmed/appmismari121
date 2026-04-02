@@ -1,16 +1,24 @@
 # بناء Mismari Store Dylib (Theos)
 
-## المميزات (6 وحدات حماية)
+## المميزات (6 وحدات حماية + ميزتان إضافيتان)
 
 | # | الاسم | الوظيفة |
 |---|---|---|
 | 1 | JB Bypass (fishhook) | يخفي مسارات Cydia/Substrate — hooks على stat/lstat/access/open |
 | 2 | NSFileManager Protection | fileExistsAtPath يُخفي مسارات JB عن الـ Objective-C layer |
 | 3 | Bundle ID Masking | يثبّت Bundle ID الأصلي حتى بعد إعادة التوقيع |
-| 4 | Auto-Update Checker | يفحص التحديثات كل 30 دقيقة ويعرض Alert للمستخدم |
+| 4 | Auto-Update Checker | يفحص التحديثات كل 30 دقيقة — يدعم Force Update (isForceUpdate) |
+| 4b | Smart Anti-Proxy | Charles/mitmproxy → Block في Keychain ، VPN → Toast + تقرير صامت |
 | 5 | Safe Mode | بعد 3 crashes في 8 ثواني → تعطيل تلقائي للـ hooks |
-| 6 | Integrity Check | يكتشف الحقن الخارجي عبر DYLD_INSERT_LIBRARIES |
+| 6 | Integrity Check | DYLD_INSERT_LIBRARIES + @executable_path + فحص 9 مكتبات حقن |
 | + | Welcome Alert | رسالة ترحيب عند أول تشغيل لكل إصدار جديد |
+
+### تفاصيل التحديثات (v2):
+- **Keychain بدل NSUserDefaults**: حالة Block لـ Charles تُخزَّن في Keychain — لا يمكن حذفها بـ Filza
+- **Force Update**: حقل `isForceUpdate` في JSON — زر "لاحقاً" يُغلق التطبيق (`exit(0)`)
+- **VPN Toast**: Alert صغير "لأداء أفضل، أغلق الـ VPN" عند VPN شرعي
+- **Integrity Check المُحسَّن**: يكتشف Frida/cynject/substitute/libhooker/sideloadly/altinject
+- **Timing fix**: `dispatch_after(0.5s)` بدل `dispatch_async` لضمان استقرار React Native
 
 ## ⚠️ مهم: لا تُحقن هذا الدايلب في تطبيقات المستخدمين
 - فقط لتطبيق مسماري+ (المتجر)
