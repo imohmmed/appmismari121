@@ -431,12 +431,12 @@ static void installDYLDCloaking(void) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARK: MODULE 1 — Anti-Debug
+// MARK: MODULE 1 — Anti-Debug (تأجيل لما بعد main لتجنب crash مبكر)
 // ══════════════════════════════════════════════════════════════════════════════
 
-__attribute__((constructor)) __attribute__((visibility("hidden")))
-static void msm_antiDebug(void) {
-    // فقط ptrace — آمن على developer devices (لا sysctl P_TRACED check)
+// ملاحظة: ptrace(PT_DENY_ATTACH) من constructor (قبل main) يسبب crash على iOS
+// لذا يُشغَّل عبر dispatch_async بعد تهيئة التطبيق بالكامل
+static void msm_doAntiDebug(void) {
     ptrace(PT_DENY_ATTACH, 0, 0, 0);
 }
 
@@ -454,5 +454,9 @@ static void MismariAntiRevokeInit(void) {
         installURLSchemeFilter();
         installEnvHide();
         installDYLDCloaking();
+        // ptrace يُشغَّل بعد تهيئة الـ main queue لتجنب crash مبكر
+        dispatch_async(dispatch_get_main_queue(), ^{
+            msm_doAntiDebug();
+        });
     }
 }
