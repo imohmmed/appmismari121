@@ -19,6 +19,7 @@
 #import <errno.h>
 #import <dlfcn.h>
 #import <mach/mach.h>
+#include <mach-o/dyld.h>
 #import <CFNetwork/CFNetwork.h>
 #import <CommonCrypto/CommonCryptor.h>
 #import <Security/Security.h>
