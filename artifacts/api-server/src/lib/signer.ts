@@ -83,7 +83,7 @@ export function loadToken(token: string): TokenMeta | null {
  *
  * Returns path to the entitlements.plist temp file (delete after signing).
  */
-function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null {
+export function buildCleanEntitlements(mpBase64: string, tmpDir: string, newBundleId?: string): string | null {
   // Safe entitlements whitelist — everything else is stripped
   const SAFE_KEYS = new Set([
     "application-identifier",
@@ -98,18 +98,42 @@ function buildCleanEntitlements(mpBase64: string, tmpDir: string): string | null
 
   try {
     const mpBuf = Buffer.from(mpBase64, "base64");
-    const raw = mpBuf.toString("binary");
-    const xmlMatch = raw.match(/<\?xml[\s\S]*?<\/plist>/);
-    if (!xmlMatch) return null;
+    // استخرج XML plist من mobileprovision (DER/CMS) عبر binary search
+    const xmlStart = mpBuf.indexOf(Buffer.from("<?xml"));
+    const xmlEnd   = mpBuf.lastIndexOf(Buffer.from("</plist>"));
+    if (xmlStart < 0 || xmlEnd < 0) {
+      console.warn("[signer] buildCleanEntitlements: plist XML not found in mobileprovision (start:", xmlStart, "end:", xmlEnd, ")");
+      return null;
+    }
+    const xmlStr = mpBuf.slice(xmlStart, xmlEnd + 8).toString("utf8");
 
-    const data = plist.parse(xmlMatch[0]) as Record<string, any>;
+    const data = plist.parse(xmlStr) as Record<string, any>;
     const entitlements = data["Entitlements"] as Record<string, any> | undefined;
-    if (!entitlements) return null;
+    if (!entitlements) {
+      console.warn("[signer] buildCleanEntitlements: no Entitlements key in plist. Keys:", Object.keys(data).join(", "));
+      return null;
+    }
 
     // Keep ONLY safe keys (whitelist)
     const clean: Record<string, any> = {};
     for (const [k, v] of Object.entries(entitlements)) {
       if (SAFE_KEYS.has(k)) clean[k] = v;
+    }
+
+    // ─── إذا تم تحديد bundle ID جديد، حدّث application-identifier و keychain-access-groups
+    // حتى يتطابق مع bundle ID الجديد وإلا سيرفض iOS التطبيق بسبب AMFI mismatch
+    if (newBundleId && clean["application-identifier"]) {
+      const originalAppId = clean["application-identifier"] as string;
+      // استخرج team ID (الجزء قبل أول نقطة): "BBR3K56R59.com.app" → "BBR3K56R59"
+      const teamId = originalAppId.split(".")[0];
+      const updatedAppId = `${teamId}.${newBundleId}`;
+      clean["application-identifier"] = updatedAppId;
+      console.log(`[signer] application-identifier updated: ${originalAppId} → ${updatedAppId}`);
+
+      // حدّث keychain-access-groups أيضاً لتجنب تعارض keychain
+      if (Array.isArray(clean["keychain-access-groups"])) {
+        clean["keychain-access-groups"] = [`${teamId}.${newBundleId}`];
+      }
     }
 
     const removed = Object.keys(entitlements).filter(k => !SAFE_KEYS.has(k));
@@ -144,8 +168,8 @@ export async function signIpa(opts: {
     fs.writeFileSync(p12Path, Buffer.from(opts.p12Base64, "base64"));
     fs.writeFileSync(mpPath, Buffer.from(opts.mpBase64, "base64"));
 
-    // ─── بناء entitlements نظيفة (بدون get-task-allow) ──────────────────────
-    const entPath = buildCleanEntitlements(opts.mpBase64, tmpDir);
+    // ─── بناء entitlements نظيفة مع تحديث application-identifier للـ bundle ID الجديد
+    const entPath = buildCleanEntitlements(opts.mpBase64, tmpDir, opts.bundleId);
 
     const args: string[] = [
       "-k", p12Path,
