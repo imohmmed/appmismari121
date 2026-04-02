@@ -5,6 +5,7 @@
  */
 
 #include "fishhook.h"
+#include <stdlib.h>
 #include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
