@@ -99,25 +99,24 @@ export default function CategoryDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: isWeb ? 20 : insets.top }]}>
-      {/* Back button */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[
-            styles.backButton,
-            {
-              backgroundColor: colors.card,
-              position: "absolute",
-              top: 10,
-              left: isArabic ? SCREEN_WIDTH - 16 - 40 : 16,
-            },
-          ]}
-        >
-          <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
-        </Pressable>
-      </View>
+      {/* Back button — absolute on main container, no padding interference */}
+      <Pressable
+        onPress={() => router.back()}
+        style={[
+          styles.backButton,
+          {
+            backgroundColor: colors.card,
+            position: "absolute",
+            top: (isWeb ? 20 : insets.top) + 10,
+            left: isArabic ? SCREEN_WIDTH - 56 : 16,
+            zIndex: 100,
+          },
+        ]}
+      >
+        <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
+      </Pressable>
       {/* Banner */}
-      <View style={[styles.catBanner, { backgroundColor: tileColor }]}>
+      <View style={[styles.catBanner, { backgroundColor: tileColor, marginTop: 60 }]}>
         <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>{name}</Text>
         <Text style={[styles.catBannerCount, { fontFamily: fontAr("Regular") }]}>
           {appCountText} {isArabic ? "تطبيق" : (Number(appCountText) === 1 ? "app" : "apps")}
@@ -165,12 +164,6 @@ export default function CategoryDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
   backButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   catBanner: {
     marginHorizontal: 16,
