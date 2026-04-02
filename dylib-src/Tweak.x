@@ -1,15 +1,16 @@
 /*
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║       Mismari Anti-Revoke & Protection Dylib v4.0                      ║
- * ║       Build: cd dylib-src && make                                      ║
- * ║       Requirements: Theos installed on macOS                           ║
+ * ║       Mismari Anti-Revoke & Protection Dylib v4.1                      ║
+ * ║       Build: cd dylib-src && make release                             ║
+ * ║       Requirements: Theos on macOS · Python3 (post-build patch)       ║
  * ╠══════════════════════════════════════════════════════════════════════════╣
  * ║  MODULES:                                                              ║
  * ║  1.  Anti-Debugging       — ptrace + sysctl                           ║
  * ║  2.  OCSP Block           — NSURLSession + NSURLConnection hooks       ║
+ * ║       (Content-Type + Content-Length محددان بدقة — iOS لا يتجاوزه)    ║
  * ║  3.  SSL Unpinning        — SecTrust hooks                            ║
  * ║  4.  Bundle ID Guard      — Sideload detection bypass                  ║
- * ║  5.  Fake Device Info     — UIDevice hooks (Anti-Ban/Tracking)         ║
+ * ║  5.  Fake Device Info     — UIDevice + Keychain UUID (ثابت للأبد)     ║
  * ║  6.  File Path Shadow     — access/stat/lstat/fopen/open hooks         ║
  * ║  7.  (محذوف) Background AutoKill — كان يكسر تحميلات اليوتيوب/سبوتيفاي ║
  * ║  8.  URL Scheme Filter    — canOpenURL: JB app scheme blocking         ║
@@ -17,6 +18,10 @@
  * ║  10. Swizzle Ghost        — method_getImplementation camouflage        ║
  * ║  11. DYLD Image Cloaking  — _dyld_image_count/name/header hooks       ║
  * ║      يُخفي الدايلب من قائمة المكتبات — يتجاوز Hybrid Detection         ║
+ * ║  12. Clipboard Guard      — UIPasteboard hooks (Privacy Shield)       ║
+ * ║      يمنع TikTok/Facebook من قراءة الحافظة تلقائياً                   ║
+ * ║  13. Safe Mode Gesture    — 5× volume in 3s → toggles hooks ON/OFF   ║
+ * ║      يُعطِّل الـ Hooks مؤقتاً عند التعارض — أعِد التشغيل للتطبيق     ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
  *
  * Memory Safety:
@@ -28,6 +33,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <Security/Security.h>
+#import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 
 #include <sys/types.h>
@@ -101,16 +107,36 @@ static BOOL msm_isRevocationHost(NSString *host) {
 }
 
 /* ── استجابة OCSP وهمية (iOS 17/18 لا يكرر الطلب إذا جاء 200 OK) ───────────── */
-/* OCSP "good" minimal DER response — الشهادة صالحة وفق OCSP RFC 6960       */
+/*
+ * OCSP Response RFC 6960 — minimal valid DER:
+ *
+ *   OCSPResponse ::= SEQUENCE {
+ *     responseStatus  ENUMERATED { successful(0) }
+ *   }
+ *
+ * Bytes: 30 03 0A 01 00
+ *   30 = SEQUENCE tag
+ *   03 = length 3
+ *   0A = ENUMERATED tag
+ *   01 = length 1
+ *   00 = value 0 (successful)
+ *
+ * iOS اليمنى: يحتاج Content-Type وContent-Length الصحيحين
+ * وإلا يتجاهل الـ response ويتصل بسيرفر Apple الحقيقي
+ */
 static NSData *msm_fakeOCSPData(void) {
-    /* SEQUENCE { ENUMERATED { 0 } } = الشهادة سليمة (good status) */
     static const uint8_t kOCSPGood[] = { 0x30, 0x03, 0x0A, 0x01, 0x00 };
     return [NSData dataWithBytes:kOCSPGood length:sizeof(kOCSPGood)];
 }
 
 static NSHTTPURLResponse *msm_fakeOCSPResponse(NSURL *url) {
-    NSDictionary *headers = @{ @"Content-Type": @"application/ocsp-response",
-                               @"Cache-Control": @"max-age=86400" };
+    /* Content-Length يجب أن يتطابق مع حجم الـ data بالضبط */
+    NSDictionary *headers = @{
+        @"Content-Type":   @"application/ocsp-response",
+        @"Content-Length": @"5",
+        @"Cache-Control":  @"max-age=604800",  /* أسبوع — iOS لا يُعيد الطلب */
+        @"Connection":     @"close",
+    };
     return [[NSHTTPURLResponse alloc] initWithURL:url
                                        statusCode:200
                                       HTTPVersion:@"HTTP/1.1"
@@ -232,29 +258,61 @@ static NSString *_msm_bundleID = nil;
 /* يعطي قيم وهمية — يمنع تتبع الجهاز وعمل Device Fingerprint دائم           */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+/*
+ * msm_keychainUUID — يخزن UUID في الـ Keychain بدل NSUserDefaults
+ *
+ * لماذا Keychain أفضل؟
+ *  - NSUserDefaults: تطبيقات البنوك / الألعاب تمسحه أو تفحص مفاتيحه
+ *  - Keychain: محمي بـ Secure Enclave — لا يمكن فحص مفاتيحه من خارج التطبيق
+ *  - يبقى ثابتاً حتى بعد حذف التطبيق وإعادة تثبيته (persistent across reinstalls)
+ *  - يمنع اكتشاف حسابات جديدة (Anti-Smurfing) في الألعاب
+ */
+__attribute__((visibility("hidden")))
+static NSUUID *msm_keychainUUID(NSString *account) {
+    NSDictionary *query = @{
+        (__bridge id)kSecClass:      (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrAccount: account,
+        (__bridge id)kSecReturnData: @YES,
+        (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitOne,
+    };
+
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+
+    if (status == errSecSuccess && result) {
+        NSData   *data = (__bridge_transfer NSData *)result;
+        NSString *str  = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSUUID   *uuid = [[NSUUID alloc] initWithUUIDString:str];
+        if (uuid) return uuid;
+        /* إذا كان المحتوى تالفاً → احذف وأنشئ جديد */
+        SecItemDelete((__bridge CFDictionaryRef)query);
+    }
+
+    /* أنشئ UUID جديد واحفظه في Keychain */
+    NSUUID  *fresh    = [NSUUID UUID];
+    NSData  *uuidData = [[fresh UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSDictionary *addAttrs = @{
+        (__bridge id)kSecClass:       (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrAccount:  account,
+        (__bridge id)kSecValueData:    uuidData,
+        /* يبقى بعد حذف التطبيق — يمنع اكتشاف الجهاز كـ "جهاز جديد" */
+        (__bridge id)kSecAttrAccessible: (__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    };
+    SecItemAdd((__bridge CFDictionaryRef)addAttrs, NULL);
+    return fresh;
+}
+
 %hook UIDevice
 
 - (NSUUID *)identifierForVendor {
     /*
      * nil يسبب Crash في تطبيقات تبني قاعدة بياناتها على IDFV.
-     * الحل: UUID عشوائي يتغير عند حذف التطبيق ويثبت خلال نفس التثبيت.
-     * مخزَّن في NSUserDefaults بـ key مشفَّر — لا يظهر في الـ binary.
+     * UUID عشوائي مخزَّن في Keychain — ثابت حتى بعد حذف التطبيق.
+     * مفتاح الـ Keychain مشفَّر XOR في الـ binary.
      */
     MSM_STACK(idfvKey, S_IDFV_KEY); /* "__msm_idfv__" */
-    NSString *keyStr = [NSString stringWithUTF8String:idfvKey];
-
-    NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
-    NSString *stored = [ud stringForKey:keyStr];
-    if (stored) {
-        NSUUID *cached = [[NSUUID alloc] initWithUUIDString:stored];
-        if (cached) return cached;
-    }
-
-    /* أنشئ UUID جديد واحفظه */
-    NSUUID *fake = [NSUUID UUID];
-    [ud setObject:[fake UUIDString] forKey:keyStr];
-    [ud synchronize];
-    return fake;
+    return msm_keychainUUID([NSString stringWithUTF8String:idfvKey]);
 }
 
 - (NSString *)name {
@@ -579,12 +637,192 @@ static void msm_cacheSelfIndex(void) {
 
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 12 — CLIPBOARD GUARD (Privacy Shield)                                */
+/* يمنع التطبيقات من التجسس على الحافظة عند الفتح                            */
+/*                                                                             */
+/* التطبيقات المستهدفة: TikTok, Facebook, Instagram, Snapchat                 */
+/* هذه التطبيقات تقرأ الحافظة تلقائياً لأغراض التتبع والتحليل                */
+/*                                                                             */
+/* الأثر: التطبيق لا يستطيع قراءة الحافظة — يحمي كلمات المرور والبيانات     */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+%hook UIPasteboard
+
+/* المحتوى النصي */
+- (NSString *)string                        { return nil; }
+- (NSArray<NSString *> *)strings            { return @[]; }
+
+/* المحتوى المتنوع (items dictionary) */
+- (NSArray<NSDictionary *> *)items          { return @[]; }
+- (NSArray<NSDictionary *> *)pasteboardItems { return @[]; }
+
+/* فحوصات الوجود — تُستخدم للكشف المسبق قبل القراءة */
+- (BOOL)hasStrings  { return NO; }
+- (BOOL)hasURLs     { return NO; }
+- (BOOL)hasImages   { return NO; }
+- (BOOL)hasColors   { return NO; }
+
+/* عدد العناصر — يُستخدم في الفحص الأولي */
+- (NSInteger)numberOfItems { return 0; }
+
+/* iOS 14+ — الواجهة الجديدة للكشف عن الأنماط */
+- (void)detectPatternsForPatterns:(NSSet *)patterns
+                completionHandler:(void (^)(NSDictionary *, NSError *))handler {
+    if (handler) handler(@{}, nil); /* لا أنماط مكتشفة */
+}
+
+- (void)detectValuesForPatterns:(NSSet *)patterns
+               completionHandler:(void (^)(NSDictionary *, NSError *))handler {
+    if (handler) handler(@{}, nil);
+}
+
+/* نسمح بالكتابة — المستخدم يستطيع نسخ نص (فقط القراءة محجوبة) */
+/* setString: و setItems: و setObjects: لم تُعدَّل */
+
+%end
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* MARK: 13 — SAFE MODE GESTURE                                               */
+/* يُفعِّل/يُعطِّل الـ Hooks بضغط زر الصوت 5 مرات في 3 ثوانٍ               */
+/*                                                                             */
+/* التفعيل:                                                                    */
+/*   اضغط زر الصوت (أعلى أو أسفل) 5 مرات متتالية خلال 3 ثوانٍ               */
+/*   → رسالة تأكيد تظهر → أعِد تشغيل التطبيق                                 */
+/*                                                                             */
+/* الحالة:                                                                     */
+/*   محفوظة في Documents/.msm_safemode                                        */
+/*   إذا كان الملف موجوداً عند التشغيل → كل الـ Hooks مُعطَّلة               */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+__attribute__((visibility("hidden")))
+static NSString *msm_safeModeFilePath(void) {
+    MSM_STACK(flagName, S_SAFEMODE_FLAG); /* ".msm_safemode" */
+    NSString *docs = NSSearchPathForDirectoriesInDomains(
+        NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    return [docs stringByAppendingPathComponent:
+            [NSString stringWithUTF8String:flagName]];
+}
+
+__attribute__((visibility("hidden")))
+static BOOL msm_isSafeModeActive(void) {
+    return [[NSFileManager defaultManager] fileExistsAtPath:msm_safeModeFilePath()];
+}
+
+__attribute__((visibility("hidden")))
+static void msm_showSafeModeAlert(BOOL nowActive) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        /* نُنشئ UIWindow مستقلاً لعرض الرسالة فوق كل شيء */
+        UIWindow *win = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+        win.windowLevel    = UIWindowLevelAlert + 200;
+        win.backgroundColor = [UIColor clearColor];
+        UIViewController *vc = [UIViewController new];
+        win.rootViewController = vc;
+        [win makeKeyAndVisible];
+
+        NSString *title = nowActive ? @"🛡 Safe Mode مُفعَّل" : @"✅ Safe Mode مُعطَّل";
+        NSString *msg   = nowActive
+            ? @"الـ Hooks مُعطَّلة — أغلق التطبيق وأعِد فتحه لتطبيق التغيير."
+            : @"الـ Hooks مُفعَّلة — أغلق التطبيق وأعِد فتحه.";
+
+        UIAlertController *alert =
+            [UIAlertController alertControllerWithTitle:title
+                                               message:msg
+                                        preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"حسناً"
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *a) {
+            win.hidden = YES;
+        }]];
+        [vc presentViewController:alert animated:YES completion:nil];
+    });
+}
+
+__attribute__((visibility("hidden")))
+static void msm_toggleSafeMode(void) {
+    NSString *path = msm_safeModeFilePath();
+    NSFileManager *fm = [NSFileManager defaultManager];
+    BOOL willActivate = ![fm fileExistsAtPath:path];
+
+    if (willActivate) {
+        [fm createFileAtPath:path contents:nil attributes:nil];
+    } else {
+        [fm removeItemAtPath:path error:nil];
+    }
+    msm_showSafeModeAlert(willActivate);
+}
+
+/* ── KVO Observer لزر الصوت ─────────────────────────────────────────────── */
+
+@interface MSMVolumeObserver : NSObject
+@property (nonatomic, assign) int    pressCount;
+@property (nonatomic, assign) double firstPressTime;
+@end
+
+@implementation MSMVolumeObserver
+
+- (void)setup {
+    @try {
+        AVAudioSession *session = [AVAudioSession sharedInstance];
+        [session setActive:YES error:nil];
+        /* KVO على outputVolume — يُطلَق عند كل ضغط على زر الصوت */
+        [session addObserver:self
+                  forKeyPath:@"outputVolume"
+                     options:NSKeyValueObservingOptionNew
+                     context:nil];
+    } @catch (NSException *e) { /* إذا فشل KVO نتجاهله بصمت */ }
+}
+
+- (void)observeValueForKeyPath:(NSString *)kp
+                      ofObject:(id)obj
+                        change:(NSDictionary *)chg
+                       context:(void *)ctx {
+    double now = [[NSDate date] timeIntervalSinceReferenceDate];
+
+    if (self.pressCount == 0 || now - self.firstPressTime > 3.0) {
+        self.pressCount    = 1;
+        self.firstPressTime = now;
+    } else {
+        self.pressCount++;
+        if (self.pressCount >= 5) { /* 5 ضغطات خلال 3 ثوانٍ */
+            self.pressCount = 0;
+            msm_toggleSafeMode();
+        }
+    }
+}
+
+@end
+
+static MSMVolumeObserver *s_volObserver = nil;
+
+__attribute__((visibility("hidden")))
+static void msm_setupSafeModeGesture(void) {
+    s_volObserver = [MSMVolumeObserver new];
+    [s_volObserver setup];
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* MARK: INIT — تفعيل جميع الـ Hooks                                          */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 %ctor {
     @autoreleasepool {
-        %init; /* يفعّل modules 2-11 تلقائياً */
+        /*
+         * Module 13 — Safe Mode: تحقق أولاً قبل أي Hook
+         * إذا كان الملف موجوداً → تخطّ جميع الـ Hooks تماماً
+         */
+        if (msm_isSafeModeActive()) {
+            msm_setupSafeModeGesture(); /* اسمح للمستخدم بإلغاء Safe Mode */
+            return; /* لا %init — لا hooks — التطبيق نظيف تماماً */
+        }
+
+        /* تفعيل Modules 2-12 */
+        %init;
+
+        /* Module 13 — Gesture listener (يعمل دائماً حتى في الوضع الطبيعي) */
+        msm_setupSafeModeGesture();
+
         /* Module 1 (Anti-Debug) + Module 11 cache يعملان عبر __attribute__((constructor)) */
     }
 }
