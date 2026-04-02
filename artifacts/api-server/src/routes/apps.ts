@@ -331,17 +331,29 @@ function msmEncrypt(payload: object): { msm_enc: string; msm_iv: string } {
 
 // ─── GET /api/v2/dylib/settings ─────────────────────────────────────────────
 // يُستخدم من mismari-store.dylib فقط — الـ response مشفّر AES-128-CBC
+//
+// حقول الـ Payload (يجب أن تطابق Obfuscation.h في الدايلب):
+//   storeVersion   ← _ENC_UPDATE_KEY  = "storeVersion"
+//   storeNotes     ← _ENC_STORE_NOTES = "storeNotes"
+//   isForceUpdate  ← _ENC_ISFORCEUPDATE = "isForceUpdate"
+//
+// ⚠️ كان الاسم "releaseNotes" خطأ — الدايلب يتوقع "storeNotes" (تم الإصلاح)
 router.get("/v2/dylib/settings", async (_req, res): Promise<void> => {
   const rows = await db.select().from(settingsTable);
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
 
   const payload = {
-    storeVersion:  map.store_version   || "1.0",
-    releaseNotes:  map.release_notes   || "تحسينات وإصلاحات.",
-    storeName:     map.store_name      || "مسماري",
-    minVersion:    map.min_version     || "1.0",
-    isMaintenanceMode: map.maintenance_mode === "true",
+    // ─── يُقرأ من جدول settings في قاعدة البيانات ────────────────────────
+    storeVersion:      map.store_version          || "1.0",
+    storeNotes:        map.store_notes            || "تحسينات وإصلاحات.",    // ← إصلاح: كان releaseNotes
+    storeName:         map.store_name             || "مسماري",
+    minVersion:        map.min_version            || "1.0",
+    isMaintenanceMode: map.maintenance_mode       === "true",
+
+    // ─── Force Update: true = المستخدم مجبور على التحديث (زر "لاحقاً" يُغلق التطبيق) ──
+    // غيّر قيمة `force_update` في جدول settings لتفعيل/إلغاء الإجبار
+    isForceUpdate:     map.force_update           === "true",
   };
 
   res.json(msmEncrypt(payload));

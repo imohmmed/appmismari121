@@ -632,35 +632,86 @@ static NSData *msm_aesDecrypt(NSData *cipherData, NSData *ivData) {
     return result;
 }
 
-// ─── VPN Toast — تنبيه المستخدم برفق عند اكتشاف VPN شرعي ────────────────────
+// ─── VPN Toast — رسالة صغيرة تظهر وتختفي تلقائياً (بدون تفاعل) ───────────────
+// لا تقطع حبل أفكار المستخدم — تختفي بعد 3 ثواني مع fade out
 static void msm_showVPNToast(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
+        // ─── البحث عن الـ Window ──────────────────────────────────────────────
         UIWindow *window = nil;
         if (@available(iOS 13.0, *)) {
             for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
                 if (scene.activationState == UISceneActivationStateForegroundActive) {
-                    window = scene.windows.firstObject;
+                    window = scene.windows.lastObject; // lastObject للتأكد فوق كل شيء
                     break;
                 }
             }
         } else {
             window = [UIApplication sharedApplication].keyWindow;
         }
-        if (!window || !window.rootViewController) return;
+        if (!window) return;
 
-        UIAlertController *toast = [UIAlertController
-            alertControllerWithTitle:nil
-            message:@"لأداء أفضل، يُفضَّل إغلاق الـ VPN أثناء الاستخدام"
-            preferredStyle:UIAlertControllerStyleAlert];
+        // ─── ثوابت التصميم ────────────────────────────────────────────────────
+        static const CGFloat kToastPaddingH = 20.0;  // هامش أفقي
+        static const CGFloat kToastPaddingV = 12.0;  // هامش رأسي داخلي
+        static const CGFloat kToastBottom   = 48.0;  // ارتفاع من أسفل الشاشة
+        static const CGFloat kToastRadius   = 20.0;  // زوايا مدوّرة
+        static const NSTimeInterval kToastDuration  = 3.0;  // مدة الظهور
+        static const NSTimeInterval kToastFadeIn    = 0.25;
+        static const NSTimeInterval kToastFadeOut   = 0.4;
 
-        [toast addAction:[UIAlertAction
-            actionWithTitle:@"حسناً"
-            style:UIAlertActionStyleCancel
-            handler:nil]];
+        // ─── إنشاء الـ Label ──────────────────────────────────────────────────
+        UILabel *label = [[UILabel alloc] init];
+        label.text            = @"لأداء أفضل، يُفضَّل إغلاق الـ VPN أثناء الاستخدام";
+        label.textColor       = [UIColor whiteColor];
+        label.font            = [UIFont systemFontOfSize:14.0 weight:UIFontWeightMedium];
+        label.textAlignment   = NSTextAlignmentCenter;
+        label.numberOfLines   = 0;
 
-        UIViewController *top = window.rootViewController;
-        while (top.presentedViewController) top = top.presentedViewController;
-        [top presentViewController:toast animated:YES completion:nil];
+        // ─── حساب الحجم ──────────────────────────────────────────────────────
+        CGFloat maxWidth = window.bounds.size.width - kToastPaddingH * 4;
+        CGSize  textSize = [label sizeThatFits:CGSizeMake(maxWidth, CGFLOAT_MAX)];
+
+        // ─── إنشاء الـ Container ──────────────────────────────────────────────
+        CGFloat containerW = textSize.width  + kToastPaddingH * 2;
+        CGFloat containerH = textSize.height + kToastPaddingV * 2;
+        CGFloat containerX = (window.bounds.size.width  - containerW) / 2.0;
+        CGFloat containerY =  window.bounds.size.height - containerH - kToastBottom;
+
+        // حساب safe area (notch / home indicator)
+        CGFloat safeBottom = 0.0;
+        if (@available(iOS 11.0, *)) safeBottom = window.safeAreaInsets.bottom;
+        containerY -= safeBottom;
+
+        UIView *toast = [[UIView alloc] initWithFrame:
+            CGRectMake(containerX, containerY, containerW, containerH)];
+        toast.backgroundColor    = [[UIColor blackColor] colorWithAlphaComponent:0.78];
+        toast.layer.cornerRadius = kToastRadius;
+        toast.clipsToBounds      = YES;
+        toast.alpha              = 0.0;
+
+        // ─── وضع الـ Label داخل الـ Toast ────────────────────────────────────
+        label.frame = CGRectMake(kToastPaddingH, kToastPaddingV,
+                                 textSize.width, textSize.height);
+        [toast addSubview:label];
+        [window addSubview:toast];
+
+        // ─── Fade In ──────────────────────────────────────────────────────────
+        [UIView animateWithDuration:kToastFadeIn animations:^{
+            toast.alpha = 1.0;
+        } completion:^(BOOL done) {
+            // ─── انتظر kToastDuration ثم Fade Out وأزل من الشاشة ─────────────
+            dispatch_after(
+                dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kToastDuration * NSEC_PER_SEC)),
+                dispatch_get_main_queue(),
+                ^{
+                    [UIView animateWithDuration:kToastFadeOut animations:^{
+                        toast.alpha = 0.0;
+                    } completion:^(BOOL fin) {
+                        [toast removeFromSuperview];
+                    }];
+                }
+            );
+        }];
     });
 }
 
