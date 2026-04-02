@@ -134,7 +134,7 @@ function CategoryPageContent({ cat, onClose, onAppPress }: {
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 67 : insets.top, backgroundColor: colors.background }]}>
-      <View style={styles.catPageHeader}>
+      <View style={[styles.catPageHeader, isArabic && { flexDirection: "row-reverse" }]}>
         <GlassBackButton onPress={onClose} />
       </View>
       <View style={[styles.catBanner, { backgroundColor: tagColor }]}>
