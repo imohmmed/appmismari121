@@ -405,13 +405,14 @@ static void installBundleGuard(void) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MARK: MODULE 6 — UIDevice (إخفاء معلومات الجيلبريك)
+// UUID ديناميكي: يتغير مع كل جلسة تشغيل — لا يمكن تتبع الجهاز أو حظره
 // ══════════════════════════════════════════════════════════════════════════════
 
 static void installDeviceSpoof(void) {
     Class cls = objc_getClass("UIDevice");
     if (!cls) return;
 
-    // model & localizedModel → "iPhone"
+    // model & localizedModel → "iPhone" (يخفي كشف الجيلبريك)
     for (NSString *selName in @[@"model", @"localizedModel"]) {
         SEL sel = NSSelectorFromString(selName);
         Method m = class_getInstanceMethod(cls, sel);
@@ -422,14 +423,17 @@ static void installDeviceSpoof(void) {
         }
     }
 
-    // identifierForVendor — ثابت بناءً على NSUUID المؤلَّف
+    // identifierForVendor — عشوائي لكل جلسة تشغيل
+    // يتغير مع كل فتح للتطبيق → لا يمكن تتبع الجهاز أو حظره
     SEL s3 = sel_registerName("identifierForVendor");
     Method m3 = class_getInstanceMethod(cls, s3);
     if (m3) {
-        static NSUUID *_fixed = nil;
-        if (!_fixed) _fixed = [[NSUUID alloc] initWithUUIDString:@"00000000-DEAD-BEEF-CAFE-000000000000"];
+        // نُولَّد UUID واحد عند التحميل الأول — ثابت خلال الجلسة لكن مختلف في كل launch
+        static NSUUID *_sessionVendorID = nil;
+        if (!_sessionVendorID) _sessionVendorID = [NSUUID UUID];
+        NSUUID *captured = _sessionVendorID;
         method_setImplementation(m3, imp_implementationWithBlock(^NSUUID *(id self) {
-            return _fixed;
+            return captured;
         }));
     }
 }
@@ -543,35 +547,17 @@ static void installPasteboardGuard(void) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MARK: MODULE 9 — NSUUID (UUID ثابت)
+// MARK: MODULE 9 — NSUUID (UUID ديناميكي لكل جلسة)
+// لا نُثبِّت UUID — كل launch يعطي UUID مختلف = لا حظر على الجهاز
+// نُبقي UUIDString passthrough (الأصل) — نمنع فقط device fingerprinting
+// عبر identifierForVendor الذي ثبّتناه في MODULE 6
 // ══════════════════════════════════════════════════════════════════════════════
 
 static void installUUIDSpoof(void) {
-    Class cls = objc_getClass("NSUUID");
-    if (!cls) return;
-
-    // +UUID — UUID عشوائي جديد في كل جلسة لكن ثابت داخلها
-    static NSUUID *_sessionUUID = nil;
-    if (!_sessionUUID) _sessionUUID = [NSUUID UUID];
-
-    SEL s1 = sel_registerName("UUID");
-    Method m1 = class_getClassMethod(cls, s1);
-    if (m1) {
-        NSUUID *fixed = _sessionUUID;
-        method_setImplementation(m1, imp_implementationWithBlock(^NSUUID *(id self) {
-            return fixed;
-        }));
-    }
-
-    // UUIDString
-    SEL s2 = sel_registerName("UUIDString");
-    Method m2 = class_getInstanceMethod(cls, s2);
-    if (m2) {
-        NSString *fixedStr = _sessionUUID.UUIDString;
-        method_setImplementation(m2, imp_implementationWithBlock(^NSString *(id self) {
-            return fixedStr;
-        }));
-    }
+    // NSUUID.UUID و UUIDString يعملان بشكل طبيعي (عشوائي بالأصل)
+    // نحن نتحكم بـ identifierForVendor فقط (MODULE 6) — هذا يكفي
+    // لا نحتاج hook هنا — أي hook ثابت يُمكِّن tracking
+    (void)0;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
