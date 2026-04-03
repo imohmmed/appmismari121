@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, gte, sql as sqlExpr } from "drizzle-orm";
+import { eq, desc, gte, sql as sqlExpr, and, count } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import https from "https";
@@ -259,13 +259,6 @@ async function resolveIpaForSigning(storedPath: string): Promise<{ path: string;
   throw new Error(`ملف IPA غير موجود: ${storedPath}`);
 }
 
-// ─── Stable suffix for clone Bundle IDs ──────────────────────────────────────
-// Same code+appId always → same suffix → user keeps clone data after reinstall
-function stableCloneSuffix(code: string, appId: number): string {
-  const hash = crypto.createHash("sha256").update(`${code}:${appId}`).digest("hex");
-  const num = (parseInt(hash.slice(0, 4), 16) % 90) + 10;
-  return `m${num}`;
-}
 
 function readProvisioningBundleId(mpBase64: string): string | null {
   try {
@@ -823,14 +816,24 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
     const resolved = await resolveIpaForSigning(app.ipaPath);
     const inputPath = resolved.path;
     const appInfo = readIpaInfo(inputPath);
-    const cloneName = newName?.trim() || `${app.name || appInfo.name} 2`;
     const originalBundleId = app.bundleId || appInfo.bundleId;
 
-    // Always derive a unique bundle ID from the original app's bundle ID.
-    // Using the profile's bundle ID for non-wildcard profiles causes conflicts
-    // with the already-installed Mismari+ store app (same com.mismari.app bundle ID).
-    const suffix = stableCloneSuffix(code, appIdNum);
-    const newBundleId = `${originalBundleId}.${suffix}`;
+    // ── حساب رقم النسخة التالية لهذا المستخدم + هذا التطبيق ───────────────────
+    // كل تكرار يحصل على رقم تسلسلي فريد: c1, c2, c3 ...
+    // نحسب عدد التكرارات الموجودة مسبقاً في قاعدة البيانات لنفس المستخدم + نفس التطبيق
+    const [{ cloneCount }] = await db
+      .select({ cloneCount: count() })
+      .from(signJobsTable)
+      .where(
+        and(
+          eq(signJobsTable.subscriberCode, code),
+          eq(signJobsTable.sourceType, "store-clone"),
+          eq(signJobsTable.sourceUrl, app.ipaPath!),
+        )
+      );
+    const cloneNumber = (cloneCount ?? 0) + 1;
+    const newBundleId = `${originalBundleId}.c${cloneNumber}`;
+    const cloneName = newName?.trim() || `${app.name || appInfo.name} ${cloneNumber}`;
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
