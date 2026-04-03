@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
+import * as Haptics from "expo-haptics";
 import { useNavigation } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -255,6 +257,10 @@ export default function SignScreen() {
   const [history, setHistory] = useState<SignJob[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const [healthKey, setHealthKey] = useState(0);
+
   const scrollRef = useRef<ScrollView>(null);
 
   // ── Sliding panel state ───────────────────────────────────────────────────
@@ -341,6 +347,15 @@ export default function SignScreen() {
   useEffect(() => {
     if (screen === "home" || screen === "history") loadHistory();
   }, [screen]);
+
+  const handleRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRefreshing(true);
+    setHealthKey(k => k + 1);
+    await loadHistory();
+    setRefreshing(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [loadHistory]);
 
   const startPoll = useCallback((jobId: string, startProgress = 0.5) => {
     if (!subscriptionCode) return;
@@ -559,8 +574,16 @@ export default function SignScreen() {
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} bounces
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: isWeb ? 34 : 100 }}
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={TINT}
+            colors={[TINT]}
+          />
+        }
       >
-        <HealthBar colors={colors} fontAr={fontAr} isArabic={isArabic} code={subscriptionCode} />
+        <HealthBar key={healthKey} colors={colors} fontAr={fontAr} isArabic={isArabic} code={subscriptionCode} />
 
         <View style={[styles.actionRow, isArabic && { flexDirection: "row-reverse" }]}>
           <TouchableOpacity

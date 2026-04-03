@@ -11,6 +11,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +19,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
@@ -319,12 +321,28 @@ export default function PlusScreen() {
   const isWeb = Platform.OS === "web";
 
   // ── Fetch from API ──────────────────────────────────────────────────────────
-  const { categories } = useCategories();
+  const { categories, refetch: refetchCats } = useCategories();
   const code = subscriptionCode || undefined;
-  const { apps: hotApps }      = useApps({ section: "trending",       limit: 30, code });
-  const { apps: mostDownloaded } = useApps({ section: "most_downloaded", limit: 30, code });
-  const { apps: newAdds }      = useApps({ section: "latest",         limit: 15, code });
-  const { banners } = useBanners();
+  const { apps: hotApps,       refetch: refetchHot }       = useApps({ section: "trending",        limit: 30, code });
+  const { apps: mostDownloaded, refetch: refetchMost }      = useApps({ section: "most_downloaded", limit: 30, code });
+  const { apps: newAdds,        refetch: refetchNew }       = useApps({ section: "latest",          limit: 15, code });
+  const { banners, refetch: refetchBanners } = useBanners();
+
+  // ── Pull-to-refresh ─────────────────────────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRefreshing(true);
+    await Promise.all([
+      refetchCats(),
+      refetchHot(),
+      refetchMost(),
+      refetchNew(),
+      refetchBanners(),
+    ]);
+    setRefreshing(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [refetchCats, refetchHot, refetchMost, refetchNew, refetchBanners]);
 
   const activeDetailApp = selectedApp || catSelectedApp;
   const { apps: relatedCategoryApps } = useApps({
@@ -471,6 +489,14 @@ export default function PlusScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: isWeb ? 34 : 80 }}
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
       >
         {/* Featured banners */}
         <View style={{ marginTop: 8 }}>

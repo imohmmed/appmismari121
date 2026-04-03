@@ -65,6 +65,9 @@ export function useApps(opts?: {
 }) {
   const [apps, setApps] = useState<ApiApp[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refetch = useCallback(() => setRefreshKey(k => k + 1), []);
 
   useEffect(() => {
     if (opts?.skip) { setApps([]); setLoading(false); return; }
@@ -100,9 +103,9 @@ export function useApps(opts?: {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [opts?.categoryId, opts?.section, opts?.search, opts?.limit, opts?.skip, opts?.code]);
+  }, [opts?.categoryId, opts?.section, opts?.search, opts?.limit, opts?.skip, opts?.code, refreshKey]);
 
-  return { apps, loading };
+  return { apps, loading, refetch };
 }
 
 export interface ApiBanner {

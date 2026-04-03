@@ -6,6 +6,7 @@ import {
   Dimensions,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettings } from "@/contexts/SettingsContext";
@@ -68,12 +70,21 @@ export default function SearchScreen() {
     return unsub;
   }, [navigation]);
 
-  const { categories, loading: catsLoading } = useCategories();
-  const { apps: searchResults, loading: searchLoading } = useApps({
+  const { categories, loading: catsLoading, refetch: refetchCats } = useCategories();
+  const { apps: searchResults, loading: searchLoading, refetch: refetchSearch } = useApps({
     search: query,
     limit: 30,
     skip: query.length < 2,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRefreshing(true);
+    await Promise.all([refetchCats(), refetchSearch()]);
+    setRefreshing(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [refetchCats, refetchSearch]);
 
   const { apps: relatedCategoryApps } = useApps({
     categoryId: selectedApp?.categoryId,
@@ -164,6 +175,14 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingBottom: isWeb ? 34 : 80 }}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.tint}
+            colors={[colors.tint]}
+          />
+        }
       >
         {isSearching ? (
           <View style={styles.resultsContainer}>
