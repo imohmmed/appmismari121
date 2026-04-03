@@ -128,6 +128,17 @@ app.use("/ipa", express.static(path.join(uploadsDir, "ipa"), {
   },
 }));
 
+// ─── Configs (mobileconfig profiles — DNS anti-revoke, etc.) ────────────────
+app.use("/configs", express.static(path.join(uploadsDir, "configs"), {
+  setHeaders(res, filePath) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (filePath.endsWith(".mobileconfig")) {
+      res.setHeader("Content-Type", "application/x-apple-aspen-config");
+      res.setHeader("Content-Disposition", "attachment");
+    }
+  },
+}));
+
 app.use(
   pinoHttp({
     logger,
