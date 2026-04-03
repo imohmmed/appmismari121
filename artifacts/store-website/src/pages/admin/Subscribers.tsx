@@ -4,7 +4,8 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import {
   Search, Plus, X, Trash2, Edit2, CheckSquare, Square,
   Loader2, AlertCircle, Copy, RefreshCw, Bell, Link2,
-  PauseCircle, PlayCircle, Wallet, ArrowUpCircle, ArrowDownCircle, BrainCircuit
+  PauseCircle, PlayCircle, Wallet, ArrowUpCircle, ArrowDownCircle, BrainCircuit,
+  ArrowLeftRight, ShieldCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -204,6 +205,144 @@ function BalanceModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => vo
 }
 
 interface Plan { id: number; name: string; nameAr: string | null; }
+interface Group { id: number; certName: string; certCommonName: string | null; teamName: string | null; totalDevices: number; }
+
+// ─── نافذة نقل المشترك إلى شهادة أخرى ────────────────────────────────────────
+function TransferGroupModal({ sub, onClose, onChanged }: { sub: Sub; onClose: () => void; onChanged: () => void }) {
+  const { toast } = useToast();
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState(sub.groupName || "");
+
+  useEffect(() => {
+    adminFetch("/admin/groups")
+      .then(d => { setGroups(d?.groups || []); })
+      .catch(() => {})
+      .finally(() => setLoadingGroups(false));
+  }, []);
+
+  const currentGroup = groups.find(g => g.certName === sub.groupName);
+  const targetGroup  = groups.find(g => g.certName === selected);
+  const changed      = selected && selected !== sub.groupName;
+
+  const handleTransfer = async () => {
+    if (!selected) { toast({ title: "اختر شهادة أولاً", variant: "destructive" }); return; }
+    if (!changed)  { toast({ title: "اختر شهادة مختلفة عن الحالية", variant: "destructive" }); return; }
+    setSaving(true);
+    try {
+      await adminFetch(`/admin/subscriptions/${sub.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ groupName: selected }),
+      });
+      toast({ title: `✓ تم نقل "${sub.subscriberName || sub.code}" إلى "${selected}"` });
+      onChanged();
+      onClose();
+    } catch (e: any) {
+      toast({ title: e.message || "فشل النقل", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" dir="rtl">
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "#9fbcff15" }}>
+              <ArrowLeftRight className="w-4 h-4" style={{ color: "#9fbcff" }} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">نقل إلى شهادة أخرى</h3>
+              <p className="text-white/40 text-xs mt-0.5">{sub.subscriberName || sub.code}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Current → Target visual */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-[#111] border border-white/5 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-white/30 mb-1">الشهادة الحالية</p>
+              <div className="flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-3 h-3 text-white/40" />
+                <p className="text-xs font-bold text-white truncate">{sub.groupName || "—"}</p>
+              </div>
+              {currentGroup && (
+                <p className="text-[10px] text-white/25 mt-1">{currentGroup.totalDevices} مشترك</p>
+              )}
+            </div>
+            <ArrowLeftRight className="w-4 h-4 text-white/20 shrink-0" />
+            <div className="flex-1 bg-[#111] border rounded-xl p-3 text-center transition-all"
+              style={{ borderColor: changed ? "#9fbcff30" : "#ffffff0d" }}>
+              <p className="text-[10px] text-white/30 mb-1">الشهادة الجديدة</p>
+              <div className="flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-3 h-3" style={{ color: changed ? "#9fbcff" : "#ffffff40" }} />
+                <p className="text-xs font-bold truncate" style={{ color: changed ? "#9fbcff" : "#ffffff40" }}>
+                  {selected || "لم تُختر"}
+                </p>
+              </div>
+              {targetGroup && (
+                <p className="text-[10px] mt-1" style={{ color: "#9fbcff60" }}>{targetGroup.totalDevices} مشترك</p>
+              )}
+            </div>
+          </div>
+
+          {/* Group selector */}
+          <div className="space-y-1">
+            <label className="text-xs text-white/40">اختر الشهادة</label>
+            {loadingGroups ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+              </div>
+            ) : (
+              <select
+                value={selected}
+                onChange={e => setSelected(e.target.value)}
+                className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#9fbcff]/50 focus:outline-none appearance-none"
+              >
+                <option value="">— اختر شهادة —</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.certName}>
+                    {g.certName} {g.certCommonName ? `· ${g.certCommonName}` : ""} ({g.totalDevices} مشترك)
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Warning */}
+          {changed && (
+            <div className="flex items-start gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl p-3">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-300/80 leading-relaxed">
+                من الآن، تطبيقات هذا المشترك ستُوقَّع بالشهادة الجديدة. التطبيقات المُثبَّتة مسبقاً لن تتأثر.
+              </p>
+            </div>
+          )}
+
+          {/* Confirm */}
+          <button
+            onClick={handleTransfer}
+            disabled={saving || !changed}
+            className="w-full py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-30"
+            style={{ background: "#9fbcff15", color: "#9fbcff", border: "1px solid #9fbcff25" }}
+          >
+            {saving
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <ArrowLeftRight className="w-4 h-4" />}
+            {saving ? "جارٍ النقل..." : "تأكيد النقل"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -557,6 +696,7 @@ export default function AdminSubscribers() {
   const [notifySub, setNotifySub] = useState<Sub | null>(null);
   const [balanceSub, setBalanceSub] = useState<Sub | null>(null);
   const [aiSub, setAiSub] = useState<Sub | null>(null);
+  const [transferSub, setTransferSub] = useState<Sub | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -802,6 +942,13 @@ export default function AdminSubscribers() {
                           <BrainCircuit className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          title="نقل إلى شهادة أخرى"
+                          onClick={() => setTransferSub(sub)}
+                          className="p-1.5 rounded-lg text-white/40 hover:text-[#9fbcff] hover:bg-[#9fbcff]/10 transition-colors"
+                        >
+                          <ArrowLeftRight className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => { setEditSub(sub); setModal("edit"); }}
                           className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5"
                         >
@@ -843,6 +990,13 @@ export default function AdminSubscribers() {
         <AiToggleModal
           sub={aiSub}
           onClose={() => setAiSub(null)}
+          onChanged={fetchData}
+        />
+      )}
+      {transferSub && (
+        <TransferGroupModal
+          sub={transferSub}
+          onClose={() => setTransferSub(null)}
           onChanged={fetchData}
         />
       )}
