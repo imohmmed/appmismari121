@@ -842,7 +842,11 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
 
     const token = randomHex(16);
     const outputPath = path.join(SIGNED_DIR, `${token}.ipa`);
-    const dylibPath = getAntiRevokeDylibPath();
+    // ⚠️ DYLIB DISABLED FOR CLONE SIGNING (same reason as sign/app):
+    // The dylib on R2 has a broken constructor that crashes every app before
+    // any hook can run. Disabling until a stable dylib is uploaded.
+    // Once fixed: re-enable by passing dylibPath here.
+    // const dylibPath = getAntiRevokeDylibPath();
 
     try {
       await signIpa({
@@ -853,7 +857,7 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
         outputPath,
         bundleId: newBundleId,
         bundleName: cloneName,
-        dylibPaths: dylibPath ? [dylibPath] : undefined,
+        dylibPaths: undefined,  // dylib temporarily disabled
       });
     } finally {
       resolved.cleanup();
