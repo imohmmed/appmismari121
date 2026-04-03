@@ -717,11 +717,7 @@ router.post("/sign/app/:code/:appId", signLimiter, async (req, res): Promise<voi
 
     const { sub, group } = await getSubAndGroup(code);
 
-    // ── Quota check ──────────────────────────────────────────────────────────
-    const preUsed = await getTodayUsedBytes(code);
-    if (preUsed >= QUOTA_BYTES) {
-      res.status(429).json({ error: "تجاوزت الحصة اليومية (4 GB). حاول غداً." }); return;
-    }
+    // ── لا فحص حصة للتطبيقات المنشورة في المتجر — تنزيل مجاني ──────────────
 
     const [app] = await db.select().from(appsTable).where(eq(appsTable.id, appIdNum));
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
@@ -817,11 +813,7 @@ router.post("/sign/clone/:code/:appId", signLimiter, async (req, res): Promise<v
 
     const { sub, group } = await getSubAndGroup(code);
 
-    // ── Quota check ──────────────────────────────────────────────────────────
-    const preUsedClone = await getTodayUsedBytes(code);
-    if (preUsedClone >= QUOTA_BYTES) {
-      res.status(429).json({ error: "تجاوزت الحصة اليومية (4 GB). حاول غداً." }); return;
-    }
+    // ── لا فحص حصة للتكرار من المتجر — التكرار مجاني ──────────────────────
 
     const [app] = await db.select().from(appsTable).where(eq(appsTable.id, appIdNum));
     if (!app) { res.status(404).json({ error: "التطبيق غير موجود" }); return; }
@@ -938,13 +930,17 @@ function getDiskFreeBytes(): { freeBytes: number; totalBytes: number } {
 }
 
 async function getTodayUsedBytes(subscriberCode: string): Promise<number> {
+  // ⚠️ يحسب الحصة فقط لـ: url (توقيع برابط) و upload (رفع ملف)
+  // التطبيقات المنشورة في المتجر (store-app, store-clone) = مجانية لا تُحسب
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const rows = await db
     .select({ total: sqlExpr<number>`coalesce(sum(file_size), 0)` })
     .from(signJobsTable)
     .where(
-      sqlExpr`subscriber_code = ${subscriberCode} AND created_at >= ${startOfDay.toISOString()}`
+      sqlExpr`subscriber_code = ${subscriberCode}
+        AND source_type IN ('url', 'upload')
+        AND created_at >= ${startOfDay.toISOString()}`
     );
   return Number(rows[0]?.total ?? 0);
 }
