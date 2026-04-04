@@ -1,0 +1,43 @@
+User-agent: *
+Allow: /
+Allow: /enroll
+Allow: /activate
+Allow: /products/
+Disallow: /admin/
+Disallow: /subscriber/
+Disallow: /download/
+Disallow: /api/
+
+Sitemap: https://app.mismari.com/sitemap.xml
+
+# Crawl-delay for rate limiting
+Crawl-delay: 1
+
+# Google
+User-agent: Googlebot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Crawl-delay: 0
+
+# Bing
+User-agent: Bingbot
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Social media crawlers (for OG images)
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /

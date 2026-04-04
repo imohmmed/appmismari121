@@ -5,6 +5,7 @@ import { ChevronDown, X, Shield, Smartphone, Zap } from "lucide-react";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { Link } from "wouter";
 import { useLogoSrc } from "@/contexts/AppearanceContext";
+import SEO from "@/components/SEO";
 
 const PRIMARY = "#9fbcff";
 const TEXT = "#2b283b";
@@ -391,6 +392,22 @@ export default function Home() {
 
   return (
     <PublicLayout>
+      <SEO
+        title="متجر تطبيقات الآيفون العربي — IPA Store بدون جيلبريك"
+        description="مسماري هو المتجر العربي الأول لتطبيقات الآيفون والآيباد. حمّل آلاف التطبيقات والألعاب المدفوعة مجاناً على iOS بدون جيلبريك. اشتراك شهري بسعر رمزي. آمن ومضمون 100%."
+        keywords="مسماري, مسماري بلس, متجر تطبيقات ايفون, IPA store, متجر IPA, تطبيقات مدفوعة مجانا, تطبيقات بدون جيلبريك, العاب ايفون مجانية, برامج ايفون مجانية, اشتراك ايفون, متجر عربي, app store arabic, ios apps free, iphone apps free, capcut مجانا, youtube مجانا, spotify مجانا, تطبيقات ios, download ios apps, free iphone apps, مسماري السعودية, مسماري الامارات, مسماري الخليج, ipa متجر عربي, تحميل تطبيقات بدون جيلبريك, تثبيت تطبيقات ايفون, شهادة مؤسسية ايفون, anti revoke ios, mismari store, mismari app"
+        canonical="/"
+        structuredData={[
+          {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "مسماري | الرئيسية — متجر تطبيقات الآيفون العربي",
+            "url": "https://app.mismari.com/",
+            "description": "المتجر العربي الأول لتطبيقات الآيفون والآيباد. آلاف التطبيقات والألعاب المدفوعة مجاناً بدون جيلبريك.",
+            "publisher": { "@type": "Organization", "name": "مسماري", "logo": { "@type": "ImageObject", "url": "https://app.mismari.com/mismari-official.jpeg" } }
+          }
+        ]}
+      />
 
       {/* ───── HERO ───── */}
       <section

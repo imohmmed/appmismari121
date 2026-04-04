@@ -4,6 +4,7 @@ import {
   Download, Shield, CheckCircle,
 } from "lucide-react";
 import { useLogoSrc } from "@/contexts/AppearanceContext";
+import SEO from "@/components/SEO";
 
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
@@ -146,6 +147,19 @@ export default function Enroll() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
+      <SEO
+        title="اشتراك مسماري — سجّل وابدأ تحميل تطبيقات الآيفون مجاناً"
+        description="سجّل في مسماري الآن واحصل على اشتراك فوري. تمتع بتحميل آلاف التطبيقات والألعاب المدفوعة مجاناً على آيفونك بدون جيلبريك. سجّل UDID جهازك بخطوات بسيطة."
+        keywords="اشتراك مسماري, سجل في مسماري, تسجيل مسماري, مسماري اشتراك جديد, تحميل مسماري, تفعيل مسماري, UDID ايفون, تسجيل UDID, enroll iphone, subscribe mismari, مسماري بدون جيلبريك, تطبيقات ايفون مجانا اشتراك, iOS subscription arabic"
+        canonical="/enroll"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "اشتراك مسماري — سجّل وابدأ تحميل تطبيقات الآيفون",
+          "url": "https://app.mismari.com/enroll",
+          "description": "صفحة التسجيل والاشتراك في مسماري. سجّل بياناتك واحصل على اشتراك فوري في متجر تطبيقات الآيفون العربي."
+        }}
+      />
       <div className="w-full max-w-md">
 
         {/* Logo */}

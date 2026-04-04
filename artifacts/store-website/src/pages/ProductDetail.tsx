@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ChevronRight, ChevronLeft, MessageCircle, ShoppingBag, Loader2, X, ArrowRight } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const API = import.meta.env.VITE_API_URL || "";
 const A = "#9fbcff";
@@ -160,6 +161,28 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen" style={{ background: BG, color: TEXT }} dir="rtl">
+      <SEO
+        title={`${product.name} — مسماري`}
+        description={product.description || `تسوّق ${product.name} على مسماري. منتجات متميزة بأسعار مناسبة. تواصل معنا عبر واتساب.`}
+        keywords={`${product.name}, مسماري متجر, مسماري منتجات, ${category?.name || ""}, شراء ${product.name}, ${product.name} price, مسماري`}
+        canonical={`/products/${product.id}`}
+        ogType="product"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": product.name,
+          "description": product.description || product.name,
+          "image": product.imageList?.[0] || "https://app.mismari.com/mismari-official.jpeg",
+          "brand": { "@type": "Brand", "name": "مسماري" },
+          "offers": {
+            "@type": "Offer",
+            "price": product.price || "0",
+            "priceCurrency": "SAR",
+            "availability": "https://schema.org/InStock",
+            "seller": { "@type": "Organization", "name": "مسماري" }
+          }
+        }}
+      />
       {/* Top bar */}
       <div className="sticky top-0 z-30 backdrop-blur-md" style={{ background: `${BG}ee`, borderBottom: `1px solid ${BORDER}` }}>
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">

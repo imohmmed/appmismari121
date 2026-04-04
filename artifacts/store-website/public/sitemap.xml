@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <!-- الصفحة الرئيسية -->
+  <url>
+    <loc>https://app.mismari.com/</loc>
+    <lastmod>2025-04-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://app.mismari.com/"/>
+    <xhtml:link rel="alternate" hreflang="ar-SA" href="https://app.mismari.com/"/>
+    <xhtml:link rel="alternate" hreflang="ar-AE" href="https://app.mismari.com/"/>
+    <image:image>
+      <image:loc>https://app.mismari.com/mismari-official.jpeg</image:loc>
+      <image:title>مسماري — متجر تطبيقات الآيفون العربي</image:title>
+      <image:caption>مسماري | Mismari — المتجر العربي الأول لتطبيقات iOS</image:caption>
+    </image:image>
+  </url>
+
+  <!-- صفحة الاشتراك -->
+  <url>
+    <loc>https://app.mismari.com/enroll</loc>
+    <lastmod>2025-04-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://app.mismari.com/enroll"/>
+  </url>
+
+  <!-- صفحة تفعيل الاشتراك -->
+  <url>
+    <loc>https://app.mismari.com/activate</loc>
+    <lastmod>2025-04-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="ar" href="https://app.mismari.com/activate"/>
+  </url>
+
+</urlset>

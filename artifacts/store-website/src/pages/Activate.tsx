@@ -5,6 +5,7 @@ import {
   Key, User, Phone, Mail, Shield, CheckCircle,
 } from "lucide-react";
 import { useLogoSrc } from "@/contexts/AppearanceContext";
+import SEO from "@/components/SEO";
 
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
@@ -253,6 +254,19 @@ export default function Activate() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
+      <SEO
+        title="تفعيل اشتراك مسماري — أدخل كود الاشتراك وابدأ فوراً"
+        description="فعّل اشتراكك في مسماري بكود الاشتراك الخاص بك. أدخل الكود وثبّت التطبيقات على آيفونك في دقيقة واحدة. دعم تقني عربي متاح."
+        keywords="تفعيل مسماري, كود مسماري, كود اشتراك مسماري, activate mismari, mismari code, كود تفعيل ايفون, تفعيل تطبيقات ايفون, activation code ios, مسماري كود تفعيل, تفعيل متجر التطبيقات العربي"
+        canonical="/activate"
+        structuredData={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "تفعيل اشتراك مسماري",
+          "url": "https://app.mismari.com/activate",
+          "description": "صفحة تفعيل الاشتراك في مسماري. أدخل كود الاشتراك الخاص بك وابدأ بتحميل التطبيقات فوراً."
+        }}
+      />
       <div className="w-full max-w-sm">
 
         {/* Logo */}

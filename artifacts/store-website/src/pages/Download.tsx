@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { Loader2, Download, AlertCircle, Smartphone, CheckCircle2 } from "lucide-react";
 import { useLogoSrc } from "@/contexts/AppearanceContext";
+import SEO from "@/components/SEO";
 
 const API = import.meta.env.VITE_API_URL || "";
 const A = "#9fbcff";
@@ -46,6 +47,13 @@ export default function DownloadPage() {
       style={{ background: "#000", fontFamily: "system-ui, sans-serif" }}
       dir="rtl"
     >
+      <SEO
+        title="تحميل تطبيقات مسماري على الآيفون — تثبيت IPA مباشر"
+        description="حمّل وثبّت تطبيقات مسماري على آيفونك بسهولة. اضغط زر التحميل وثبّت التطبيقات مباشرة بدون جيلبريك. دعم iOS 14 وما فوق."
+        keywords="تحميل مسماري, تثبيت مسماري, تنزيل تطبيقات ايفون, تحميل IPA, تثبيت IPA, download ipa iphone, install ipa ios, تثبيت تطبيقات بدون جيلبريك, mismari download, mismari install"
+        canonical="/download"
+        noIndex={true}
+      />
       {/* Logo */}
       <div className="mb-10 flex flex-col items-center gap-3">
         <img
