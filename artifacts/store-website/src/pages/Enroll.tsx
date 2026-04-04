@@ -9,6 +9,7 @@ import SEO from "@/components/SEO";
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
 const A = "#9fbcff";
+const T = "#2b283b";
 
 interface Plan {
   id: number;
@@ -143,10 +144,10 @@ export default function Enroll() {
     }
   };
 
-  const inp = "w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors";
+  const inp = `w-full bg-white border border-[#2b283b]/15 rounded-xl px-4 py-3 text-[${T}] text-sm placeholder:text-[#2b283b]/30 focus:outline-none focus:border-[#9fbcff]/60 transition-colors`;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: "#ffffff", direction: "rtl" }}>
       <SEO
         title="اشتراك مسماري — سجّل وابدأ تحميل تطبيقات الآيفون مجاناً"
         description="سجّل في مسماري الآن واحصل على اشتراك فوري. تمتع بتحميل آلاف التطبيقات والألعاب المدفوعة مجاناً على آيفونك بدون جيلبريك. سجّل UDID جهازك بخطوات بسيطة."
@@ -166,26 +167,26 @@ export default function Enroll() {
         <div className="text-center mb-6">
           <img src={logoSrc} alt="مسماري"
             className="h-10 w-auto object-contain mx-auto mb-1" />
-          <p className="text-white/30 text-xs">طلب اشتراك</p>
+          <p className="text-xs" style={{ color: `${T}50` }}>طلب اشتراك</p>
         </div>
 
         {/* ── DOWNLOAD ── */}
         {step === "download" && (
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
-            <div className="px-6 py-5 border-b border-white/5 text-center">
+          <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+            <div className="px-6 py-5 text-center" style={{ borderBottom: `1px solid ${T}10` }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ background: `${A}15`, border: `1px solid ${A}20` }}>
+                style={{ background: `${A}18`, border: `1px solid ${A}30` }}>
                 <Shield className="w-7 h-7" style={{ color: A }} />
               </div>
-              <h2 className="text-white font-bold text-lg">تعريف الجهاز</h2>
-              <p className="text-white/40 text-sm mt-1 leading-relaxed">
+              <h2 className="font-bold text-lg" style={{ color: T }}>تعريف الجهاز</h2>
+              <p className="text-sm mt-1 leading-relaxed" style={{ color: `${T}60` }}>
                 حمّل وثبّت ملف التعريف ليتعرف الموقع على جهازك تلقائياً
               </p>
             </div>
             <div className="p-6 space-y-4">
               {plans.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-white/30 mb-2">اختر الباقة (اختياري)</p>
+                  <p className="text-xs font-medium mb-2" style={{ color: `${T}50` }}>اختر الباقة (اختياري)</p>
                   <div className="space-y-2">
                     {plans.map(p => (
                       <button key={p.id} type="button"
@@ -193,7 +194,7 @@ export default function Enroll() {
                         className="w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all"
                         style={planId === p.id
                           ? { background: `${A}15`, borderColor: `${A}40`, color: A }
-                          : { background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }
+                          : { background: `${T}04`, borderColor: `${T}12`, color: `${T}70` }
                         }>
                         <span className="text-sm font-medium">{p.nameAr || p.name}</span>
                         {p.price != null && (
@@ -208,12 +209,12 @@ export default function Enroll() {
               )}
               <a href={profileUrl}
                 onClick={() => setStep("waiting")}
-                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-base font-bold"
-                style={{ background: A, color: "#000" }}>
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-base font-bold transition-all active:scale-95"
+                style={{ background: A, color: T }}>
                 <Download className="w-5 h-5" />
                 تحميل ملف التعريف
               </a>
-              <p className="text-white/20 text-xs text-center leading-relaxed">
+              <p className="text-xs text-center leading-relaxed" style={{ color: `${T}35` }}>
                 الملف موقّع من app.mismari.com ولا يُثبَّت أي تطبيق
               </p>
             </div>
@@ -222,10 +223,10 @@ export default function Enroll() {
 
         {/* ── WAITING ── */}
         {step === "waiting" && (
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
+          <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
             <div className="px-6 py-8 text-center space-y-5">
               <div className="relative w-16 h-16 mx-auto">
-                <div className="absolute inset-0 rounded-full border-2 border-white/5" />
+                <div className="absolute inset-0 rounded-full border-2" style={{ borderColor: `${T}10` }} />
                 <div className="absolute inset-0 rounded-full border-t-2 animate-spin"
                   style={{ borderColor: A }} />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -233,17 +234,17 @@ export default function Enroll() {
                 </div>
               </div>
               <div>
-                <h2 className="text-white font-bold text-lg">في انتظار التثبيت</h2>
-                <p className="text-white/40 text-sm mt-1 leading-relaxed">
+                <h2 className="font-bold text-lg" style={{ color: T }}>في انتظار التثبيت</h2>
+                <p className="text-sm mt-1 leading-relaxed" style={{ color: `${T}55` }}>
                   ثبّت الملف من الإعدادات، وارجع هنا بعد الانتهاء
                 </p>
               </div>
-              <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-4 text-right">
-                <p className="text-yellow-400/70 text-xs leading-relaxed">
-                  قد تظهر رسالة خطأ من iOS — اضغط <strong className="text-yellow-400">OK</strong> وارجع لهذه الصفحة وستتحدث تلقائياً
+              <div className="rounded-xl p-4 text-right" style={{ background: "#fffbeb", border: "1px solid #fcd34d40" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "#92400e" }}>
+                  قد تظهر رسالة خطأ من iOS — اضغط <strong>OK</strong> وارجع لهذه الصفحة وستتحدث تلقائياً
                 </p>
               </div>
-              <p className="text-white/20 text-xs">سيظهر الفورم تلقائياً بعد التثبيت</p>
+              <p className="text-xs" style={{ color: `${T}35` }}>سيظهر الفورم تلقائياً بعد التثبيت</p>
             </div>
           </div>
         )}
@@ -251,62 +252,58 @@ export default function Enroll() {
         {/* ── FORM ── */}
         {(step === "form" || step === "submitting") && (
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* UDID confirmed */}
             {udid && (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-500/20 bg-green-500/5">
-                <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-500/30 bg-green-50">
+                <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-green-400/90 text-xs font-medium">تم التعرف على جهازك</p>
-                  <p className="font-mono text-xs text-white/30 mt-0.5 truncate">{udid}</p>
+                  <p className="text-green-700 text-xs font-medium">تم التعرف على جهازك</p>
+                  <p className="font-mono text-xs mt-0.5 truncate" style={{ color: `${T}40` }}>{udid}</p>
                 </div>
               </div>
             )}
 
-            {/* Personal info */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-white/5">
-                <h2 className="text-white font-semibold text-sm">بيانات طلب الاشتراك</h2>
+            <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+              <div className="px-5 py-3.5" style={{ borderBottom: `1px solid ${T}08` }}>
+                <h2 className="font-semibold text-sm" style={{ color: T }}>بيانات طلب الاشتراك</h2>
               </div>
               <div className="p-5 space-y-3">
                 <div>
-                  <label className="block text-xs text-white/30 mb-1.5">الاسم الكامل *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: `${T}50` }}>الاسم الكامل *</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)}
                     placeholder="أدخل اسمك الكامل" className={inp}
-                    style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif", direction: "rtl" }} />
+                    style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif", direction: "rtl", color: T }} />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/30 mb-1.5">رقم الهاتف *</label>
+                  <label className="block text-xs mb-1.5" style={{ color: `${T}50` }}>رقم الهاتف *</label>
                   <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                    placeholder="05XXXXXXXX" dir="ltr" className={inp + " text-left font-mono"} />
+                    placeholder="05XXXXXXXX" dir="ltr" className={inp + " text-left font-mono"} style={{ color: T }} />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/30 mb-1.5">البريد الإلكتروني</label>
+                  <label className="block text-xs mb-1.5" style={{ color: `${T}50` }}>البريد الإلكتروني</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="email@example.com" dir="ltr" className={inp + " text-left"} />
+                    placeholder="email@example.com" dir="ltr" className={inp + " text-left"} style={{ color: T }} />
                 </div>
               </div>
             </div>
 
-            {/* Device type */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
-              <p className="text-xs text-white/30 mb-2.5">نوع الجهاز</p>
+            <div className="bg-white border rounded-2xl p-4 shadow-sm" style={{ borderColor: `${T}12` }}>
+              <p className="text-xs mb-2.5" style={{ color: `${T}50` }}>نوع الجهاز</p>
               <div className="flex gap-2">
                 {["iPhone", "iPad"].map(type => (
                   <button key={type} type="button" onClick={() => setDeviceType(type)}
                     className="flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all"
                     style={deviceType === type
                       ? { background: `${A}20`, color: A, borderColor: `${A}40` }
-                      : { background: "transparent", color: "rgba(255,255,255,0.35)", borderColor: "rgba(255,255,255,0.08)" }
+                      : { background: "transparent", color: `${T}45`, borderColor: `${T}15` }
                     }>{type}</button>
                 ))}
               </div>
             </div>
 
-            {/* Plan */}
             {plans.length > 0 && (
-              <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-white/5">
-                  <h2 className="text-white font-semibold text-sm">الباقة</h2>
+              <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+                <div className="px-5 py-3.5" style={{ borderBottom: `1px solid ${T}08` }}>
+                  <h2 className="font-semibold text-sm" style={{ color: T }}>الباقة</h2>
                 </div>
                 <div className="p-4 space-y-2">
                   {plans.map(p => (
@@ -315,13 +312,13 @@ export default function Enroll() {
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all"
                       style={planId === p.id
                         ? { background: `${A}15`, borderColor: `${A}40` }
-                        : { background: "rgba(0,0,0,0.3)", borderColor: "rgba(255,255,255,0.07)" }
+                        : { background: `${T}03`, borderColor: `${T}10` }
                       }>
-                      <p className="text-sm font-medium" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.75)" }}>
+                      <p className="text-sm font-medium" style={{ color: planId === p.id ? A : `${T}80` }}>
                         {p.nameAr || p.name}
                       </p>
                       {p.price != null && (
-                        <span className="text-sm font-bold" style={{ color: planId === p.id ? A : "rgba(255,255,255,0.35)" }}>
+                        <span className="text-sm font-bold" style={{ color: planId === p.id ? A : `${T}45` }}>
                           {p.price === 0 ? "مجاني" : `${p.price} ${p.currency || ""}`}
                         </span>
                       )}
@@ -331,25 +328,24 @@ export default function Enroll() {
               </div>
             )}
 
-            {/* Notes */}
-            <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-5">
-              <label className="block text-xs text-white/30 mb-1.5">ملاحظات (اختياري)</label>
+            <div className="bg-white border rounded-2xl p-5 shadow-sm" style={{ borderColor: `${T}12` }}>
+              <label className="block text-xs mb-1.5" style={{ color: `${T}50` }}>ملاحظات (اختياري)</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)}
                 placeholder="أي معلومات إضافية..." rows={3}
                 className={inp + " resize-none"}
-                style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif", direction: "rtl" }} />
+                style={{ fontFamily: "IBM Plex Sans Arabic, sans-serif", direction: "rtl", color: T }} />
             </div>
 
             {formError && (
-              <div className="flex items-center gap-2 text-red-400 text-xs px-1">
+              <div className="flex items-center gap-2 text-xs px-1" style={{ color: "#dc2626" }}>
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
             <button type="submit" disabled={step === "submitting"}
-              className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: A, color: "#000" }}>
+              className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95"
+              style={{ background: A, color: T }}>
               {step === "submitting" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               {step === "submitting" ? "جارٍ الإرسال..." : "إرسال الطلب"}
             </button>
@@ -358,21 +354,20 @@ export default function Enroll() {
 
         {/* ── SUCCESS ── */}
         {step === "success" && (
-          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
-              style={{ background: "#34C75920", border: "1px solid #34C75940" }}>
-              <CheckCircle2 className="w-8 h-8 text-green-400" />
+          <div className="bg-white border rounded-2xl p-8 text-center space-y-4 shadow-sm" style={{ borderColor: `${T}12` }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto bg-green-50 border border-green-200">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-xl mb-2">تم إرسال طلبك ✓</h2>
-              <p className="text-white/50 text-sm leading-relaxed">
+              <h2 className="font-bold text-xl mb-2" style={{ color: T }}>تم إرسال طلبك ✓</h2>
+              <p className="text-sm leading-relaxed" style={{ color: `${T}55` }}>
                 سيتواصل معك فريق مسماري في أقرب وقت لتفعيل اشتراكك.
               </p>
             </div>
             {udid && (
-              <div className="bg-black/30 rounded-xl p-3">
-                <p className="text-white/30 text-xs mb-1">معرّف جهازك</p>
-                <p className="font-mono text-xs text-white/40 break-all">{udid}</p>
+              <div className="rounded-xl p-3" style={{ background: `${T}06` }}>
+                <p className="text-xs mb-1" style={{ color: `${T}40` }}>معرّف جهازك</p>
+                <p className="font-mono text-xs break-all" style={{ color: `${T}50` }}>{udid}</p>
               </div>
             )}
           </div>
@@ -380,14 +375,15 @@ export default function Enroll() {
 
         {/* ── ERROR ── */}
         {step === "error" && (
-          <div className="bg-[#0a0a0a] border border-red-500/20 rounded-2xl p-8 text-center space-y-4">
-            <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
+          <div className="bg-white border border-red-200 rounded-2xl p-8 text-center space-y-4 shadow-sm">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
             <div>
-              <h2 className="text-white font-bold text-xl mb-2">حدث خطأ</h2>
-              <p className="text-white/50 text-sm">تعذّر إرسال طلبك، يرجى المحاولة مجدداً.</p>
+              <h2 className="font-bold text-xl mb-2" style={{ color: T }}>حدث خطأ</h2>
+              <p className="text-sm" style={{ color: `${T}55` }}>تعذّر إرسال طلبك، يرجى المحاولة مجدداً.</p>
             </div>
             <button onClick={() => setStep("form")}
-              className="text-sm text-white/40 hover:text-white transition-colors">
+              className="text-sm transition-colors hover:opacity-70"
+              style={{ color: `${T}50` }}>
               إعادة المحاولة
             </button>
           </div>

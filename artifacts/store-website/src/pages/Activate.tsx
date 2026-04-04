@@ -10,6 +10,7 @@ import SEO from "@/components/SEO";
 const API = import.meta.env.VITE_API_URL || "";
 const BASE = import.meta.env.BASE_URL || "/";
 const A = "#9fbcff";
+const T = "#2b283b";
 
 type Step = "code" | "waiting-udid" | "form" | "submitting" | "success";
 
@@ -43,7 +44,12 @@ interface SuccessData {
 }
 
 const inp =
-  "w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors";
+  "w-full bg-white border rounded-xl px-4 py-3.5 text-sm focus:outline-none transition-colors";
+
+const inpStyle = {
+  borderColor: `${T}18`,
+  color: T,
+};
 
 function getOrCreateToken(): string {
   const saved = sessionStorage.getItem("activate_token");
@@ -253,7 +259,7 @@ export default function Activate() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4" dir="rtl">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: "#ffffff", direction: "rtl" }}>
       <SEO
         title="تفعيل اشتراك مسماري — أدخل كود الاشتراك وابدأ فوراً"
         description="فعّل اشتراكك في مسماري بكود الاشتراك الخاص بك. أدخل الكود وثبّت التطبيقات على آيفونك في دقيقة واحدة. دعم تقني عربي متاح."
@@ -273,19 +279,19 @@ export default function Activate() {
         <div className="text-center mb-8">
           <img src={logoSrc} alt="Mismari"
             className="h-12 w-auto object-contain mx-auto mb-2" />
-          <p className="text-white/30 text-sm">تفعيل الاشتراك</p>
+          <p className="text-sm" style={{ color: `${T}50` }}>تفعيل الاشتراك</p>
         </div>
 
         {/* ─── Step 1: Enter Code ─── */}
         {step === "code" && (
-          <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/5 flex items-center gap-3">
+          <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+            <div className="px-5 py-4 flex items-center gap-3" style={{ borderBottom: `1px solid ${T}08` }}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${A}20` }}>
                 <Key className="w-4 h-4" style={{ color: A }} />
               </div>
               <div>
-                <h2 className="text-white font-bold text-base">أدخل كود الاشتراك</h2>
-                <p className="text-white/40 text-xs">الكود المرسل إليك من الإدارة</p>
+                <h2 className="font-bold text-base" style={{ color: T }}>أدخل كود الاشتراك</h2>
+                <p className="text-xs" style={{ color: `${T}50` }}>الكود المرسل إليك من الإدارة</p>
               </div>
             </div>
             <form onSubmit={handleValidateCode} className="p-5 space-y-4">
@@ -296,12 +302,13 @@ export default function Activate() {
                 placeholder="MSM-XXXX-XXXX"
                 dir="ltr"
                 className={inp + " text-center text-lg font-mono tracking-widest"}
+                style={{ ...inpStyle, borderColor: `${T}18` }}
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
               />
               {errorMsg && (
-                <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-2 text-xs rounded-xl px-3 py-2.5" style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca" }}>
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
@@ -309,8 +316,8 @@ export default function Activate() {
               <button
                 type="submit"
                 disabled={codeLoading || !codeInput.trim()}
-                className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all"
-                style={{ background: A, color: "#000" }}
+                className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all active:scale-95"
+                style={{ background: A, color: T }}
               >
                 {codeLoading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> جارٍ التحقق...</>
@@ -320,52 +327,49 @@ export default function Activate() {
           </div>
         )}
 
-        {/* ─── Step 2: Downloading Profile + Waiting for UDID ─── */}
+        {/* ─── Step 2: Waiting for UDID ─── */}
         {step === "waiting-udid" && (
           <div className="space-y-3">
-            {/* Code badge */}
             {validated && (
-              <div className="bg-[#111] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+              <div className="bg-white border rounded-2xl p-4 flex items-center justify-between shadow-sm" style={{ borderColor: `${T}12` }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-green-500/10">
-                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-green-50 border border-green-200">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-white font-semibold text-sm font-mono">{validated.code}</p>
-                    <p className="text-white/40 text-xs">{validated.planName || "اشتراك فعّال"} ✓</p>
+                    <p className="font-semibold text-sm font-mono" style={{ color: T }}>{validated.code}</p>
+                    <p className="text-xs" style={{ color: `${T}50` }}>{validated.planName || "اشتراك فعّال"} ✓</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Spinner */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl px-6 py-10 text-center space-y-5">
+            <div className="bg-white border rounded-2xl px-6 py-10 text-center space-y-5 shadow-sm" style={{ borderColor: `${T}12` }}>
               <div className="relative w-20 h-20 mx-auto">
-                <div className="absolute inset-0 rounded-full border-2 border-white/5" />
+                <div className="absolute inset-0 rounded-full border-2" style={{ borderColor: `${T}10` }} />
                 <div className="absolute inset-0 rounded-full border-t-2 animate-spin" style={{ borderColor: A }} />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Shield className="w-8 h-8" style={{ color: A }} />
                 </div>
               </div>
               <div>
-                <h2 className="text-white font-bold text-lg">جارٍ تحميل ملف التعريف</h2>
-                <p className="text-white/40 text-sm mt-2 leading-relaxed">
-                  ثبّت الملف من <strong className="text-white/60">الإعدادات ← عام ← VPN والإدارة</strong>
+                <h2 className="font-bold text-lg" style={{ color: T }}>جارٍ تحميل ملف التعريف</h2>
+                <p className="text-sm mt-2 leading-relaxed" style={{ color: `${T}55` }}>
+                  ثبّت الملف من <strong style={{ color: T }}>الإعدادات ← عام ← VPN والإدارة</strong>
                   <br />ثم ارجع هنا تلقائياً
                 </p>
               </div>
-              <div className="bg-yellow-500/5 border border-yellow-500/15 rounded-xl p-3.5 text-right">
-                <p className="text-yellow-400/70 text-xs leading-relaxed">
-                  إذا ظهرت رسالة خطأ من iOS، اضغط <strong className="text-yellow-400">OK</strong> وارجع لهذه الصفحة
+              <div className="rounded-xl p-3.5 text-right" style={{ background: "#fffbeb", border: "1px solid #fcd34d40" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "#92400e" }}>
+                  إذا ظهرت رسالة خطأ من iOS، اضغط <strong>OK</strong> وارجع لهذه الصفحة
                 </p>
               </div>
-
-              {/* Manual download button in case auto-download fails */}
               <a
                 href={profileUrl}
-                className="block w-full py-3 rounded-xl text-sm font-semibold border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold border transition-all"
+                style={{ borderColor: `${T}15`, color: `${T}60` }}
               >
-                <Download className="w-4 h-4 inline ml-2" />
+                <Download className="w-4 h-4" />
                 تحميل يدوي
               </a>
             </div>
@@ -375,33 +379,30 @@ export default function Activate() {
         {/* ─── Step 3: Info Form ─── */}
         {(step === "form" || step === "submitting") && validated && (
           <div className="space-y-3">
-            {/* UDID detected */}
             {udidFound && udid ? (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-green-500/20 bg-green-500/5">
-                <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-green-200 bg-green-50">
+                <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
                 <div>
-                  <p className="text-green-400/90 text-xs font-semibold">تم التعرف على جهازك ✓</p>
-                  <p className="font-mono text-[10px] text-white/25 mt-0.5 truncate">{udid}</p>
+                  <p className="text-green-700 text-xs font-semibold">تم التعرف على جهازك ✓</p>
+                  <p className="font-mono text-[10px] mt-0.5 truncate" style={{ color: `${T}40` }}>{udid}</p>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-white/5 bg-white/[0.02]">
-                <Shield className="w-4 h-4 text-white/20 shrink-0" />
-                <p className="text-white/30 text-xs">لم يتم التعرف على الجهاز — يمكنك إكمال البيانات بدونه</p>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border" style={{ borderColor: `${T}10`, background: `${T}03` }}>
+                <Shield className="w-4 h-4 shrink-0" style={{ color: `${T}30` }} />
+                <p className="text-xs" style={{ color: `${T}45` }}>لم يتم التعرف على الجهاز — يمكنك إكمال البيانات بدونه</p>
               </div>
             )}
 
-            {/* Form */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/5">
-                <h3 className="text-white font-bold text-base">بياناتك الشخصية</h3>
-                <p className="text-white/40 text-xs mt-0.5">أدخل معلوماتك لإتمام التسجيل</p>
+            <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+              <div className="px-5 py-4" style={{ borderBottom: `1px solid ${T}08` }}>
+                <h3 className="font-bold text-base" style={{ color: T }}>بياناتك الشخصية</h3>
+                <p className="text-xs mt-0.5" style={{ color: `${T}50` }}>أدخل معلوماتك لإتمام التسجيل</p>
               </div>
               <form onSubmit={handleCompleteRegistration} className="p-5 space-y-4">
 
-                {/* Name */}
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs text-white/50">
+                  <label className="flex items-center gap-1.5 text-xs" style={{ color: `${T}55` }}>
                     <User className="w-3.5 h-3.5" style={{ color: A }} />
                     الاسم الكامل <span style={{ color: A }}>*</span>
                   </label>
@@ -411,14 +412,14 @@ export default function Activate() {
                     onChange={e => setName(e.target.value)}
                     placeholder="أدخل اسمك الكامل"
                     className={inp}
+                    style={inpStyle}
                     dir="rtl"
                     autoComplete="name"
                   />
                 </div>
 
-                {/* Phone */}
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs text-white/50">
+                  <label className="flex items-center gap-1.5 text-xs" style={{ color: `${T}55` }}>
                     <Phone className="w-3.5 h-3.5" style={{ color: A }} />
                     رقم الهاتف <span style={{ color: A }}>*</span>
                   </label>
@@ -429,17 +430,17 @@ export default function Activate() {
                     placeholder="07XXXXXXXXX"
                     dir="ltr"
                     className={inp + " text-left font-mono"}
+                    style={inpStyle}
                     autoComplete="tel"
                     inputMode="tel"
                   />
                 </div>
 
-                {/* Email */}
                 <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs text-white/50">
+                  <label className="flex items-center gap-1.5 text-xs" style={{ color: `${T}55` }}>
                     <Mail className="w-3.5 h-3.5" style={{ color: A }} />
                     البريد الإلكتروني
-                    <span className="text-white/20 text-[10px]">(اختياري)</span>
+                    <span className="text-[10px]" style={{ color: `${T}35` }}>(اختياري)</span>
                   </label>
                   <input
                     type="email"
@@ -448,13 +449,14 @@ export default function Activate() {
                     placeholder="email@example.com"
                     dir="ltr"
                     className={inp + " text-left"}
+                    style={inpStyle}
                     autoComplete="email"
                     inputMode="email"
                   />
                 </div>
 
                 {errorMsg && (
-                  <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 rounded-xl px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-xs rounded-xl px-3 py-2.5" style={{ color: "#dc2626", background: "#fef2f2", border: "1px solid #fecaca" }}>
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{errorMsg}</span>
                   </div>
@@ -463,8 +465,8 @@ export default function Activate() {
                 <button
                   type="submit"
                   disabled={step === "submitting"}
-                  className="w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
-                  style={{ background: A, color: "#000" }}
+                  className="w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95"
+                  style={{ background: A, color: T }}
                 >
                   {step === "submitting"
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> جارٍ التسجيل...</>
@@ -475,18 +477,17 @@ export default function Activate() {
           </div>
         )}
 
-        {/* ─── Step 4: Success + Download Link ─── */}
+        {/* ─── Step 4: Success ─── */}
         {step === "success" && successData && (
           <div className="space-y-3">
-            {/* Success header */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-500/10 border border-green-500/20">
-                <CheckCircle2 className="w-8 h-8 text-green-400" />
+            <div className="bg-white border rounded-2xl p-6 text-center shadow-sm" style={{ borderColor: `${T}12` }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-50 border border-green-200">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-white font-bold text-xl mb-1">
+              <h2 className="font-bold text-xl mb-1" style={{ color: T }}>
                 {validated?.alreadyRegistered ? "أنت مشترك بالفعل" : "تم التسجيل بنجاح!"}
               </h2>
-              <p className="text-white/40 text-sm">
+              <p className="text-sm" style={{ color: `${T}55` }}>
                 مرحباً {successData.subscriber.subscriberName || "بك"}
               </p>
               {successData.appleMessage && (
@@ -497,12 +498,11 @@ export default function Activate() {
               )}
             </div>
 
-            {/* Info summary */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/5">
-                <h3 className="text-xs font-bold text-white/40 uppercase tracking-wider">بيانات الاشتراك</h3>
+            <div className="bg-white border rounded-2xl overflow-hidden shadow-sm" style={{ borderColor: `${T}12` }}>
+              <div className="px-5 py-3" style={{ borderBottom: `1px solid ${T}08` }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: `${T}45` }}>بيانات الاشتراك</h3>
               </div>
-              <div className="divide-y divide-white/5">
+              <div>
                 {[
                   { label: "الاسم", value: successData.subscriber.subscriberName },
                   { label: "الهاتف", value: successData.subscriber.phone, mono: true },
@@ -511,72 +511,69 @@ export default function Activate() {
                   { label: "الباقة", value: successData.subscriber.planNameAr || successData.subscriber.planName },
                   { label: "المجموعة", value: successData.subscriber.groupName },
                   { label: "الحالة", value: successData.subscriber.isActive === "true" ? "فعّال ✓" : "غير فعّال" },
-                ].filter(r => r.value).map(({ label, value, mono }) => (
-                  <div key={label} className="px-5 py-3 flex items-center justify-between">
-                    <span className="text-white/40 text-xs">{label}</span>
-                    <span className={`text-white text-sm ${mono ? "font-mono text-xs" : ""}`}
+                ].filter(r => r.value).map(({ label, value, mono }, i, arr) => (
+                  <div key={label} className="px-5 py-3 flex items-center justify-between"
+                    style={{ borderBottom: i < arr.length - 1 ? `1px solid ${T}08` : "none" }}>
+                    <span className="text-xs" style={{ color: `${T}45` }}>{label}</span>
+                    <span className={`text-sm ${mono ? "font-mono text-xs" : ""}`}
+                      style={{ color: T }}
                       dir={mono ? "ltr" : "rtl"}>{value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Install App Section */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col items-center gap-4">
+            <div className="bg-white border rounded-2xl p-6 flex flex-col items-center gap-4 shadow-sm" style={{ borderColor: `${T}12` }}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                 style={{ background: `${A}15` }}>
                 <Smartphone className="w-8 h-8" style={{ color: A }} />
               </div>
-              <h3 className="text-white text-lg font-bold">مسماري+</h3>
+              <h3 className="text-lg font-bold" style={{ color: T }}>مسماري+</h3>
 
               {successData.storeDownloadLink ? (
                 <>
                   <a
                     href={successData.storeDownloadLink}
                     className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-base font-bold transition-all active:scale-95"
-                    style={{ background: `linear-gradient(135deg, ${A}, #7aa3ff)`, color: "#000" }}
+                    style={{ background: `linear-gradient(135deg, ${A}, #7aa3ff)`, color: T }}
                   >
                     <Download className="w-5 h-5" />
                     تثبيت التطبيق
                   </a>
-                  <p className="text-white/30 text-xs text-center">
+                  <p className="text-xs text-center" style={{ color: `${T}45` }}>
                     اضغط على "ثقة" في إعدادات الجهاز بعد التثبيت
                   </p>
                 </>
               ) : (
                 <div className="text-center">
-                  <p className="text-white/40 text-sm">سيتم إرسال رابط التثبيت قريباً</p>
-                  <p className="text-white/20 text-xs mt-1">تواصل مع الإدارة للحصول على الرابط</p>
+                  <p className="text-sm" style={{ color: `${T}55` }}>سيتم إرسال رابط التثبيت قريباً</p>
+                  <p className="text-xs mt-1" style={{ color: `${T}35` }}>تواصل مع الإدارة للحصول على الرابط</p>
                 </div>
               )}
             </div>
 
-            {/* Install Instructions */}
             {successData.storeDownloadLink && (
-              <div className="w-full rounded-2xl p-4 border"
-                style={{ background: "#0a0a0a", borderColor: "rgba(255,255,255,0.05)" }}>
-                <p className="text-white/40 text-xs font-semibold mb-3">خطوات التثبيت</p>
-                {[
-                  "اضغط على زر التثبيت أعلاه",
-                  "اسمح للمتصفح بفتح رابط التطبيق",
-                  "اضغط \"ثقة\" عند ظهور رسالة التأكيد",
-                  "انتظر اكتمال التثبيت",
-                ].map((s, i) => (
-                  <div key={i} className="flex items-start gap-2.5 py-1.5">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                      style={{ background: `${A}20`, color: A }}>{i + 1}</span>
-                    <p className="text-white/50 text-xs">{s}</p>
-                  </div>
-                ))}
+              <div className="w-full rounded-2xl p-4 border" style={{ background: `${A}08`, borderColor: `${A}25` }}>
+                <p className="text-xs font-bold mb-2" style={{ color: T }}>خطوات التثبيت:</p>
+                <ol className="space-y-1.5">
+                  {[
+                    "اضغط على زر تثبيت التطبيق أعلاه",
+                    "انتظر حتى يكتمل التحميل",
+                    "اذهب إلى الإعدادات ← عام ← إدارة الجهاز",
+                    "اضغط على اسم المطور ثم اختر «ثقة»",
+                    "ارجع وافتح التطبيق",
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs" style={{ color: `${T}65` }}>
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5"
+                        style={{ background: `${A}30`, color: A }}>{i + 1}</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
               </div>
             )}
-
-            <p className="text-white/15 text-xs text-center mt-2">
-              يجب فتح هذه الصفحة من Safari على iPhone أو iPad
-            </p>
           </div>
         )}
-
       </div>
     </div>
   );
