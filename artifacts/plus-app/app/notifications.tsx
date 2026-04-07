@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useSettings } from "@/contexts/SettingsContext";
 import { emitOpenApp } from "@/utils/openAppSignal";
+import GlassBackButton from "@/components/GlassBackButton";
 
 const API_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "app.mismari.com";
 const BASE_URL = API_DOMAIN ? `https://${API_DOMAIN}` : "";
@@ -214,9 +215,7 @@ export default function NotificationsScreen() {
 
       {/* ── Header ── */}
       <View style={[styles.header, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-          <Feather name={isArabic ? "arrow-right" : "arrow-left"} size={22} color={colors.text} />
-        </TouchableOpacity>
+        <GlassBackButton onPress={() => router.back()} />
         <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold"), textAlign: "center" }]}>
           {isArabic ? "الإشعارات" : "Notifications"}
         </Text>
@@ -316,7 +315,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  backBtn: { width: 40, alignItems: "flex-start" },
   headerTitle: { fontSize: 18, flex: 1 },
 
   tabsWrap: {
