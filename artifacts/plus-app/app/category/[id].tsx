@@ -18,6 +18,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useApps, getTagColor, type ApiApp } from "@/hooks/useAppData";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import SlidePanel from "@/components/SlidePanel";
+import GlassBackButton from "@/components/GlassBackButton";
 
 function apiAppToDetail(app: ApiApp) {
   return {
@@ -100,22 +101,15 @@ export default function CategoryDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: isWeb ? 20 : insets.top }]}>
-      {/* Back button — absolute on main container, no padding interference */}
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.backButton,
-          {
-            backgroundColor: colors.card,
-            position: "absolute",
-            top: (isWeb ? 20 : insets.top) + 10,
-            left: btnLeft,
-            zIndex: 100,
-          },
-        ]}
-      >
-        <Feather name={isArabic ? "chevron-right" : "chevron-left"} size={22} color={colors.text} />
-      </Pressable>
+      {/* Back button — absolute, liquid glass */}
+      <View style={{
+        position: "absolute",
+        top: (isWeb ? 20 : insets.top) + 10,
+        left: btnLeft,
+        zIndex: 100,
+      }}>
+        <GlassBackButton onPress={() => router.back()} />
+      </View>
       {/* Banner */}
       <View style={[styles.catBanner, { backgroundColor: tileColor, marginTop: 60 }]}>
         <Text style={[styles.catBannerName, { fontFamily: fontAr("Bold") }]}>{name}</Text>

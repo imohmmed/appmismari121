@@ -18,6 +18,7 @@ import { useApps, getTagColor, type ApiApp } from "@/hooks/useAppData";
 import AppDetailPanel from "@/components/AppDetailPanel";
 import SlidePanel from "@/components/SlidePanel";
 import CategorySlideContent from "@/components/CategorySlideContent";
+import GlassBackButton from "@/components/GlassBackButton";
 
 const SECTION_EMOJI: Record<string, string> = {
   trending: "🔥",
@@ -85,15 +86,11 @@ export default function SectionDetailScreen() {
             <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
               {title} {emoji}
             </Text>
-            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-              <Feather name="chevron-right" size={22} color={colors.text} />
-            </Pressable>
+            <GlassBackButton onPress={() => router.back()} />
           </>
         ) : (
           <>
-            <Pressable onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.card }]}>
-              <Feather name="chevron-left" size={22} color={colors.text} />
-            </Pressable>
+            <GlassBackButton onPress={() => router.back()} />
             <Text style={[styles.headerTitle, { color: colors.text, fontFamily: fontAr("Bold") }]}>
               {title} {emoji}
             </Text>
