@@ -211,7 +211,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+    <View style={[styles.container, { paddingTop: 16, backgroundColor: colors.background }]}>
 
       {/* ── Header ── */}
       <View style={[styles.header, { flexDirection: isArabic ? "row-reverse" : "row" }]}>
